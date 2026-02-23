@@ -223,8 +223,14 @@ class _GameScreenState extends State<GameScreen> {
     tableRows.add(_buildImageHeader(players));
     for (var set in allSets) {
       for (var turn in set.turns) tableRows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
-      Map<String, int> setTotals = set.finalCumulativeScores.isNotEmpty ? set.finalCumulativeScores : { for (var p in players) p.id : p.currentScore };
-      tableRows.add(_buildImageSetSummaryRow(set.setNumber, setTotals, players));
+      
+      // セット計は、そのセット終了時点の「スコア」を正確に表示する
+      Map<String, int> setScores = set.finalCumulativeScores;
+      // 進行中のセットなどで空の場合は現在のスコアを入れる
+      if (setScores.isEmpty) {
+        setScores = { for (var p in players) p.id : p.currentScore };
+      }
+      tableRows.add(_buildImageSetSummaryRow(set.setNumber, setScores, players));
     }
 
     final widgetToCapture = Container(padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
