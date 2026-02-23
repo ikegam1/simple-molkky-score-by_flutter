@@ -31,21 +31,9 @@ class _SetupScreenState extends State<SetupScreen> {
   final List<String> _playerNames = [];
   final TextEditingController _nameController = TextEditingController();
   int _selectedModeKey = 3;
+  final Map<int, String> _options = { 1: '1番 (1セット)', 2: '2番 (2セット)', 3: '2先 (2本先取)', 5: '3先 (3本先取)', 10: '10番 (10セット)', 11: '11先 (11本先取)' };
 
-  final Map<int, String> _options = {
-    1: '1番 (1セット)',
-    2: '2番 (2セット)',
-    3: '2先 (2本先取)',
-    5: '3先 (3本先取)',
-    10: '10番 (10セット)',
-    11: '11先 (11本先取)',
-  };
-
-  void _add() {
-    if (_nameController.text.isNotEmpty) {
-      setState(() { _playerNames.add(_nameController.text); _nameController.clear(); });
-    }
-  }
+  void _add() { if (_nameController.text.isNotEmpty) { setState(() { _playerNames.add(_nameController.text); _nameController.clear(); }); } }
 
   @override
   Widget build(BuildContext context) {
@@ -63,15 +51,14 @@ class _SetupScreenState extends State<SetupScreen> {
               onPressed: _playerNames.isEmpty ? null : () {
                 final players = _playerNames.asMap().entries.map((e) => Player(id: e.value, name: e.value, initialOrder: e.key)).toList();
                 MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
-                int limit = _selectedModeKey;
-                if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+                int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
                 Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: MolkkyMatch(players: players, limit: limit, type: type))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.7', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.8', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -93,82 +80,62 @@ class _GameScreenState extends State<GameScreen> {
   final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
   Map<String, int> turnInProgressScores = {};
+  Set<String> systemCalculatedIds = {};
 
-  void _onSkitelTap(int num) {
-    if (isSetFinished) return;
-    setState(() { if (selectedSkitels.contains(num)) selectedSkitels.remove(num); else selectedSkitels.add(num); });
-  }
+  void _onSkitelTap(int num) { if (isSetFinished) return; setState(() { if (selectedSkitels.contains(num)) selectedSkitels.remove(num); else selectedSkitels.add(num); }); }
 
   void _submitThrow() {
     if (isSetFinished) return;
     final player = widget.match.players[currentPlayerIndex];
-    
     setState(() {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
 
-      // 失格チェック：一人が失格し、残りが一人なら勝利確定
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       if (survivors.length == 1) {
-        final survivor = survivors.first;
-        // 勝利者のスコアを通算履歴に追加（投げずに50点になる分を補填）
-        int neededTo50 = widget.match.targetScore - survivor.currentScore;
-        survivor.currentScore = widget.match.targetScore;
-        survivor.matchScoreHistory.add(neededTo50); // これで画像上の合計が50になる
-        turnInProgressScores[survivor.id] = neededTo50;
-        
-        // 失格者のスコアを0にする
+        final s = survivors.first;
+        int needed = widget.match.targetScore - s.currentScore;
+        s.currentScore = widget.match.targetScore;
+        s.matchScoreHistory.add(needed);
+        turnInProgressScores[s.id] = needed;
+        systemCalculatedIds.add(s.id); // システム補填フラグ
         for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
       }
 
       Player? winner;
-      for (var p in widget.match.players) {
-        if (p.currentScore == widget.match.targetScore) { winner = p; break; }
-      }
+      for (var p in widget.match.players) if (p.currentScore == widget.match.targetScore) { winner = p; break; }
 
       if (winner != null) {
-        isSetFinished = true;
-        winner.setsWon++;
-        widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
+        isSetFinished = true; winner.setsWon++;
+        widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
         _showSetWinnerDialog(winner);
       } else {
         if (currentPlayerIndex == widget.match.players.length - 1) {
-          widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
-          turnInProgressScores.clear();
+          widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
+          turnInProgressScores.clear(); systemCalculatedIds.clear();
         }
-        selectedSkitels.clear();
-        _nextPlayer();
+        selectedSkitels.clear(); _nextPlayer();
       }
     });
   }
 
   void _nextPlayer() {
-    int startIdx = currentPlayerIndex;
-    do {
-      currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length;
-    } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != startIdx);
+    int start = currentPlayerIndex;
+    do { currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length; } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != start);
     if (currentPlayerIndex == 0) currentTurnInSet++;
   }
 
   void _undo() {
     if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0)) return;
     setState(() {
-      if (currentPlayerIndex == 0) {
-        currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1;
-      } else {
-        currentPlayerIndex--;
-      }
-      while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) {
-        currentPlayerIndex--;
-      }
+      if (currentPlayerIndex == 0) { currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1; } else { currentPlayerIndex--; }
+      while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) { currentPlayerIndex--; }
       final p = widget.match.players[currentPlayerIndex];
       if (p.scoreHistory.isNotEmpty) {
-        int last = p.scoreHistory.removeLast();
-        p.matchScoreHistory.removeLast();
-        p.currentScore -= last;
-        turnInProgressScores.remove(p.id);
+        int last = p.scoreHistory.removeLast(); p.matchScoreHistory.removeLast(); p.currentScore -= last;
+        turnInProgressScores.remove(p.id); systemCalculatedIds.remove(p.id);
         if (last == 0 && p.consecutiveMisses > 0) { p.consecutiveMisses--; p.isDisqualified = false; }
       }
       selectedSkitels.clear();
@@ -178,115 +145,82 @@ class _GameScreenState extends State<GameScreen> {
   void _showSummary() {
     showDialog(context: context, builder: (c) => AlertDialog(
       title: const Text('マッチ状況'),
-      content: SingleChildScrollView(
-        child: DataTable(columnSpacing: 10, columns: const [DataColumn(label: Text('名')), DataColumn(label: Text('セット')), DataColumn(label: Text('総点')), DataColumn(label: Text('投数'))],
-          rows: widget.match.players.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text('${p.setsWon}')), DataCell(Text('${p.totalMatchScore}')), DataCell(Text('${p.totalMatchThrows}'))])).toList(),
-        ),
-      ),
-      actions: [
-        ElevatedButton.icon(onPressed: _export, icon: const Icon(Icons.download), label: const Text('画像を保存')),
-        TextButton(onPressed: () => Navigator.pop(c), child: const Text('戻る')),
-      ],
+      content: SingleChildScrollView(child: DataTable(columnSpacing: 10, columns: const [DataColumn(label: Text('名')), DataColumn(label: Text('セット')), DataColumn(label: Text('総点')), DataColumn(label: Text('投数'))],
+        rows: widget.match.players.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text('${p.setsWon}')), DataCell(Text('${p.totalMatchScore}')), DataCell(Text('${p.totalMatchThrows}'))])).toList())),
+      actions: [ElevatedButton.icon(onPressed: _export, icon: const Icon(Icons.download), label: const Text('画像を保存')), TextButton(onPressed: () => Navigator.pop(c), child: const Text('戻る'))],
     ));
   }
 
   void _showSetWinnerDialog(Player winner) {
-    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(
-      title: Text('第 ${widget.match.currentSetIndex} セット終了'),
-      content: Text('${winner.name} さんが勝利！'),
-      actions: [
-        TextButton(onPressed: () {
-          Navigator.pop(c);
-          if (widget.match.isMatchOver) _showMatchWinnerDialog(winner);
-          else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); selectedSkitels.clear(); });
-        }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))
-      ],
-    ));
+    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: Text('第 ${widget.match.currentSetIndex} セット終了'), content: Text('${winner.name} さんが勝利！'),
+      actions: [TextButton(onPressed: () {
+        Navigator.pop(c); if (widget.match.isMatchOver) _showMatchWinnerDialog(winner);
+        else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear(); });
+      }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))]));
   }
 
   void _showMatchWinnerDialog(Player winner) {
-    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(
-      title: const Text('🎊 マッチ終了 🎊'),
-      content: Text('優勝: ${winner.name} さん'),
-      actions: [
-        ElevatedButton.icon(onPressed: _export, icon: const Icon(Icons.download), label: const Text('最終結果を保存')),
-        TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('終了'))
-      ],
-    ));
+    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: const Text('🎊 優勝！ 🎊'), content: Text('${winner.name} さんの勝利です！'),
+      actions: [ElevatedButton.icon(onPressed: _export, icon: const Icon(Icons.download), label: const Text('保存')), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('終了'))]));
   }
 
   Future<void> _export() async {
     final players = widget.match.players;
-    final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
-    final dateString = dateFormat.format(widget.match.startTime);
-
+    final dateString = DateFormat('yyyy/MM/dd HH:mm').format(widget.match.startTime);
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
        SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
        ongoing.turns.addAll(widget.match.currentSetRecord.turns);
-       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
+       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
        allSets.add(ongoing);
     } else allSets.add(widget.match.currentSetRecord);
 
-    List<Widget> tableRows = [];
-    tableRows.add(_buildImageHeader(players));
+    List<Widget> rows = [];
+    rows.add(_buildImageHeader(players));
     for (var set in allSets) {
-      for (var turn in set.turns) tableRows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
-      Map<String, int> setScores = set.finalCumulativeScores;
-      if (setScores.isEmpty) setScores = { for (var p in players) p.id : p.currentScore };
-      tableRows.add(_buildImageSetSummaryRow(set.setNumber, setScores, players));
+      for (var turn in set.turns) rows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
+      Map<String, int> scores = set.finalCumulativeScores.isNotEmpty ? set.finalCumulativeScores : { for (var p in players) p.id : p.currentScore };
+      rows.add(_buildImageSetSummaryRow(set.setNumber, scores, players));
     }
 
-    final widgetToCapture = Container(
-      padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Molkky Match Result', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
-        Text('開始: $dateString', style: const TextStyle(fontSize: 14, color: Colors.grey)),
-        const SizedBox(height: 20),
-        Column(children: tableRows),
+    final widgetToCapture = Container(padding: const EdgeInsets.all(10), color: Colors.white, width: 600,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Text('Molkky Result', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
+        Text('開始: $dateString', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const SizedBox(height: 10),
+        Column(children: rows),
       ]),
     );
 
-    // 1枚に統合して出力
-    _download(await screenshotController.captureFromWidget(widgetToCapture), 'molkky_result_complete.png');
+    _download(await screenshotController.captureFromWidget(widgetToCapture, delay: const Duration(milliseconds: 200)), 'molkky_result.png');
   }
 
   Widget _buildImageHeader(List<Player> players) {
-    return Container(color: const Color(0xFFE3F2FD), padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(children: [
-        const Expanded(flex: 1, child: Center(child: Text('ターン', style: TextStyle(fontWeight: FontWeight.bold)))),
-        ...players.map((p) => Expanded(flex: 2, child: Center(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
-      ]),
-    );
+    return Container(color: const Color(0xFFF1F8FE), padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [ const Expanded(flex: 1, child: Center(child: Text('T', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)))), ...players.map((p) => Expanded(flex: 2, child: Center(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), overflow: TextOverflow.ellipsis)))) ]));
   }
 
   Widget _buildImageTurnRow(TurnRecord turn, List<Player> players, String starterId) {
-    return Container(decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[300]!))), padding: const EdgeInsets.symmetric(vertical: 6),
+    return Container(decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[200]!))), padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(children: [
-        Expanded(flex: 1, child: Center(child: Text('${turn.turnNumber}'))),
+        Expanded(flex: 1, child: Center(child: Text('${turn.turnNumber}', style: const TextStyle(fontSize: 11)))),
         ...players.map((p) {
-          bool isStarter = p.id == starterId;
-          String score = turn.scores.containsKey(p.id) ? '${turn.scores[p.id]}' : '-';
-          return Expanded(flex: 2, child: Center(child: Text(score, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16))));
-        }),
-      ]),
-    );
+          bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
+          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
+          return Expanded(flex: 2, child: Center(child: Text(txt, style: TextStyle(fontWeight: p.id == starterId ? FontWeight.bold : FontWeight.normal, fontSize: 13))));
+        })]));
   }
 
   Widget _buildImageSetSummaryRow(int setNum, Map<String, int> totals, List<Player> players) {
-    return Container(color: const Color(0xFFFFF3E0), padding: const EdgeInsets.symmetric(vertical: 4), margin: const EdgeInsets.symmetric(vertical: 2),
+    return Container(color: const Color(0xFFFFF8E1), padding: const EdgeInsets.symmetric(vertical: 2), margin: const EdgeInsets.symmetric(vertical: 1),
       child: Row(children: [
-        Expanded(flex: 1, child: Center(child: Text('第$setNumセット計', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))),
-        ...players.map((p) => Expanded(flex: 2, child: Center(child: Text('${totals[p.id] ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))))),
-      ]),
-    );
+        Expanded(flex: 1, child: Center(child: Text('S$setNum計', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)))),
+        ...players.map((p) => Expanded(flex: 2, child: Center(child: Text('${totals[p.id] ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 11)))))]));
   }
 
   void _download(Uint8List bytes, String name) {
-    final blob = html.Blob([bytes]);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)..setAttribute("download", name)..click();
-    html.Url.revokeObjectUrl(url);
+    final blob = html.Blob([bytes]); final url = html.Url.createObjectUrlFromBlob(blob);
+    html.AnchorElement(href: url)..setAttribute("download", name)..click(); html.Url.revokeObjectUrl(url);
   }
 
   @override
@@ -297,8 +231,7 @@ class _GameScreenState extends State<GameScreen> {
       body: Column(
         children: [
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
-            child: Text('${currentPlayer.name} の番 (ターン $currentTurnInSet)', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
+            child: Text('${currentPlayer.name} の番 (ターン $currentTurnInSet)', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
           Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
             child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
               child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
