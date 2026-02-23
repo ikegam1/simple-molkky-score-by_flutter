@@ -102,7 +102,10 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _playerNames.isEmpty ? null : () {
-                final players = _playerNames.map((n) => Player(id: n, name: n)).toList();
+                final players = <Player>[];
+                for (int i = 0; i < _playerNames.length; i++) {
+                  players.add(Player(id: _playerNames[i], name: _playerNames[i], initialOrder: i));
+                }
                 
                 int winTarget;
                 if (_selectedSetMode == 11) {
@@ -153,6 +156,10 @@ class _GameScreenState extends State<GameScreen> {
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
+      // 通算履歴にも追加
+      int lastPoints = player.scoreHistory.last;
+      player.matchScoreHistory.add(lastPoints);
+
       if (GameLogic.checkSetWinner(player, widget.match)) {
         _showSetWinnerDialog(player);
       }
@@ -184,6 +191,7 @@ class _GameScreenState extends State<GameScreen> {
       final player = widget.match.players[currentPlayerIndex];
       if (player.scoreHistory.isNotEmpty) {
         int lastPoints = player.scoreHistory.removeLast();
+        player.matchScoreHistory.removeLast();
         player.currentScore -= lastPoints; 
         if (lastPoints == 0 && player.consecutiveMisses > 0) {
           player.consecutiveMisses--;
@@ -209,8 +217,7 @@ class _GameScreenState extends State<GameScreen> {
                 _showMatchWinnerDialog(widget.match.matchWinner!);
               } else {
                 setState(() {
-                  widget.match.currentSetIndex++;
-                  for (var p in widget.match.players) { p.resetForNewSet(); }
+                  widget.match.prepareNextSet();
                   currentPlayerIndex = 0;
                   currentTurn = 1;
                 });
@@ -242,7 +249,7 @@ class _GameScreenState extends State<GameScreen> {
     final currentPlayer = widget.match.players[currentPlayerIndex];
     
     return Scaffold(
-      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), backgroundColor: Colors.blue[50]),
+      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット')),
       body: Column(
         children: [
           Container(
