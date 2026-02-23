@@ -13,7 +13,7 @@ class Player {
   Player({required this.id, required this.name, required this.initialOrder});
 
   int get totalMatchScore => matchScoreHistory.fold(0, (a, b) => a + b);
-  double get averageMatchScore => matchScoreHistory.isEmpty ? 0 : totalMatchScore / matchScoreHistory.length;
+  int get totalMatchThrows => matchScoreHistory.length; // 総投擲数
 
   void resetForNewSet() {
     currentScore = 0;

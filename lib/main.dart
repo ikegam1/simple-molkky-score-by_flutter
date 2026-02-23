@@ -220,15 +220,15 @@ class _GameScreenState extends State<GameScreen> {
                     columnSpacing: 10,
                     columns: const [
                       DataColumn(label: Text('名')),
-                      DataColumn(label: Text('勝セット')),
+                      DataColumn(label: Text('セット')),
                       DataColumn(label: Text('総点')),
-                      DataColumn(label: Text('平均')),
+                      DataColumn(label: Text('投数')),
                     ],
                     rows: widget.match.players.map((p) => DataRow(cells: [
                       DataCell(Text(p.name)),
                       DataCell(Text('${p.setsWon}')),
                       DataCell(Text('${p.totalMatchScore}')),
-                      DataCell(Text(p.averageMatchScore.toStringAsFixed(1))),
+                      DataCell(Text('${p.totalMatchThrows}')),
                     ])).toList(),
                   ),
                 ),
@@ -263,15 +263,15 @@ class _GameScreenState extends State<GameScreen> {
                     columnSpacing: 10,
                     columns: const [
                       DataColumn(label: Text('名')),
-                      DataColumn(label: Text('勝セット')),
+                      DataColumn(label: Text('セット')),
                       DataColumn(label: Text('総点')),
-                      DataColumn(label: Text('平均')),
+                      DataColumn(label: Text('投数')),
                     ],
                     rows: widget.match.players.map((p) => DataRow(cells: [
                       DataCell(Text(p.name)),
                       DataCell(Text('${p.setsWon}')),
                       DataCell(Text('${p.totalMatchScore}')),
-                      DataCell(Text(p.averageMatchScore.toStringAsFixed(1))),
+                      DataCell(Text('${p.totalMatchThrows}')),
                     ])).toList(),
                   ),
                 ),
@@ -322,10 +322,11 @@ class _GameScreenState extends State<GameScreen> {
       appBar: AppBar(
         title: Text('第 ${widget.match.currentSetIndex} セット'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
+          TextButton.icon(
             onPressed: _showSummaryDialog,
-            tooltip: 'マッチ履歴を表示',
+            icon: const Icon(Icons.history, size: 18),
+            label: const Text('履歴'),
+            style: TextButton.styleFrom(foregroundColor: Colors.blue),
           ),
         ],
       ),
