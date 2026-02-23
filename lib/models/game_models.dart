@@ -101,13 +101,13 @@ class MolkkyMatch {
     for (var p in players) currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
     completedSets.add(currentSetRecord);
     
-    currentSetIndex++;
+    // 判定のためにインデックスを増やす前に最終セットかチェック
+    int nextIndex = currentSetIndex + 1;
     bool isDeciding = false;
     if (type == MatchType.raceTo) {
-      if (currentSetIndex == (limit * 2) - 1) isDeciding = true;
+      if (nextIndex == (limit * 2) - 1) isDeciding = true;
     } else {
-      // 2番形式などでも、最後のセットが決着セット
-      if (currentSetIndex == limit) isDeciding = true;
+      if (nextIndex == limit) isDeciding = true;
     }
 
     if (isDeciding) {
@@ -117,13 +117,13 @@ class MolkkyMatch {
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
-      // 全形式で先行スライド
       if (players.length > 1) {
         final first = players.removeAt(0);
         players.add(first);
       }
     }
 
+    currentSetIndex = nextIndex;
     currentSetRecord = SetRecord(currentSetIndex, players.first.id);
     for (var p in players) p.resetForNewSet();
   }

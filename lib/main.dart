@@ -71,7 +71,7 @@ class _SetupScreenState extends State<SetupScreen> {
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -92,8 +92,6 @@ class _GameScreenState extends State<GameScreen> {
   int currentTurnInSet = 1;
   final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
-  
-  // 現在のターンの全員の点数を一時保持（ターンが回っている間）
   Map<String, int> turnInProgressScores = {};
 
   void _onSkitelTap(int num) {
@@ -111,11 +109,9 @@ class _GameScreenState extends State<GameScreen> {
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
 
-      // 失格繰り上げチェック
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       if (survivors.length == 1) {
         survivors.first.currentScore = widget.match.targetScore;
-        // 投げずに50点になった場合も記録に反映
         turnInProgressScores[survivors.first.id] = 50; 
       }
 
@@ -127,11 +123,9 @@ class _GameScreenState extends State<GameScreen> {
       if (winner != null) {
         isSetFinished = true;
         winner.setsWon++;
-        // ターンを完結させて記録
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
         _showSetWinnerDialog(winner);
       } else {
-        // 全員が投げ終わったら1ターン終了として記録
         if (currentPlayerIndex == widget.match.players.length - 1) {
           widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
           turnInProgressScores.clear();
@@ -153,21 +147,14 @@ class _GameScreenState extends State<GameScreen> {
   void _undo() {
     if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0)) return;
     setState(() {
-      // 直前のプレイヤーに戻る
       if (currentPlayerIndex == 0) {
         currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1;
       } else {
         currentPlayerIndex--;
       }
-      
-      // 失格者を飛ばす
       while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) {
         currentPlayerIndex--;
       }
-      if (currentPlayerIndex == 0 && widget.match.players[0].isDisqualified) {
-         // 特殊ケース：一番最初の人が失格ならさらに戻る（実装簡略化）
-      }
-
       final p = widget.match.players[currentPlayerIndex];
       if (p.scoreHistory.isNotEmpty) {
         int last = p.scoreHistory.removeLast();
@@ -221,61 +208,38 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _export() async {
+    final players = widget.match.players;
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
     final dateString = dateFormat.format(widget.match.startTime);
-    final players = widget.match.players;
-
-    // 履歴を統合（完了セット + 現在のセット）
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
-       // 進行中のセットも、コピーして追加
        SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
        ongoing.turns.addAll(widget.match.currentSetRecord.turns);
-       if (turnInProgressScores.isNotEmpty) {
-         ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
-       }
+       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
        allSets.add(ongoing);
-    } else {
-       allSets.add(widget.match.currentSetRecord);
-    }
+    } else allSets.add(widget.match.currentSetRecord);
 
     List<Widget> tableRows = [];
-    // Header
     tableRows.add(_buildImageHeader(players));
-
     for (var set in allSets) {
-      // ターンの描画
-      for (var turn in set.turns) {
-        tableRows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
-      }
-      // セット終了行
-      Map<String, int> setTotals = {};
-      if (set.finalCumulativeScores.isNotEmpty) {
-        setTotals = set.finalCumulativeScores;
-      } else {
-        // まだ終了していないセットの場合は現在のスコアを計算
-        for (var p in players) setTotals[p.id] = p.currentScore;
-      }
+      for (var turn in set.turns) tableRows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
+      Map<String, int> setTotals = set.finalCumulativeScores.isNotEmpty ? set.finalCumulativeScores : { for (var p in players) p.id : p.currentScore };
       tableRows.add(_buildImageSetSummaryRow(set.setNumber, setTotals, players));
     }
 
-    final widgetToCapture = Container(
-      padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
+    final widgetToCapture = Container(padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Molkky Match Result', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue[900])),
+        Text('Molkky Match Result', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
         Text('開始: $dateString', style: const TextStyle(fontSize: 14, color: Colors.grey)),
         const SizedBox(height: 20),
         Column(children: tableRows),
       ]),
     );
-
     _download(await screenshotController.captureFromWidget(widgetToCapture), 'molkky_result.png');
   }
 
   Widget _buildImageHeader(List<Player> players) {
-    return Container(
-      color: Colors.blue[50],
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Container(color: const Color(0xFFE3F2FD), padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
         const Expanded(flex: 1, child: Center(child: Text('ターン', style: TextStyle(fontWeight: FontWeight.bold)))),
         ...players.map((p) => Expanded(flex: 2, child: Center(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
@@ -284,9 +248,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildImageTurnRow(TurnRecord turn, List<Player> players, String starterId) {
-    return Container(
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[300]!))),
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    return Container(decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[300]!))), padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(children: [
         Expanded(flex: 1, child: Center(child: Text('${turn.turnNumber}'))),
         ...players.map((p) {
@@ -299,10 +261,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildImageSetSummaryRow(int setNum, Map<String, int> totals, List<Player> players) {
-    return Container(
-      color: Colors.orange[50],
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      margin: const EdgeInsets.symmetric(vertical: 2),
+    return Container(color: const Color(0xFFFFF3E0), padding: const EdgeInsets.symmetric(vertical: 4), margin: const EdgeInsets.symmetric(vertical: 2),
       child: Row(children: [
         Expanded(flex: 1, child: Center(child: Text('第$setNumセット計', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))),
         ...players.map((p) => Expanded(flex: 2, child: Center(child: Text('${totals[p.id] ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))))),
@@ -329,14 +288,14 @@ class _GameScreenState extends State<GameScreen> {
           ),
           Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
             child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-              child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(Colors.blue[50]),
+              child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
                 columns: [const DataColumn(label: SizedBox(width: 40, child: Text('ターン'))), ...widget.match.players.expand((p) => [DataColumn(label: Container(width: 80, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: TextStyle(fontSize: 12, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold)), const Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text('得点', style: TextStyle(fontSize: 9)), Text('合計', style: TextStyle(fontSize: 9))])])))])],
                 rows: List.generate(currentTurnInSet, (i) {
                   int turn = currentTurnInSet - i;
                   return DataRow(cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
                     int score = 0, total = 0;
                     if (p.scoreHistory.length >= turn) { score = p.scoreHistory[turn - 1]; int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; } total = tmp; }
-                    return [DataCell(Row(children: [Container(width: 40, alignment: Alignment.center, child: Text(p.scoreHistory.length >= turn ? '$score' : '-')), Container(width: 40, alignment: Alignment.center, color: Colors.blue[50], child: Text(p.scoreHistory.length >= turn ? '$total' : '-', style: const TextStyle(fontWeight: FontWeight.bold)))]))];
+                    return [DataCell(Row(children: [Container(width: 40, alignment: Alignment.center, child: Text(p.scoreHistory.length >= turn ? '$score' : '-')), Container(width: 40, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(p.scoreHistory.length >= turn ? '$total' : '-', style: const TextStyle(fontWeight: FontWeight.bold)))]))];
                   })]);
                 }),
               ),
@@ -346,7 +305,7 @@ class _GameScreenState extends State<GameScreen> {
             child: Column(children: [
               GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0), itemCount: 12, itemBuilder: (c, i) {
                 final num = i + 1; final isSelected = selectedSkitels.contains(num);
-                return ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? Colors.orange[100] : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)));
+                return ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)));
               }),
               const SizedBox(height: 12),
               Row(children: [
