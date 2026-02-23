@@ -43,10 +43,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
   void _add() {
     if (_nameController.text.isNotEmpty) {
-      setState(() {
-        _playerNames.add(_nameController.text);
-        _nameController.clear();
-      });
+      setState(() { _playerNames.add(_nameController.text); _nameController.clear(); });
     }
   }
 
@@ -58,31 +55,9 @@ class _SetupScreenState extends State<SetupScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))),
-              onSubmitted: (_) => _add(),
-            ),
-            Expanded(
-              child: ReorderableListView(
-                onReorder: (oldIdx, newIdx) {
-                  setState(() {
-                    if (oldIdx < newIdx) newIdx -= 1;
-                    _playerNames.insert(newIdx, _playerNames.removeAt(oldIdx));
-                  });
-                },
-                children: [
-                  for (int i = 0; i < _playerNames.length; i++)
-                    ListTile(key: Key('$i-${_playerNames[i]}'), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_playerNames[i]}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => setState(() => _playerNames.removeAt(i)))),
-                ],
-              ),
-            ),
-            DropdownButtonFormField<int>(
-              value: _selectedModeKey,
-              items: _options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
-              onChanged: (v) => setState(() => _selectedModeKey = v!),
-              decoration: const InputDecoration(labelText: '試合形式'),
-            ),
+            TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
+            Expanded(child: ReorderableListView(onReorder: (o, n) { setState(() { if (o < n) n -= 1; _playerNames.insert(n, _playerNames.removeAt(o)); }); }, children: [ for (int i = 0; i < _playerNames.length; i++) ListTile(key: Key('$i-${_playerNames[i]}'), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_playerNames[i]}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => setState(() => _playerNames.removeAt(i)))) ])),
+            DropdownButtonFormField<int>(value: _selectedModeKey, items: _options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: const InputDecoration(labelText: '試合形式')),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _playerNames.isEmpty ? null : () {
@@ -90,15 +65,13 @@ class _SetupScreenState extends State<SetupScreen> {
                 MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
                 int limit = _selectedModeKey;
                 if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                
-                final match = MolkkyMatch(players: players, limit: limit, type: type);
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: match)));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: MolkkyMatch(players: players, limit: limit, type: type))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -122,9 +95,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _onSkitelTap(int num) {
     if (isSetFinished) return;
-    setState(() {
-      if (selectedSkitels.contains(num)) selectedSkitels.remove(num); else selectedSkitels.add(num);
-    });
+    setState(() { if (selectedSkitels.contains(num)) selectedSkitels.remove(num); else selectedSkitels.add(num); });
   }
 
   void _submitThrow() {
@@ -136,21 +107,27 @@ class _GameScreenState extends State<GameScreen> {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
       player.matchScoreHistory.add(player.scoreHistory.last);
 
-      // 2. 即時勝利判定
-      Player? setWinner;
+      // 2. 失格による強制決着チェック (特に1対1)
+      final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
+      if (survivors.length == 1) {
+        survivors.first.currentScore = widget.match.targetScore;
+      }
+
+      // 3. 勝利判定（誰かが50点に達したかスキャン）
+      Player? winner;
       for (var p in widget.match.players) {
         if (p.currentScore == widget.match.targetScore) {
-          setWinner = p;
+          winner = p;
           break;
         }
       }
 
-      // 3. 終了または次へ
-      if (setWinner != null) {
+      // 4. 決着または継続
+      if (winner != null) {
         isSetFinished = true;
-        setWinner.setsWon++;
+        winner.setsWon++;
         for (var p in widget.match.players) p.setFinalScores.add(p.currentScore);
-        _showSetWinnerDialog(setWinner);
+        _showSetWinnerDialog(winner);
       } else {
         selectedSkitels.clear();
         _nextPlayer();
@@ -170,40 +147,29 @@ class _GameScreenState extends State<GameScreen> {
     if (isSetFinished) return;
     setState(() {
       if (currentPlayerIndex == 0 && currentTurnInSet > 1) {
-        currentTurnInSet--;
-        currentPlayerIndex = widget.match.players.length - 1;
+        currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1;
       } else if (currentPlayerIndex > 0) {
         currentPlayerIndex--;
       } else return;
-
       while (widget.match.players[currentPlayerIndex].scoreHistory.isEmpty) {
         if (currentPlayerIndex == 0 && currentTurnInSet > 1) {
-          currentTurnInSet--;
-          currentPlayerIndex = widget.match.players.length - 1;
+          currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1;
         } else if (currentPlayerIndex > 0) currentPlayerIndex--; else break;
       }
-
       final p = widget.match.players[currentPlayerIndex];
       if (p.scoreHistory.isNotEmpty) {
-        int last = p.scoreHistory.removeLast();
-        p.matchScoreHistory.removeLast();
-        p.currentScore -= last;
-        if (last == 0 && p.consecutiveMisses > 0) {
-          p.consecutiveMisses--;
-          p.isDisqualified = false;
-        }
+        int last = p.scoreHistory.removeLast(); p.matchScoreHistory.removeLast(); p.currentScore -= last;
+        if (last == 0 && p.consecutiveMisses > 0) { p.consecutiveMisses--; p.isDisqualified = false; }
       }
       selectedSkitels.clear();
     });
   }
 
-  void _showSummary({String title = '現在の状況'}) {
+  void _showSummary() {
     showDialog(context: context, builder: (c) => AlertDialog(
-      title: Text(title),
+      title: const Text('現在の状況'),
       content: SingleChildScrollView(
-        child: DataTable(
-          columnSpacing: 10,
-          columns: const [DataColumn(label: Text('名')), DataColumn(label: Text('セット')), DataColumn(label: Text('総点')), DataColumn(label: Text('投数'))],
+        child: DataTable(columnSpacing: 10, columns: const [DataColumn(label: Text('名')), DataColumn(label: Text('セット')), DataColumn(label: Text('総点')), DataColumn(label: Text('投数'))],
           rows: widget.match.players.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text('${p.setsWon}')), DataCell(Text('${p.totalMatchScore}')), DataCell(Text('${p.totalMatchThrows}'))])).toList(),
         ),
       ),
@@ -221,17 +187,8 @@ class _GameScreenState extends State<GameScreen> {
       actions: [
         TextButton(onPressed: () {
           Navigator.pop(c);
-          if (widget.match.isMatchOver) {
-            _showMatchWinnerDialog(widget.match.matchWinner ?? winner);
-          } else {
-            setState(() {
-              widget.match.prepareNextSet();
-              currentPlayerIndex = 0;
-              currentTurnInSet = 1;
-              isSetFinished = false;
-              selectedSkitels.clear();
-            });
-          }
+          if (widget.match.isMatchOver) _showMatchWinnerDialog(winner);
+          else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; selectedSkitels.clear(); });
         }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))
       ],
     ));
@@ -249,66 +206,38 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _export() async {
+    final players = widget.match.players;
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
     final dateString = dateFormat.format(widget.match.startTime);
-    final players = widget.match.players;
-
-    List<Map<String, dynamic>> flatHistory = [];
-    int globalTurn = 0;
-    int currentSet = 1;
-    int turnInCurrentSet = 1;
-
-    // プレイヤーごとの履歴インデックスを管理
-    Map<String, int> pIndices = { for (var p in players) p.id : 0 };
-    bool hasData = true;
-
-    while (hasData) {
-      hasData = false;
-      Map<String, int> turnScores = {};
-      bool setEndedInThisTurn = false;
-
+    List<Map<String, dynamic>> flat = [];
+    int curSet = 1, turnInCur = 1;
+    Map<String, int> pIdx = { for (var p in players) p.id : 0 };
+    bool more = true;
+    while (more) {
+      more = false; Map<String, int> tScores = {}; bool setEnd = false;
       for (var p in players) {
-        int idx = pIndices[p.id]!;
+        int idx = pIdx[p.id]!;
         if (idx < p.matchScoreHistory.length) {
-          turnScores[p.id] = p.matchScoreHistory[idx];
-          pIndices[p.id] = idx + 1;
-          hasData = true;
-          // セット終了行を挿入すべきかチェック
-          if (p.setFinalScores.length >= currentSet && p.matchScoreHistory.take(idx+1).fold(0, (a,b)=>a+b) == p.setFinalScores[currentSet-1]) {
-             setEndedInThisTurn = true;
-          }
+          tScores[p.id] = p.matchScoreHistory[idx]; pIdx[p.id] = idx + 1; more = true;
+          if (p.setFinalScores.length >= curSet && p.matchScoreHistory.take(idx+1).fold(0, (a,b)=>a+b) == p.setFinalScores[curSet-1]) setEnd = true;
         }
       }
-
-      if (turnScores.isNotEmpty) {
-        flatHistory.add({ 'type': 'score', 'turn': turnInCurrentSet, 'scores': turnScores });
-        turnInCurrentSet++;
-      }
-
-      if (setEndedInThisTurn) {
-        flatHistory.add({ 'type': 'separator', 'set': currentSet });
-        currentSet++;
-        turnInCurrentSet = 1;
-      }
+      if (tScores.isNotEmpty) { flat.add({ 'type': 'score', 'turn': turnInCur, 'scores': tScores }); turnInCur++; }
+      if (setEnd) { flat.add({ 'type': 'separator', 'set': curSet }); curSet++; turnInCur = 1; }
     }
-
-    // 100行ごとにページ分割
-    int pageSize = 100;
-    int pages = (flatHistory.length / pageSize).ceil();
+    int pageSize = 100, pages = (flat.length / pageSize).ceil();
     if (pages == 0) pages = 1;
-
     for (int p = 0; p < pages; p++) {
-      final chunk = flatHistory.skip(p * pageSize).take(pageSize).toList();
-      final widgetToCapture = Container(
-        padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
+      final chunk = flat.skip(p * pageSize).take(pageSize).toList();
+      final widgetToCapture = Container(padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Molkky Match Result', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[900])),
           Text('開始: $dateString | Page: ${p + 1}/$pages', style: const TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 20),
           Table(border: TableBorder.all(color: Colors.grey), children: [
             TableRow(decoration: BoxDecoration(color: Colors.blue[50]), children: [
-              const TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text('ターン', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
-              ...players.map((pl) => TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text(pl.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis)))),
+              const TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text('ターン', style: TextStyle(fontWeight: FontWeight.bold)))),
+              ...players.map((pl) => TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text(pl.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
             ]),
             ...chunk.map((item) {
               if (item['type'] == 'separator') {
@@ -326,8 +255,7 @@ class _GameScreenState extends State<GameScreen> {
           ]),
         ]),
       );
-      final bytes = await screenshotController.captureFromWidget(widgetToCapture);
-      _download(bytes, 'molkky_result_p${p + 1}.png');
+      _download(await screenshotController.captureFromWidget(widgetToCapture), 'molkky_result_p${p + 1}.png');
     }
   }
 
@@ -342,7 +270,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     final currentPlayer = widget.match.players[currentPlayerIndex];
     return Scaffold(
-      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), actions: [TextButton.icon(onPressed: () => _showSummary(), icon: const Icon(Icons.history, size: 18), label: const Text('履歴'))]),
+      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), actions: [TextButton.icon(onPressed: _showSummary, icon: const Icon(Icons.history, size: 18), label: const Text('履歴'))]),
       body: Column(
         children: [
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
@@ -356,12 +284,7 @@ class _GameScreenState extends State<GameScreen> {
                   int turn = currentTurnInSet - i;
                   return DataRow(cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
                     int score = 0, total = 0;
-                    if (p.scoreHistory.length >= turn) {
-                      score = p.scoreHistory[turn - 1];
-                      int tmp = 0;
-                      for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
-                      total = tmp;
-                    }
+                    if (p.scoreHistory.length >= turn) { score = p.scoreHistory[turn - 1]; int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; } total = tmp; }
                     return [DataCell(Row(children: [Container(width: 40, alignment: Alignment.center, child: Text(p.scoreHistory.length >= turn ? '$score' : '-')), Container(width: 40, alignment: Alignment.center, color: Colors.blue[50], child: Text(p.scoreHistory.length >= turn ? '$total' : '-', style: const TextStyle(fontWeight: FontWeight.bold)))]))];
                   })]);
                 }),
