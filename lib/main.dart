@@ -153,8 +153,10 @@ class _GameScreenState extends State<GameScreen> {
   final ScreenshotController screenshotController = ScreenshotController();
   final List<int> setEndThrowIndices = [];
   final List<List<int>> setFinalScores = [];
+  bool isSetFinished = false; // セット終了後の連打防止ガード
 
   void _onSkitelTap(int num) {
+    if (isSetFinished) return;
     setState(() {
       if (selectedSkitels.contains(num)) {
         selectedSkitels.remove(num);
@@ -165,42 +167,53 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _submitThrow() {
+    if (isSetFinished) return;
+    
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
+      // 1. スコア計算実行
       GameLogic.processThrow(player, selectedSkitels, widget.match);
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
 
+      // 2. 勝利者判定（3ミス失格による繰り上げ勝利も含む）
       Player? setWinner;
-      if (GameLogic.checkSetWinner(player, widget.match)) {
+      
+      // 自分が50点（ピッタリ上がり）
+      if (player.currentScore == widget.match.targetScore) {
         setWinner = player;
+        setWinner.setsWon++;
       } else {
-        final winningOthers = widget.match.players.where((p) => p.currentScore == widget.match.targetScore).toList();
-        if (winningOthers.isNotEmpty) {
-           setWinner = winningOthers.first;
-           setWinner.setsWon++;
+        // 失格チェック：自分が失格になった結果、生存者が1名になったか？
+        final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
+        if (survivors.length == 1) {
+          setWinner = survivors.first;
+          setWinner.currentScore = widget.match.targetScore; // 強制的に50点にする
+          setWinner.setsWon++;
         }
       }
 
+      // 3. セット終了処理
       if (setWinner != null) {
+        isSetFinished = true;
         setEndThrowIndices.add(widget.match.players[0].matchScoreHistory.length);
         setFinalScores.add(widget.match.players.map((p) => p.currentScore).toList());
         _showSetWinnerDialog(setWinner);
+      } else {
+        // 続行：次のプレイヤーへ
+        selectedSkitels.clear();
+        _nextPlayer();
       }
-      
-      selectedSkitels.clear();
-      _nextPlayer();
     });
   }
 
   void _nextPlayer() {
-    int oldIndex = currentPlayerIndex;
     int checkCount = 0;
     do {
       currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length;
       checkCount++;
-      if (checkCount >= widget.match.players.length) break;
-    } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != oldIndex);
+      if (checkCount >= widget.match.players.length) break; 
+    } while (widget.match.players[currentPlayerIndex].isDisqualified);
     
     if (currentPlayerIndex == 0) {
       currentTurn++;
@@ -208,6 +221,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _undo() {
+    if (isSetFinished) return;
     setState(() {
       if (currentPlayerIndex == 0 && currentTurn > 1) {
         currentTurn--;
@@ -333,6 +347,8 @@ class _GameScreenState extends State<GameScreen> {
                   widget.match.prepareNextSet();
                   currentPlayerIndex = 0;
                   currentTurn = 1;
+                  isSetFinished = false; // ガード解除
+                  selectedSkitels.clear();
                 });
               }
             },
