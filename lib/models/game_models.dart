@@ -101,22 +101,23 @@ class MolkkyMatch {
     for (var p in players) currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
     completedSets.add(currentSetRecord);
     
-    // 判定のためにインデックスを増やす前に最終セットかチェック
     int nextIndex = currentSetIndex + 1;
-    bool isDeciding = false;
+    bool isDecidingSetStartRule = false;
+    
+    // 先取形式(raceTo)の最終セットのみ、スコア順で先行を決める特殊ルールを適用
     if (type == MatchType.raceTo) {
-      if (nextIndex == (limit * 2) - 1) isDeciding = true;
-    } else {
-      if (nextIndex == limit) isDeciding = true;
+      if (nextIndex == (limit * 2) - 1) isDecidingSetStartRule = true;
     }
+    // 固定セット形式(fixedSets)は、常に交互(ローテーション)にするためここでは何もしない
 
-    if (isDeciding) {
+    if (isDecidingSetStartRule) {
       players.sort((a, b) {
         if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
         if (a.totalMatchThrows != b.totalMatchThrows) return a.totalMatchThrows.compareTo(b.totalMatchThrows);
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
+      // 通常のローテーション
       if (players.length > 1) {
         final first = players.removeAt(0);
         players.add(first);
