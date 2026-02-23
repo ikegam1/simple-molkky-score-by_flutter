@@ -71,7 +71,7 @@ class _SetupScreenState extends State<SetupScreen> {
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -92,6 +92,9 @@ class _GameScreenState extends State<GameScreen> {
   int currentTurnInSet = 1;
   final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
+  
+  // 現在のターンの全員の点数を一時保持（ターンが回っている間）
+  Map<String, int> turnInProgressScores = {};
 
   void _onSkitelTap(int num) {
     if (isSetFinished) return;
@@ -103,32 +106,36 @@ class _GameScreenState extends State<GameScreen> {
     final player = widget.match.players[currentPlayerIndex];
     
     setState(() {
-      // 1. スコア処理
       GameLogic.processThrow(player, selectedSkitels, widget.match);
-      player.matchScoreHistory.add(player.scoreHistory.last);
+      int lastPoints = player.scoreHistory.last;
+      player.matchScoreHistory.add(lastPoints);
+      turnInProgressScores[player.id] = lastPoints;
 
-      // 2. 失格による強制決着チェック (特に1対1)
+      // 失格繰り上げチェック
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       if (survivors.length == 1) {
         survivors.first.currentScore = widget.match.targetScore;
+        // 投げずに50点になった場合も記録に反映
+        turnInProgressScores[survivors.first.id] = 50; 
       }
 
-      // 3. 勝利判定（誰かが50点に達したかスキャン）
       Player? winner;
       for (var p in widget.match.players) {
-        if (p.currentScore == widget.match.targetScore) {
-          winner = p;
-          break;
-        }
+        if (p.currentScore == widget.match.targetScore) { winner = p; break; }
       }
 
-      // 4. 決着または継続
       if (winner != null) {
         isSetFinished = true;
         winner.setsWon++;
-        for (var p in widget.match.players) p.setFinalScores.add(p.currentScore);
+        // ターンを完結させて記録
+        widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
         _showSetWinnerDialog(winner);
       } else {
+        // 全員が投げ終わったら1ターン終了として記録
+        if (currentPlayerIndex == widget.match.players.length - 1) {
+          widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
+          turnInProgressScores.clear();
+        }
         selectedSkitels.clear();
         _nextPlayer();
       }
@@ -144,21 +151,29 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _undo() {
-    if (isSetFinished) return;
+    if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0)) return;
     setState(() {
-      if (currentPlayerIndex == 0 && currentTurnInSet > 1) {
+      // 直前のプレイヤーに戻る
+      if (currentPlayerIndex == 0) {
         currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1;
-      } else if (currentPlayerIndex > 0) {
+      } else {
         currentPlayerIndex--;
-      } else return;
-      while (widget.match.players[currentPlayerIndex].scoreHistory.isEmpty) {
-        if (currentPlayerIndex == 0 && currentTurnInSet > 1) {
-          currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1;
-        } else if (currentPlayerIndex > 0) currentPlayerIndex--; else break;
       }
+      
+      // 失格者を飛ばす
+      while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) {
+        currentPlayerIndex--;
+      }
+      if (currentPlayerIndex == 0 && widget.match.players[0].isDisqualified) {
+         // 特殊ケース：一番最初の人が失格ならさらに戻る（実装簡略化）
+      }
+
       final p = widget.match.players[currentPlayerIndex];
       if (p.scoreHistory.isNotEmpty) {
-        int last = p.scoreHistory.removeLast(); p.matchScoreHistory.removeLast(); p.currentScore -= last;
+        int last = p.scoreHistory.removeLast();
+        p.matchScoreHistory.removeLast();
+        p.currentScore -= last;
+        turnInProgressScores.remove(p.id);
         if (last == 0 && p.consecutiveMisses > 0) { p.consecutiveMisses--; p.isDisqualified = false; }
       }
       selectedSkitels.clear();
@@ -167,7 +182,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showSummary() {
     showDialog(context: context, builder: (c) => AlertDialog(
-      title: const Text('現在の状況'),
+      title: const Text('マッチ状況'),
       content: SingleChildScrollView(
         child: DataTable(columnSpacing: 10, columns: const [DataColumn(label: Text('名')), DataColumn(label: Text('セット')), DataColumn(label: Text('総点')), DataColumn(label: Text('投数'))],
           rows: widget.match.players.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text('${p.setsWon}')), DataCell(Text('${p.totalMatchScore}')), DataCell(Text('${p.totalMatchThrows}'))])).toList(),
@@ -188,7 +203,7 @@ class _GameScreenState extends State<GameScreen> {
         TextButton(onPressed: () {
           Navigator.pop(c);
           if (widget.match.isMatchOver) _showMatchWinnerDialog(winner);
-          else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; selectedSkitels.clear(); });
+          else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); selectedSkitels.clear(); });
         }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))
       ],
     ));
@@ -196,8 +211,8 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showMatchWinnerDialog(Player winner) {
     showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(
-      title: const Text('🎊 優勝！ 🎊'),
-      content: Text('${winner.name} さんの勝利です！'),
+      title: const Text('🎊 マッチ終了 🎊'),
+      content: Text('優勝: ${winner.name} さん'),
       actions: [
         ElevatedButton.icon(onPressed: _export, icon: const Icon(Icons.download), label: const Text('最終結果を保存')),
         TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('終了'))
@@ -206,57 +221,93 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _export() async {
-    final players = widget.match.players;
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
     final dateString = dateFormat.format(widget.match.startTime);
-    List<Map<String, dynamic>> flat = [];
-    int curSet = 1, turnInCur = 1;
-    Map<String, int> pIdx = { for (var p in players) p.id : 0 };
-    bool more = true;
-    while (more) {
-      more = false; Map<String, int> tScores = {}; bool setEnd = false;
-      for (var p in players) {
-        int idx = pIdx[p.id]!;
-        if (idx < p.matchScoreHistory.length) {
-          tScores[p.id] = p.matchScoreHistory[idx]; pIdx[p.id] = idx + 1; more = true;
-          if (p.setFinalScores.length >= curSet && p.matchScoreHistory.take(idx+1).fold(0, (a,b)=>a+b) == p.setFinalScores[curSet-1]) setEnd = true;
-        }
+    final players = widget.match.players;
+
+    // 履歴を統合（完了セット + 現在のセット）
+    List<SetRecord> allSets = List.from(widget.match.completedSets);
+    if (!isSetFinished) {
+       // 進行中のセットも、コピーして追加
+       SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
+       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
+       if (turnInProgressScores.isNotEmpty) {
+         ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
+       }
+       allSets.add(ongoing);
+    } else {
+       allSets.add(widget.match.currentSetRecord);
+    }
+
+    List<Widget> tableRows = [];
+    // Header
+    tableRows.add(_buildImageHeader(players));
+
+    for (var set in allSets) {
+      // ターンの描画
+      for (var turn in set.turns) {
+        tableRows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
       }
-      if (tScores.isNotEmpty) { flat.add({ 'type': 'score', 'turn': turnInCur, 'scores': tScores }); turnInCur++; }
-      if (setEnd) { flat.add({ 'type': 'separator', 'set': curSet }); curSet++; turnInCur = 1; }
+      // セット終了行
+      Map<String, int> setTotals = {};
+      if (set.finalCumulativeScores.isNotEmpty) {
+        setTotals = set.finalCumulativeScores;
+      } else {
+        // まだ終了していないセットの場合は現在のスコアを計算
+        for (var p in players) setTotals[p.id] = p.currentScore;
+      }
+      tableRows.add(_buildImageSetSummaryRow(set.setNumber, setTotals, players));
     }
-    int pageSize = 100, pages = (flat.length / pageSize).ceil();
-    if (pages == 0) pages = 1;
-    for (int p = 0; p < pages; p++) {
-      final chunk = flat.skip(p * pageSize).take(pageSize).toList();
-      final widgetToCapture = Container(padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Molkky Match Result', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[900])),
-          Text('開始: $dateString | Page: ${p + 1}/$pages', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 20),
-          Table(border: TableBorder.all(color: Colors.grey), children: [
-            TableRow(decoration: BoxDecoration(color: Colors.blue[50]), children: [
-              const TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text('ターン', style: TextStyle(fontWeight: FontWeight.bold)))),
-              ...players.map((pl) => TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text(pl.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
-            ]),
-            ...chunk.map((item) {
-              if (item['type'] == 'separator') {
-                return TableRow(decoration: BoxDecoration(color: Colors.orange[50]), children: [
-                  TableCell(child: Padding(padding: const EdgeInsets.all(4), child: Text('第${item['set']}セット終了', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))),
-                  ...players.map((_) => const TableCell(child: SizedBox())),
-                ]);
-              } else {
-                return TableRow(children: [
-                  TableCell(child: Padding(padding: const EdgeInsets.all(8), child: Text('${item['turn']}'))),
-                  ...players.map((pl) => TableCell(child: Padding(padding: const EdgeInsets.all(8), child: Text(item['scores'].containsKey(pl.id) ? '${item['scores'][pl.id]}' : '-')))),
-                ]);
-              }
-            }),
-          ]),
-        ]),
-      );
-      _download(await screenshotController.captureFromWidget(widgetToCapture), 'molkky_result_p${p + 1}.png');
-    }
+
+    final widgetToCapture = Container(
+      padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Molkky Match Result', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue[900])),
+        Text('開始: $dateString', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+        const SizedBox(height: 20),
+        Column(children: tableRows),
+      ]),
+    );
+
+    _download(await screenshotController.captureFromWidget(widgetToCapture), 'molkky_result.png');
+  }
+
+  Widget _buildImageHeader(List<Player> players) {
+    return Container(
+      color: Colors.blue[50],
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        const Expanded(flex: 1, child: Center(child: Text('ターン', style: TextStyle(fontWeight: FontWeight.bold)))),
+        ...players.map((p) => Expanded(flex: 2, child: Center(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
+      ]),
+    );
+  }
+
+  Widget _buildImageTurnRow(TurnRecord turn, List<Player> players, String starterId) {
+    return Container(
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[300]!))),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        Expanded(flex: 1, child: Center(child: Text('${turn.turnNumber}'))),
+        ...players.map((p) {
+          bool isStarter = p.id == starterId;
+          String score = turn.scores.containsKey(p.id) ? '${turn.scores[p.id]}' : '-';
+          return Expanded(flex: 2, child: Center(child: Text(score, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16))));
+        }),
+      ]),
+    );
+  }
+
+  Widget _buildImageSetSummaryRow(int setNum, Map<String, int> totals, List<Player> players) {
+    return Container(
+      color: Colors.orange[50],
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        Expanded(flex: 1, child: Center(child: Text('第$setNumセット計', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))),
+        ...players.map((p) => Expanded(flex: 2, child: Center(child: Text('${totals[p.id] ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))))),
+      ]),
+    );
   }
 
   void _download(Uint8List bytes, String name) {
