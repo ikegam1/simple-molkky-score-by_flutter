@@ -150,8 +150,10 @@ class _GameScreenState extends State<GameScreen> {
   List<int> selectedSkitels = [];
   int currentTurn = 1;
   final ScreenshotController screenshotController = ScreenshotController();
-  // セットごとの投数記録を保存
+  // セット終了時の「総投数」を記録（画像での区切りに使用）
   final List<int> setEndThrowIndices = [];
+  // 各セット終了時の各プレイヤーのスコア履歴を保存
+  final List<List<int>> setFinalScores = [];
 
   void _onSkitelTap(int num) {
     setState(() {
@@ -170,15 +172,12 @@ class _GameScreenState extends State<GameScreen> {
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
 
-      // 3ミスによる勝利確定チェック
       Player? setWinner;
       if (GameLogic.checkSetWinner(player, widget.match)) {
         setWinner = player;
       } else {
-        // 失格による勝利繰り上げチェック
         final others = widget.match.players.where((p) => p.currentScore == widget.match.targetScore).toList();
         if (others.isNotEmpty) {
-           // すでにロジック側で50点にセットされているはずなので、そちらを勝者とする
            setWinner = others.first;
            setWinner.setsWon++;
         }
@@ -186,6 +185,7 @@ class _GameScreenState extends State<GameScreen> {
 
       if (setWinner != null) {
         setEndThrowIndices.add(widget.match.players[0].matchScoreHistory.length);
+        setFinalScores.add(widget.match.players.map((p) => p.currentScore).toList());
         _showSetWinnerDialog(setWinner);
       }
       
@@ -350,20 +350,20 @@ class _GameScreenState extends State<GameScreen> {
     final players = widget.match.players;
     
     List<List<int>> allThrows = [];
-    int totalThrowsAcrossPlayers = 0;
+    int maxMatchThrows = 0;
     for (var p in players) {
       allThrows.add(p.matchScoreHistory);
-      if (p.matchScoreHistory.length > totalThrowsAcrossPlayers) totalThrowsAcrossPlayers = p.matchScoreHistory.length;
+      if (p.matchScoreHistory.length > maxMatchThrows) maxMatchThrows = p.matchScoreHistory.length;
     }
 
     int pageSize = 100;
-    int pageCount = (totalThrowsAcrossPlayers / pageSize).ceil();
+    int pageCount = (maxMatchThrows / pageSize).ceil();
     if (pageCount == 0) pageCount = 1;
 
     for (int page = 0; page < pageCount; page++) {
       int startThrow = page * pageSize;
       int endThrow = (page + 1) * pageSize;
-      if (endThrow > totalThrowsAcrossPlayers) endThrow = totalThrowsAcrossPlayers;
+      if (endThrow > maxMatchThrows) endThrow = maxMatchThrows;
 
       List<TableRow> rows = [];
       // Header
@@ -375,17 +375,18 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ));
 
-      int currentSetNum = 1;
-      for (int i = 0; i < totalThrowsAcrossPlayers; i++) {
-        // セットの区切り判定
+      int setCounter = 0;
+      for (int i = 0; i < maxMatchThrows; i++) {
+        // セット区切りと合計点表示
         if (i > 0 && setEndThrowIndices.contains(i)) {
-          currentSetNum++;
+          final scores = setFinalScores[setCounter];
+          setCounter++;
           if (i >= startThrow && i < endThrow) {
             rows.add(TableRow(
-              decoration: BoxDecoration(color: Colors.grey[200]),
+              decoration: BoxDecoration(color: Colors.orange[50]),
               children: [
-                TableCell(child: Padding(padding: const EdgeInsets.all(4), child: Text('第$currentSetNumセット', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))),
-                ...players.map((_) => const TableCell(child: SizedBox())),
+                TableCell(child: Padding(padding: const EdgeInsets.all(4), child: Text('第$setCounterセット終了', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))),
+                ...scores.map((s) => TableCell(child: Padding(padding: const EdgeInsets.all(4), child: Text('計 $s', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))),
               ],
             ));
           }
