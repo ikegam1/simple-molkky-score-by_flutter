@@ -46,13 +46,14 @@ class MolkkyMatch {
     }
 
     if (isDecidingSet) {
-      // 最終セット：合計得点 > 平均点 > 初期順位 でソート
+      // 最終セット：合計得点（高い順） > 総投数（低い順） > 初期順位 でソート
       players.sort((a, b) {
         if (b.totalMatchScore != a.totalMatchScore) {
           return b.totalMatchScore.compareTo(a.totalMatchScore);
         }
-        if (b.averageMatchScore != a.averageMatchScore) {
-          return b.averageMatchScore.compareTo(a.averageMatchScore);
+        if (a.totalMatchThrows != b.totalMatchThrows) {
+          // 投数は少ないほうが偉いので昇順
+          return a.totalMatchThrows.compareTo(b.totalMatchThrows);
         }
         return a.initialOrder.compareTo(b.initialOrder);
       });
