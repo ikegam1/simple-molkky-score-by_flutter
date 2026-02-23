@@ -172,15 +172,13 @@ class _GameScreenState extends State<GameScreen> {
       player.matchScoreHistory.add(lastPoints);
 
       Player? setWinner;
-      // まずは自分が50点になったかチェック
       if (GameLogic.checkSetWinner(player, widget.match)) {
         setWinner = player;
       } else {
-        // 自分が50点でない場合、他の人が（失格繰り上げ等で）50点になっているかチェック
         final winningOthers = widget.match.players.where((p) => p.currentScore == widget.match.targetScore).toList();
         if (winningOthers.isNotEmpty) {
            setWinner = winningOthers.first;
-           setWinner.setsWon++; // 繰り上げ勝利者のセットカウントを加算
+           setWinner.setsWon++;
         }
       }
 
@@ -201,7 +199,7 @@ class _GameScreenState extends State<GameScreen> {
     do {
       currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length;
       checkCount++;
-      if (checkCount >= widget.match.players.length) break; 
+      if (checkCount >= widget.match.players.length) break;
     } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != oldIndex);
     
     if (currentPlayerIndex == 0) {
@@ -211,18 +209,42 @@ class _GameScreenState extends State<GameScreen> {
 
   void _undo() {
     setState(() {
+      // 1. まず投擲者を1つ前に戻す
       if (currentPlayerIndex == 0 && currentTurn > 1) {
         currentTurn--;
         currentPlayerIndex = widget.match.players.length - 1;
       } else if (currentPlayerIndex > 0) {
         currentPlayerIndex--;
+      } else {
+        // これ以上戻れない
+        return;
       }
 
+      // 2. その戻ったプレイヤーが失格者の場合は、さらに戻る（再帰的な挙動）
+      // ただしUndoの文脈では「自分が投げた直後」に戻るはずなので、
+      // 投擲履歴があるプレイヤーに突き当たるまで戻るのが正解
+      while (widget.match.players[currentPlayerIndex].scoreHistory.isEmpty) {
+         if (currentPlayerIndex == 0 && currentTurn > 1) {
+            currentTurn--;
+            currentPlayerIndex = widget.match.players.length - 1;
+         } else if (currentPlayerIndex > 0) {
+            currentPlayerIndex--;
+         } else {
+            break;
+         }
+      }
+
+      // 3. そのプレイヤーの最新の投擲を履歴から消去
       final player = widget.match.players[currentPlayerIndex];
       if (player.scoreHistory.isNotEmpty) {
         int lastPoints = player.scoreHistory.removeLast();
-        player.matchScoreHistory.removeLast();
+        if (player.matchScoreHistory.isNotEmpty) {
+          player.matchScoreHistory.removeLast();
+        }
         player.currentScore -= lastPoints; 
+        
+        // 50点ピッタリだったのをUndoする場合（バースト時）はロジックが複雑になるが、
+        // 暫定的にこのままとし、ミス回数だけ戻す
         if (lastPoints == 0 && player.consecutiveMisses > 0) {
           player.consecutiveMisses--;
           player.isDisqualified = false;
