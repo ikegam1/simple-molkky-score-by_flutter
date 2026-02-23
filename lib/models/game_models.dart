@@ -114,6 +114,7 @@ class MolkkyMatch {
     if (type == MatchType.raceTo) {
       if (currentSetIndex == (limit * 2) - 1) isDeciding = true;
     } else {
+      // 固定セット形式（2番など）では、最後のセットを決着セットとして扱う
       if (currentSetIndex == limit) isDeciding = true;
     }
 
@@ -124,6 +125,7 @@ class MolkkyMatch {
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
+      // 通常：ローテーション（2番形式でも1セット目が終わったらスライドする）
       if (players.length > 1) {
         final first = players.removeAt(0);
         players.add(first);
