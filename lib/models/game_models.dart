@@ -29,9 +29,40 @@ class MolkkyMatch {
   MolkkyMatch({required this.players, this.totalSetsToWin = 2});
 
   Player? get matchWinner {
-    for (var player in players) {
-      if (player.setsWon >= totalSetsToWin) return player;
+    if (totalSetsToWin == 11) {
+      // 11先独自のデュースルール
+      int maxSets = 0;
+      Player? topPlayer;
+      for (var p in players) {
+        if (p.setsWon > maxSets) {
+          maxSets = p.setsWon;
+          topPlayer = p;
+        }
+      }
+
+      if (maxSets >= 11) {
+        // 全員の中で2番目に高いスコアを取得
+        int secondMax = 0;
+        for (var p in players) {
+          if (p != topPlayer && p.setsWon > secondMax) {
+            secondMax = p.setsWon;
+          }
+        }
+        
+        // 10-10以降は2点差が必要
+        if (maxSets >= 10 && secondMax >= 10) {
+          if (maxSets - secondMax >= 2) return topPlayer;
+          return null;
+        }
+        return topPlayer;
+      }
+      return null;
+    } else {
+      // 通常ルール
+      for (var player in players) {
+        if (player.setsWon >= totalSetsToWin) return player;
+      }
+      return null;
     }
-    return null;
   }
 }
