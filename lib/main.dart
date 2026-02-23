@@ -56,7 +56,7 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Column(
           children: [
             TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
-            Expanded(child: ReorderableListView(onReorder: (o, n) { setState(() { if (o < n) n -= 1; _playerNames.insert(n, _playerNames.removeAt(o)); }); }, children: [ for (int i = 0; i < _playerNames.length; i++) ListTile(key: Key('$i-${_playerNames[i]}'), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_playerNames[i]}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => setState(() => _playerNames.removeAt(i)))) ])),
+            Expanded(child: ReorderableListView(onReorder: (o, n) { setState(() { if (o < n) n -= 1; _playerNames.insert(n, _playerNames.removeAt(o)); }); }, children: [ for (int i = 0; i < _playerNames.length; i++) ListTile(key: Key('$i-${_playerNames[i]}'), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_playerNames[index]}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => setState(() => _playerNames.removeAt(i)))) ])),
             DropdownButtonFormField<int>(value: _selectedModeKey, items: _options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: const InputDecoration(labelText: '試合形式')),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -71,7 +71,7 @@ class _SetupScreenState extends State<SetupScreen> {
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -223,8 +223,14 @@ class _GameScreenState extends State<GameScreen> {
     tableRows.add(_buildImageHeader(players));
     for (var set in allSets) {
       for (var turn in set.turns) tableRows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
-      Map<String, int> setTotals = set.finalCumulativeScores.isNotEmpty ? set.finalCumulativeScores : { for (var p in players) p.id : p.currentScore };
-      tableRows.add(_buildImageSetSummaryRow(set.setNumber, setTotals, players));
+      
+      // セット計は、そのセット終了時点の「スコア」を正確に表示する
+      Map<String, int> setScores = set.finalCumulativeScores;
+      // 進行中のセットなどで空の場合は現在のスコアを入れる
+      if (setScores.isEmpty) {
+        setScores = { for (var p in players) p.id : p.currentScore };
+      }
+      tableRows.add(_buildImageSetSummaryRow(set.setNumber, setScores, players));
     }
 
     final widgetToCapture = Container(padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
