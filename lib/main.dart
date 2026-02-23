@@ -46,6 +46,7 @@ class _SetupScreenState extends State<SetupScreen> {
     2: '2番 (2セット)',
     3: '2先 (2本先取)',
     5: '3先 (3本先取)',
+    10: '10番 (10セット)',
     11: '11先 (11本先取)',
   };
 
@@ -116,7 +117,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 int winTarget;
                 if (_selectedSetMode == 11) {
                   winTarget = 11;
-                } else if (_selectedSetMode == 1 || _selectedSetMode == 2) {
+                } else if (_selectedSetMode == 1 || _selectedSetMode == 2 || _selectedSetMode == 10) {
                   winTarget = _selectedSetMode;
                 } else {
                   winTarget = (_selectedSetMode / 2).ceil();
@@ -174,9 +175,9 @@ class _GameScreenState extends State<GameScreen> {
       if (GameLogic.checkSetWinner(player, widget.match)) {
         setWinner = player;
       } else {
-        final others = widget.match.players.where((p) => p.currentScore == widget.match.targetScore).toList();
-        if (others.isNotEmpty) {
-           setWinner = others.first;
+        final winningOthers = widget.match.players.where((p) => p.currentScore == widget.match.targetScore).toList();
+        if (winningOthers.isNotEmpty) {
+           setWinner = winningOthers.first;
            setWinner.setsWon++;
         }
       }
@@ -194,8 +195,11 @@ class _GameScreenState extends State<GameScreen> {
 
   void _nextPlayer() {
     int oldIndex = currentPlayerIndex;
+    int checkCount = 0;
     do {
       currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length;
+      checkCount++;
+      if (checkCount >= widget.match.players.length) break;
     } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != oldIndex);
     
     if (currentPlayerIndex == 0) {
@@ -210,13 +214,29 @@ class _GameScreenState extends State<GameScreen> {
         currentPlayerIndex = widget.match.players.length - 1;
       } else if (currentPlayerIndex > 0) {
         currentPlayerIndex--;
+      } else {
+        return;
+      }
+
+      while (widget.match.players[currentPlayerIndex].scoreHistory.isEmpty) {
+         if (currentPlayerIndex == 0 && currentTurn > 1) {
+            currentTurn--;
+            currentPlayerIndex = widget.match.players.length - 1;
+         } else if (currentPlayerIndex > 0) {
+            currentPlayerIndex--;
+         } else {
+            break;
+         }
       }
 
       final player = widget.match.players[currentPlayerIndex];
       if (player.scoreHistory.isNotEmpty) {
         int lastPoints = player.scoreHistory.removeLast();
-        player.matchScoreHistory.removeLast();
+        if (player.matchScoreHistory.isNotEmpty) {
+          player.matchScoreHistory.removeLast();
+        }
         player.currentScore -= lastPoints; 
+        
         if (lastPoints == 0 && player.consecutiveMisses > 0) {
           player.consecutiveMisses--;
           player.isDisqualified = false;
