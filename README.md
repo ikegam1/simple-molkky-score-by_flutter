@@ -5,7 +5,7 @@
 
 ## 公開ページ
 
-[https://github.com/ikegam1/simple-molkky-score-by_flutter/pull/3](https://ikegam1.github.io/simple-molkky-score-by_flutter/)
+https://ikegam1.github.io/simple-molkky-score-by_flutter/
 
 ## ✨ 主な機能
 - **スコアボード機能:** 各ターンの得点と累計スコアを一覧表示（DataTable形式）。
