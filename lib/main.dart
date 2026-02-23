@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:screenshot/screenshot.dart';
-import 'dart:html' as html; // Web用ダウンロード
+import 'dart:html' as html;
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
@@ -150,6 +150,8 @@ class _GameScreenState extends State<GameScreen> {
   List<int> selectedSkitels = [];
   int currentTurn = 1;
   final ScreenshotController screenshotController = ScreenshotController();
+  final List<int> setEndThrowIndices = [];
+  final List<List<int>> setFinalScores = [];
 
   void _onSkitelTap(int num) {
     setState(() {
@@ -168,9 +170,23 @@ class _GameScreenState extends State<GameScreen> {
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
 
+      Player? setWinner;
       if (GameLogic.checkSetWinner(player, widget.match)) {
-        _showSetWinnerDialog(player);
+        setWinner = player;
+      } else {
+        final others = widget.match.players.where((p) => p.currentScore == widget.match.targetScore).toList();
+        if (others.isNotEmpty) {
+           setWinner = others.first;
+           setWinner.setsWon++;
+        }
       }
+
+      if (setWinner != null) {
+        setEndThrowIndices.add(widget.match.players[0].matchScoreHistory.length);
+        setFinalScores.add(widget.match.players.map((p) => p.currentScore).toList());
+        _showSetWinnerDialog(setWinner);
+      }
+      
       selectedSkitels.clear();
       _nextPlayer();
     });
@@ -261,7 +277,7 @@ class _GameScreenState extends State<GameScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('${winner.name} さんが50点到達！', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Text('${winner.name} さんが勝利！', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const SizedBox(height: 20),
               const Text('--- マッチ状況 ---', style: TextStyle(color: Colors.grey)),
               Flexible(
@@ -331,23 +347,61 @@ class _GameScreenState extends State<GameScreen> {
     final dateString = dateFormat.format(widget.match.startTime);
     final players = widget.match.players;
     
-    // 全投擲データをまとめる
     List<List<int>> allThrows = [];
-    int maxThrows = 0;
+    int maxMatchThrows = 0;
     for (var p in players) {
       allThrows.add(p.matchScoreHistory);
-      if (p.matchScoreHistory.length > maxThrows) maxThrows = p.matchScoreHistory.length;
+      if (p.matchScoreHistory.length > maxMatchThrows) maxMatchThrows = p.matchScoreHistory.length;
     }
 
-    // 100投擲ごとに分割して画像を生成
     int pageSize = 100;
-    int pageCount = (maxThrows / pageSize).ceil();
+    int pageCount = (maxMatchThrows / pageSize).ceil();
     if (pageCount == 0) pageCount = 1;
 
     for (int page = 0; page < pageCount; page++) {
       int startThrow = page * pageSize;
       int endThrow = (page + 1) * pageSize;
-      if (endThrow > maxThrows) endThrow = maxThrows;
+      if (endThrow > maxMatchThrows) endThrow = maxMatchThrows;
+
+      List<TableRow> rows = [];
+      rows.add(TableRow(
+        decoration: BoxDecoration(color: Colors.blue[50]),
+        children: [
+          const TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text('No', style: TextStyle(fontWeight: FontWeight.bold)))),
+          ...players.map((p) => TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
+        ],
+      ));
+
+      int setCounter = 0;
+      for (int i = 0; i < maxMatchThrows; i++) {
+        if (i > 0 && setEndThrowIndices.contains(i)) {
+          final scores = setFinalScores[setCounter];
+          setCounter++;
+          if (i >= startThrow && i < endThrow) {
+            rows.add(TableRow(
+              decoration: BoxDecoration(color: Colors.orange[50]),
+              children: [
+                TableCell(child: Padding(padding: const EdgeInsets.all(4), child: Text('第$setCounterセット終了', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))),
+                ...scores.map((s) => TableCell(child: Padding(padding: const EdgeInsets.all(4), child: Text('計 $s', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))),
+              ],
+            ));
+          }
+        }
+
+        if (i >= startThrow && i < endThrow) {
+          rows.add(TableRow(
+            children: [
+              TableCell(child: Padding(padding: const EdgeInsets.all(8), child: Text('${i + 1}'))),
+              ...allThrows.map((history) => TableCell(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(history.length > i ? '${history[i]}' : '-'),
+                ),
+              )),
+            ],
+          ));
+        }
+      }
 
       final widgetToCapture = Container(
         padding: const EdgeInsets.all(20),
@@ -363,27 +417,7 @@ class _GameScreenState extends State<GameScreen> {
             const SizedBox(height: 20),
             Table(
               border: TableBorder.all(color: Colors.grey),
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(color: Colors.blue[50]),
-                  children: [
-                    const TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text('No', style: TextStyle(fontWeight: FontWeight.bold)))),
-                    ...players.map((p) => TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
-                  ],
-                ),
-                for (int i = startThrow; i < endThrow; i++)
-                  TableRow(
-                    children: [
-                      TableCell(child: Padding(padding: const EdgeInsets.all(8), child: Text('${i + 1}'))),
-                      ...allThrows.map((history) => TableCell(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text(history.length > i ? '${history[i]}' : '-'),
-                        ),
-                      )),
-                    ],
-                  ),
-              ],
+              children: rows,
             ),
           ],
         ),
