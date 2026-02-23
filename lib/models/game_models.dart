@@ -6,8 +6,6 @@ class Player {
   int consecutiveMisses = 0;
   bool isDisqualified = false;
   int setsWon = 0;
-  
-  // 履歴表示用
   List<int> scoreHistory = []; 
   List<int> matchScoreHistory = [];
 
@@ -26,15 +24,15 @@ class Player {
 
 class TurnRecord {
   final int turnNumber;
-  final Map<String, int> scores; // playerId -> score in this turn
+  final Map<String, int> scores;
   TurnRecord(this.turnNumber, this.scores);
 }
 
 class SetRecord {
   final int setNumber;
   final List<TurnRecord> turns = [];
-  final Map<String, int> finalCumulativeScores = {}; // セット終了時の全プレイヤーの通算得点
-  final String starterPlayerId; // このセットの先行
+  final Map<String, int> finalCumulativeScores = {};
+  final String starterPlayerId;
   SetRecord(this.setNumber, this.starterPlayerId);
 }
 
@@ -50,7 +48,6 @@ class MolkkyMatch {
   int currentSetIndex = 1;
   final DateTime startTime;
   
-  // 構造化された履歴
   List<SetRecord> completedSets = [];
   SetRecord currentSetRecord;
 
@@ -63,14 +60,18 @@ class MolkkyMatch {
 
   bool get isMatchOver {
     if (type == MatchType.fixedSets) return currentSetIndex >= limit;
-    if (limit == 11) return matchWinner != null;
-    for (var p in players) if (p.setsWon >= limit) return true;
+    for (var p in players) {
+      if (p.setsWon >= limit) {
+        if (limit == 11) return matchWinner != null;
+        return true;
+      }
+    }
     return false;
   }
 
   Player? get matchWinner {
     if (type == MatchType.fixedSets) {
-      if (currentSetIndex < limit) return null; // まだ終わっていない
+      if (currentSetIndex < limit) return null;
       final sorted = List<Player>.from(players);
       sorted.sort((a, b) {
         if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
@@ -79,15 +80,11 @@ class MolkkyMatch {
       });
       return sorted.first;
     } else {
-      // Race To (2先, 11先など)
       for (var p in players) {
         if (p.setsWon >= limit) {
-          // 11先の場合は2点差チェックが必要
           if (limit == 11) {
             int secondMax = 0;
-            for (var other in players) {
-              if (other != p && other.setsWon > secondMax) secondMax = other.setsWon;
-            }
+            for (var other in players) if (other != p && other.setsWon > secondMax) secondMax = other.setsWon;
             if (p.setsWon >= 10 && secondMax >= 10) {
               if (p.setsWon - secondMax >= 2) return p;
               return null;
@@ -101,19 +98,15 @@ class MolkkyMatch {
   }
 
   void prepareNextSet() {
-    // 現在のセットを通算履歴に保存
-    for (var p in players) {
-      currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
-    }
+    for (var p in players) currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
     completedSets.add(currentSetRecord);
     
     currentSetIndex++;
-    
-    // 順位入れ替えロジック
     bool isDeciding = false;
     if (type == MatchType.raceTo) {
       if (currentSetIndex == (limit * 2) - 1) isDeciding = true;
     } else {
+      // 2番形式などでも、最後のセットが決着セット
       if (currentSetIndex == limit) isDeciding = true;
     }
 
@@ -124,13 +117,13 @@ class MolkkyMatch {
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
+      // 全形式で先行スライド
       if (players.length > 1) {
         final first = players.removeAt(0);
         players.add(first);
       }
     }
 
-    // 新しいセットの記録準備
     currentSetRecord = SetRecord(currentSetIndex, players.first.id);
     for (var p in players) p.resetForNewSet();
   }
