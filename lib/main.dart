@@ -153,7 +153,7 @@ class _GameScreenState extends State<GameScreen> {
   final ScreenshotController screenshotController = ScreenshotController();
   final List<int> setEndThrowIndices = [];
   final List<List<int>> setFinalScores = [];
-  bool isSetFinished = false; // セット終了後の連打防止ガード
+  bool isSetFinished = false;
 
   void _onSkitelTap(int num) {
     if (isSetFinished) return;
@@ -171,36 +171,28 @@ class _GameScreenState extends State<GameScreen> {
     
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
-      // 1. スコア計算実行
+      // 1. スコア計算
       GameLogic.processThrow(player, selectedSkitels, widget.match);
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
 
-      // 2. 勝利者判定（3ミス失格による繰り上げ勝利も含む）
+      // 2. 勝利判定（誰か1人でも50点に達したか？）
       Player? setWinner;
-      
-      // 自分が50点（ピッタリ上がり）
-      if (player.currentScore == widget.match.targetScore) {
-        setWinner = player;
-        setWinner.setsWon++;
-      } else {
-        // 失格チェック：自分が失格になった結果、生存者が1名になったか？
-        final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
-        if (survivors.length == 1) {
-          setWinner = survivors.first;
-          setWinner.currentScore = widget.match.targetScore; // 強制的に50点にする
-          setWinner.setsWon++;
+      for (var p in widget.match.players) {
+        if (p.currentScore == widget.match.targetScore) {
+          setWinner = p;
+          break; 
         }
       }
 
       // 3. セット終了処理
       if (setWinner != null) {
         isSetFinished = true;
+        setWinner.setsWon++; // 勝者にセットカウントを付与
         setEndThrowIndices.add(widget.match.players[0].matchScoreHistory.length);
         setFinalScores.add(widget.match.players.map((p) => p.currentScore).toList());
         _showSetWinnerDialog(setWinner);
       } else {
-        // 続行：次のプレイヤーへ
         selectedSkitels.clear();
         _nextPlayer();
       }
@@ -212,7 +204,7 @@ class _GameScreenState extends State<GameScreen> {
     do {
       currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length;
       checkCount++;
-      if (checkCount >= widget.match.players.length) break; 
+      if (checkCount >= widget.match.players.length) break;
     } while (widget.match.players[currentPlayerIndex].isDisqualified);
     
     if (currentPlayerIndex == 0) {
@@ -294,6 +286,12 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ),
         actions: [
+          ElevatedButton.icon(
+            onPressed: () => _exportResultAsImage(),
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text('画像を保存'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+          ),
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('戻る')),
         ],
       ),
@@ -347,7 +345,7 @@ class _GameScreenState extends State<GameScreen> {
                   widget.match.prepareNextSet();
                   currentPlayerIndex = 0;
                   currentTurn = 1;
-                  isSetFinished = false; // ガード解除
+                  isSetFinished = false;
                   selectedSkitels.clear();
                 });
               }
@@ -370,7 +368,7 @@ class _GameScreenState extends State<GameScreen> {
           ElevatedButton.icon(
             onPressed: () => _exportResultAsImage(),
             icon: const Icon(Icons.download),
-            label: const Text('結果を画像で保存'),
+            label: const Text('最終結果を画像で保存'),
           ),
           TextButton(onPressed: () => Navigator.popUntil(context, (route) => route.isFirst), child: const Text('終了'))
         ],
