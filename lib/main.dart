@@ -201,6 +201,46 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  void _showSummaryDialog({String title = '現在の状況'}) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('--- マッチ統計 ---', style: TextStyle(color: Colors.grey)),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: DataTable(
+                    columnSpacing: 10,
+                    columns: const [
+                      DataColumn(label: Text('名')),
+                      DataColumn(label: Text('勝セット')),
+                      DataColumn(label: Text('総点')),
+                      DataColumn(label: Text('平均')),
+                    ],
+                    rows: widget.match.players.map((p) => DataRow(cells: [
+                      DataCell(Text(p.name)),
+                      DataCell(Text('${p.setsWon}')),
+                      DataCell(Text('${p.totalMatchScore}')),
+                      DataCell(Text(p.averageMatchScore.toStringAsFixed(1))),
+                    ])).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('戻る')),
+        ],
+      ),
+    );
+  }
+
   void _showSetWinnerDialog(Player winner) {
     showDialog(
       context: context,
@@ -221,8 +261,8 @@ class _GameScreenState extends State<GameScreen> {
                     columnSpacing: 10,
                     columns: const [
                       DataColumn(label: Text('名')),
-                      DataColumn(label: Text('セット')),
-                      DataColumn(label: Text('計')),
+                      DataColumn(label: Text('勝セット')),
+                      DataColumn(label: Text('総点')),
                       DataColumn(label: Text('平均')),
                     ],
                     rows: widget.match.players.map((p) => DataRow(cells: [
@@ -277,7 +317,16 @@ class _GameScreenState extends State<GameScreen> {
     final currentPlayer = widget.match.players[currentPlayerIndex];
     
     return Scaffold(
-      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット')),
+      appBar: AppBar(
+        title: Text('第 ${widget.match.currentSetIndex} セット'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: _showSummaryDialog,
+            tooltip: 'マッチ履歴を表示',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Container(
@@ -333,9 +382,8 @@ class _GameScreenState extends State<GameScreen> {
                         )),
                       ]),
                     ],
-                    // 最新のターンが一番上に来るように逆順で生成
                     rows: List.generate(currentTurn, (i) {
-                      int turnNum = currentTurn - i; // 逆順
+                      int turnNum = currentTurn - i;
                       return DataRow(cells: [
                         DataCell(Center(child: Text('$turnNum'))),
                         ...widget.match.players.expand((p) {
