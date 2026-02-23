@@ -71,7 +71,7 @@ class _SetupScreenState extends State<SetupScreen> {
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.6', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.7', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -109,14 +109,18 @@ class _GameScreenState extends State<GameScreen> {
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
 
+      // 失格チェック：一人が失格し、残りが一人なら勝利確定
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       if (survivors.length == 1) {
-        survivors.first.currentScore = widget.match.targetScore;
-        turnInProgressScores[survivors.first.id] = 50; 
-        // ルール：失格者のスコアは0点として記録
-        for (var p in widget.match.players) {
-          if (p.isDisqualified) p.currentScore = 0;
-        }
+        final survivor = survivors.first;
+        // 勝利者のスコアを通算履歴に追加（投げずに50点になる分を補填）
+        int neededTo50 = widget.match.targetScore - survivor.currentScore;
+        survivor.currentScore = widget.match.targetScore;
+        survivor.matchScoreHistory.add(neededTo50); // これで画像上の合計が50になる
+        turnInProgressScores[survivor.id] = neededTo50;
+        
+        // 失格者のスコアを0にする
+        for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
       }
 
       Player? winner;
@@ -216,7 +220,6 @@ class _GameScreenState extends State<GameScreen> {
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
     final dateString = dateFormat.format(widget.match.startTime);
 
-    List<Map<String, dynamic>> flatRows = [];
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
        SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
@@ -225,36 +228,27 @@ class _GameScreenState extends State<GameScreen> {
        allSets.add(ongoing);
     } else allSets.add(widget.match.currentSetRecord);
 
+    List<Widget> tableRows = [];
+    tableRows.add(_buildImageHeader(players));
     for (var set in allSets) {
-      for (var turn in set.turns) flatRows.add({'type': 'turn', 'turn': turn, 'starter': set.starterPlayerId});
-      Map<String, int> scores = set.finalCumulativeScores.isNotEmpty ? set.finalCumulativeScores : { for (var p in players) p.id : p.currentScore };
-      flatRows.add({'type': 'summary', 'setNum': set.setNumber, 'scores': scores});
+      for (var turn in set.turns) tableRows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
+      Map<String, int> setScores = set.finalCumulativeScores;
+      if (setScores.isEmpty) setScores = { for (var p in players) p.id : p.currentScore };
+      tableRows.add(_buildImageSetSummaryRow(set.setNumber, setScores, players));
     }
 
-    int pageSize = 100;
-    int totalPages = (flatRows.length / pageSize).ceil();
-    if (totalPages == 0) totalPages = 1;
+    final widgetToCapture = Container(
+      padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Molkky Match Result', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
+        Text('開始: $dateString', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+        const SizedBox(height: 20),
+        Column(children: tableRows),
+      ]),
+    );
 
-    for (int p = 0; p < totalPages; p++) {
-      final pageItems = flatRows.skip(p * pageSize).take(pageSize).toList();
-      List<Widget> tableWidgets = [];
-      tableWidgets.add(_buildImageHeader(players));
-      for (var item in pageItems) {
-        if (item['type'] == 'turn') tableWidgets.add(_buildImageTurnRow(item['turn'], players, item['starter']));
-        else tableWidgets.add(_buildImageSetSummaryRow(item['setNum'], item['scores'], players));
-      }
-
-      final widgetToCapture = Container(padding: const EdgeInsets.all(20), color: Colors.white, width: 800,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Molkky Match Result', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
-          Text('開始: $dateString | Page: ${p + 1}/$totalPages', style: const TextStyle(fontSize: 14, color: Colors.grey)),
-          const SizedBox(height: 20),
-          Column(children: tableWidgets),
-        ]),
-      );
-      _download(await screenshotController.captureFromWidget(widgetToCapture), 'molkky_result_p${p + 1}.png');
-      await Future.delayed(const Duration(milliseconds: 500));
-    }
+    // 1枚に統合して出力
+    _download(await screenshotController.captureFromWidget(widgetToCapture), 'molkky_result_complete.png');
   }
 
   Widget _buildImageHeader(List<Player> players) {
