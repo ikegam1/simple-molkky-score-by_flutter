@@ -1,9 +1,6 @@
 
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:screenshot/screenshot.dart';
-import 'dart:html' as html;
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
@@ -58,7 +55,7 @@ class _SetupScreenState extends State<SetupScreen> {
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.8', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.9', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -77,7 +74,6 @@ class _GameScreenState extends State<GameScreen> {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
-  final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
@@ -100,7 +96,7 @@ class _GameScreenState extends State<GameScreen> {
         s.currentScore = widget.match.targetScore;
         s.matchScoreHistory.add(needed);
         turnInProgressScores[s.id] = needed;
-        systemCalculatedIds.add(s.id); // システム補填フラグ
+        systemCalculatedIds.add(s.id); 
         for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
       }
 
@@ -142,92 +138,44 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  void _showSummary() {
-    showDialog(context: context, builder: (c) => AlertDialog(
-      title: const Text('マッチ状況'),
-      content: SingleChildScrollView(child: DataTable(columnSpacing: 10, columns: const [DataColumn(label: Text('名')), DataColumn(label: Text('セット')), DataColumn(label: Text('総点')), DataColumn(label: Text('投数'))],
-        rows: widget.match.players.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text('${p.setsWon}')), DataCell(Text('${p.totalMatchScore}')), DataCell(Text('${p.totalMatchThrows}'))])).toList())),
-      actions: [ElevatedButton.icon(onPressed: _export, icon: const Icon(Icons.download), label: const Text('画像を保存')), TextButton(onPressed: () => Navigator.pop(c), child: const Text('戻る'))],
-    ));
+  void _goToHistory() {
+    // 進行中のターンも含めた履歴データを作成
+    List<SetRecord> allSets = List.from(widget.match.completedSets);
+    if (!isSetFinished) {
+      SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
+      ongoing.turns.addAll(widget.match.currentSetRecord.turns);
+      if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
+      allSets.add(ongoing);
+    } else {
+      allSets.add(widget.match.currentSetRecord);
+    }
+
+    Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(match: widget.match, sets: allSets)));
   }
 
   void _showSetWinnerDialog(Player winner) {
     showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: Text('第 ${widget.match.currentSetIndex} セット終了'), content: Text('${winner.name} さんが勝利！'),
-      actions: [TextButton(onPressed: () {
-        Navigator.pop(c); if (widget.match.isMatchOver) _showMatchWinnerDialog(winner);
-        else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear(); });
-      }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))]));
+      actions: [
+        TextButton(onPressed: _goToHistory, child: const Text('履歴を確認')),
+        TextButton(onPressed: () {
+          Navigator.pop(c); if (widget.match.isMatchOver) _showMatchWinnerDialog(winner);
+          else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear(); });
+        }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))]));
   }
 
   void _showMatchWinnerDialog(Player winner) {
-    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: const Text('🎊 優勝！ 🎊'), content: Text('${winner.name} さんの勝利です！'),
-      actions: [ElevatedButton.icon(onPressed: _export, icon: const Icon(Icons.download), label: const Text('保存')), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('終了'))]));
-  }
-
-  Future<void> _export() async {
-    final players = widget.match.players;
-    final dateString = DateFormat('yyyy/MM/dd HH:mm').format(widget.match.startTime);
-    List<SetRecord> allSets = List.from(widget.match.completedSets);
-    if (!isSetFinished) {
-       SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
-       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
-       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
-       allSets.add(ongoing);
-    } else allSets.add(widget.match.currentSetRecord);
-
-    List<Widget> rows = [];
-    rows.add(_buildImageHeader(players));
-    for (var set in allSets) {
-      for (var turn in set.turns) rows.add(_buildImageTurnRow(turn, players, set.starterPlayerId));
-      Map<String, int> scores = set.finalCumulativeScores.isNotEmpty ? set.finalCumulativeScores : { for (var p in players) p.id : p.currentScore };
-      rows.add(_buildImageSetSummaryRow(set.setNumber, scores, players));
-    }
-
-    final widgetToCapture = Container(padding: const EdgeInsets.all(10), color: Colors.white, width: 600,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text('Molkky Result', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
-        Text('開始: $dateString', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        const SizedBox(height: 10),
-        Column(children: rows),
-      ]),
-    );
-
-    _download(await screenshotController.captureFromWidget(widgetToCapture, delay: const Duration(milliseconds: 200)), 'molkky_result.png');
-  }
-
-  Widget _buildImageHeader(List<Player> players) {
-    return Container(color: const Color(0xFFF1F8FE), padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [ const Expanded(flex: 1, child: Center(child: Text('T', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)))), ...players.map((p) => Expanded(flex: 2, child: Center(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), overflow: TextOverflow.ellipsis)))) ]));
-  }
-
-  Widget _buildImageTurnRow(TurnRecord turn, List<Player> players, String starterId) {
-    return Container(decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[200]!))), padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(children: [
-        Expanded(flex: 1, child: Center(child: Text('${turn.turnNumber}', style: const TextStyle(fontSize: 11)))),
-        ...players.map((p) {
-          bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
-          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
-          return Expanded(flex: 2, child: Center(child: Text(txt, style: TextStyle(fontWeight: p.id == starterId ? FontWeight.bold : FontWeight.normal, fontSize: 13))));
-        })]));
-  }
-
-  Widget _buildImageSetSummaryRow(int setNum, Map<String, int> totals, List<Player> players) {
-    return Container(color: const Color(0xFFFFF8E1), padding: const EdgeInsets.symmetric(vertical: 2), margin: const EdgeInsets.symmetric(vertical: 1),
-      child: Row(children: [
-        Expanded(flex: 1, child: Center(child: Text('S$setNum計', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)))),
-        ...players.map((p) => Expanded(flex: 2, child: Center(child: Text('${totals[p.id] ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 11)))))]));
-  }
-
-  void _download(Uint8List bytes, String name) {
-    final blob = html.Blob([bytes]); final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)..setAttribute("download", name)..click(); html.Url.revokeObjectUrl(url);
+    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: const Text('🎊 マッチ終了 🎊'), content: Text('優勝: ${winner.name} さん'),
+      actions: [
+        TextButton(onPressed: _goToHistory, child: const Text('履歴を確認')),
+        TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('終了'))
+      ]));
   }
 
   @override
   Widget build(BuildContext context) {
     final currentPlayer = widget.match.players[currentPlayerIndex];
     return Scaffold(
-      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), actions: [TextButton.icon(onPressed: _showSummary, icon: const Icon(Icons.history, size: 18), label: const Text('履歴'))]),
+      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: const Text('履歴'))]),
       body: Column(
         children: [
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
@@ -262,6 +210,79 @@ class _GameScreenState extends State<GameScreen> {
             ]),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class HistoryPage extends StatelessWidget {
+  final MolkkyMatch match;
+  final List<SetRecord> sets;
+  const HistoryPage({super.key, required this.match, required this.sets});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
+    final players = match.players;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('全セット履歴')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Molkky Match Report', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[900])),
+            Text('開始: ${dateFormat.format(match.startTime)}', style: const TextStyle(color: Colors.grey)),
+            const Divider(height: 30),
+            for (var set in sets) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                color: const Color(0xFFE3F2FD),
+                child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columnSpacing: 20,
+                  headingRowHeight: 40,
+                  columns: [
+                    const DataColumn(label: Text('T')),
+                    ...players.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                  ],
+                  rows: [
+                    ...set.turns.map((turn) => DataRow(cells: [
+                      DataCell(Text('${turn.turnNumber}')),
+                      ...players.map((p) {
+                        bool isStarter = p.id == set.starterPlayerId;
+                        bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
+                        String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
+                        return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
+                      }),
+                    ])),
+                    DataRow(
+                      color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
+                      cells: [
+                        const DataCell(Text('計', style: TextStyle(fontWeight: FontWeight.bold))),
+                        ...players.map((p) {
+                          int total = set.finalCumulativeScores[p.id] ?? 0;
+                          if (set.finalCumulativeScores.isEmpty) {
+                             // まだ終了していないセットの場合は、そのセット単体の合計ではなく現在のマッチ得点を出すか検討
+                             // ここでは一貫性のために最終計として表示
+                             total = p.currentScore;
+                          }
+                          return DataCell(Text('$total', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)));
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ],
+        ),
       ),
     );
   }
