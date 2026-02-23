@@ -85003,10 +85003,8 @@ I(){return"MatchType."+this.b}}
 A.a7O.prototype={
 gUU(){var s,r,q,p,o=this
 if(o.f===B.km)return o.r>=o.e
-s=o.e
-if(s===11)return o.gamd()!=null
-for(r=o.a,q=r.length,p=0;p<q;++p)if(r[p].r>=s)return!0
-return!1},
+for(s=o.a,r=s.length,q=o.e,p=0;p<r;++p)if(s[p].r>=q){if(q===11)return o.gamd()!=null
+return!0}return!1},
 gamd(){var s,r,q,p,o,n,m,l,k,j=this
 if(j.f===B.km){if(j.r<j.e)return null
 s=A.hN(j.a,!0,t.Uo)
