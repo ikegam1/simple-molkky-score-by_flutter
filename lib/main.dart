@@ -1,5 +1,11 @@
 
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:screenshot/screenshot.dart';
+import 'dart:html' as html; // Web用ダウンロード
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
@@ -143,6 +149,7 @@ class _GameScreenState extends State<GameScreen> {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurn = 1;
+  final ScreenshotController screenshotController = ScreenshotController();
 
   void _onSkitelTap(int num) {
     setState(() {
@@ -308,10 +315,92 @@ class _GameScreenState extends State<GameScreen> {
         title: const Text('🎊 優勝！ 🎊'),
         content: Text('${winner.name} さんの勝利です！'),
         actions: [
+          ElevatedButton.icon(
+            onPressed: () => _exportResultAsImage(),
+            icon: const Icon(Icons.download),
+            label: const Text('結果を画像で保存'),
+          ),
           TextButton(onPressed: () => Navigator.popUntil(context, (route) => route.isFirst), child: const Text('終了'))
         ],
       ),
     );
+  }
+
+  Future<void> _exportResultAsImage() async {
+    final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
+    final dateString = dateFormat.format(widget.match.startTime);
+    final players = widget.match.players;
+    
+    // 全投擲データをまとめる
+    List<List<int>> allThrows = [];
+    int maxThrows = 0;
+    for (var p in players) {
+      allThrows.add(p.matchScoreHistory);
+      if (p.matchScoreHistory.length > maxThrows) maxThrows = p.matchScoreHistory.length;
+    }
+
+    // 100投擲ごとに分割して画像を生成
+    int pageSize = 100;
+    int pageCount = (maxThrows / pageSize).ceil();
+    if (pageCount == 0) pageCount = 1;
+
+    for (int page = 0; page < pageCount; page++) {
+      int startThrow = page * pageSize;
+      int endThrow = (page + 1) * pageSize;
+      if (endThrow > maxThrows) endThrow = maxThrows;
+
+      final widgetToCapture = Container(
+        padding: const EdgeInsets.all(20),
+        color: Colors.white,
+        width: 800,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Molkky Match Result', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[900])),
+            Text('開始日時: $dateString', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            if (pageCount > 1) Text('Page: ${page + 1} / $pageCount', style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 20),
+            Table(
+              border: TableBorder.all(color: Colors.grey),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.blue[50]),
+                  children: [
+                    const TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text('No', style: TextStyle(fontWeight: FontWeight.bold)))),
+                    ...players.map((p) => TableCell(child: Padding(padding: EdgeInsets.all(8), child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)))),
+                  ],
+                ),
+                for (int i = startThrow; i < endThrow; i++)
+                  TableRow(
+                    children: [
+                      TableCell(child: Padding(padding: const EdgeInsets.all(8), child: Text('${i + 1}'))),
+                      ...allThrows.map((history) => TableCell(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(history.length > i ? '${history[i]}' : '-'),
+                        ),
+                      )),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      final uint8list = await screenshotController.captureFromWidget(widgetToCapture);
+      _downloadImageWeb(uint8list, 'molkky_result_p${page + 1}.png');
+    }
+  }
+
+  void _downloadImageWeb(Uint8List bytes, String fileName) {
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", fileName)
+      ..click();
+    html.Url.revokeObjectUrl(url);
   }
 
   @override
