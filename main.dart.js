@@ -84712,7 +84712,7 @@ A.N8.prototype={
 L(a){return new A.yR(B.NO,"Simple Molkky Score",A.ue(null,null,B.cS,!0),null)}}
 A.AK.prototype={
 ap(){var s=A.c([],t.s)
-return new A.ER(s,new A.NO(B.za,$.am()),A.at([1,"1\u756a (1\u30bb\u30c3\u30c8)",2,"2\u756a (2\u30bb\u30c3\u30c8)",3,"2\u5148 (2\u672c\u5148\u53d6)",5,"3\u5148 (3\u672c\u5148\u53d6)",11,"11\u5148 (11\u672c\u5148\u53d6)"],t.S,t.N))}}
+return new A.ER(s,new A.NO(B.za,$.am()),A.at([1,"1\u756a (1\u30bb\u30c3\u30c8)",2,"2\u756a (2\u30bb\u30c3\u30c8)",3,"2\u5148 (2\u672c\u5148\u53d6)",5,"3\u5148 (3\u672c\u5148\u53d6)",10,"10\u756a (10\u30bb\u30c3\u30c8)",11,"11\u5148 (11\u672c\u5148\u53d6)"],t.S,t.N))}}
 A.ER.prototype={
 Kp(){if(this.e.a.a.length!==0)this.aj(new A.anv(this))},
 L(a){var s,r,q,p,o,n,m=this,l=null,k=A.av0(l,B.Uj),j=A.awu(l,l,l,l,l,l,l,l,!0,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,l,"\u30d7\u30ec\u30a4\u30e4\u30fc\u540d\u3092\u5165\u529b",!0,!0,!1,l,l,l,l,l,l,l,l,A.a4_(l,l,B.Fr,l,l,m.ga1T(),l,l,l),l,l,l,l,l),i=t.p,h=A.c([],i)
@@ -84771,7 +84771,7 @@ $0(){var s,r,q,p,o,n=A.c([],t.zU)
 for(s=this.a,r=s.d,q=t.t,p=0;p<r.length;++p)n.push(new A.dK(r[p],p,A.c([],q),A.c([],q)))
 o=s.f
 if(o===11)o=11
-else o=o===1||o===2?o:B.c.kO(o/2)
+else o=o===1||o===2||o===10?o:B.c.kO(o/2)
 s=A.awW(new A.anw(new A.a7L(n,o,new A.eT(Date.now(),0,!1))),null,t.z)
 A.kH(this.b,!1).mz(s)},
 $S:0}
@@ -84785,11 +84785,13 @@ A.D7.prototype={
 aas(a){this.aj(new A.ajz(this,a))},
 adQ(){var s=this
 s.aj(new A.ajN(s,s.a.c.a[s.d]))},
-a9W(){var s,r=this,q=r.d,p=q
-do{s=r.a.c.a
-p=B.i.bg(p+1,s.length)
-r.d=p}while(s[p].f&&p!==q)
-if(p===0)++r.f},
+a9W(){var s,r,q=this,p=q.d,o=p,n=0
+do{s=q.a.c.a
+r=s.length
+o=B.i.bg(o+1,r)
+q.d=o;++n
+if(n>=r)break}while(s[o].f&&o!==p)
+if(o===0)++q.f},
 aei(){this.aj(new A.ajO(this))},
 PM(a){var s=this.c
 s.toString
@@ -84894,16 +84896,21 @@ A.ajM.prototype={
 $1(a){return a.d},
 $S:529}
 A.ajO.prototype={
-$0(){var s,r,q=this.a,p=q.d
-if(p===0&&q.f>1){--q.f
-p=q.d=q.a.c.a.length-1}else if(p>0){--p
-q.d=p}s=q.a.c.a[p]
-p=s.w
-if(p.length!==0){r=p.pop()
-s.x.pop()
-s.d-=r
-if(r===0&&s.e>0){--s.e
-s.f=!1}}B.b.Z(q.e)},
+$0(){var s,r,q,p,o,n=this.a,m=n.d
+if(m===0&&n.f>1){--n.f
+m=n.a.c.a.length-1
+n.d=m}else if(m>0){--m
+n.d=m}else return
+while(s=n.a.c.a,r=s[m],q=r.w,p=q.length===0,p)if(m===0&&n.f>1){--n.f
+m=s.length-1
+n.d=m}else if(m>0){--m
+n.d=m}else break
+if(!p){o=q.pop()
+m=r.x
+if(m.length!==0)m.pop()
+r.d-=o
+if(o===0&&r.e>0){--r.e
+r.f=!1}}B.b.Z(n.e)},
 $S:0}
 A.ajK.prototype={
 $1(a){var s=null,r=A.bQ(this.b,s,s,s,s,s,s),q=this.a.a.c.a,p=A.X(q).i("a9<1,fX>")
