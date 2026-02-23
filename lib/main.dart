@@ -122,6 +122,8 @@ class _SetupScreenState extends State<SetupScreen> {
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
+            const SizedBox(height: 10),
+            const Text('v0.1.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
