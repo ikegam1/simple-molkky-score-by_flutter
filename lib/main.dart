@@ -1,0 +1,406 @@
+
+import 'package:flutter/material.dart';
+import 'models/game_models.dart';
+import 'logic/game_logic.dart';
+
+void main() {
+  runApp(const SimpleMolkkyApp());
+}
+
+class SimpleMolkkyApp extends StatelessWidget {
+  const SimpleMolkkyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Simple Molkky Score',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+      ),
+      home: const SetupScreen(),
+    );
+  }
+}
+
+class SetupScreen extends StatefulWidget {
+  const SetupScreen({super.key});
+
+  @override
+  State<SetupScreen> createState() => _SetupScreenState();
+}
+
+class _SetupScreenState extends State<SetupScreen> {
+  final List<String> _playerNames = [];
+  final TextEditingController _nameController = TextEditingController();
+  int _selectedSetMode = 3;
+
+  final Map<int, String> _setOptions = {
+    1: '1番 (1セット)',
+    2: '2番 (2セット)',
+    3: '2先 (2本先取)',
+    5: '3先 (3本先取)',
+    10: '10番 (10セット)',
+  };
+
+  void _addPlayer() {
+    if (_nameController.text.isNotEmpty) {
+      setState(() {
+        _playerNames.add(_nameController.text);
+        _nameController.clear();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('セットアップ')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'プレイヤー名を入力',
+                suffixIcon: IconButton(onPressed: _addPlayer, icon: const Icon(Icons.add)),
+              ),
+              onSubmitted: (_) => _addPlayer(),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ReorderableListView(
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    if (oldIndex < newIndex) newIndex -= 1;
+                    final item = _playerNames.removeAt(oldIndex);
+                    _playerNames.insert(newIndex, item);
+                  });
+                },
+                children: [
+                  for (int index = 0; index < _playerNames.length; index++)
+                    ListTile(
+                      key: Key('$index-${_playerNames[index]}'),
+                      leading: const Icon(Icons.drag_handle),
+                      title: Text('${index + 1}. ${_playerNames[index]}'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => setState(() => _playerNames.removeAt(index)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(),
+            DropdownButtonFormField<int>(
+              value: _selectedSetMode,
+              items: _setOptions.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+              onChanged: (val) => setState(() => _selectedSetMode = val!),
+              decoration: const InputDecoration(labelText: '試合形式'),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _playerNames.isEmpty ? null : () {
+                final players = _playerNames.map((n) => Player(id: n, name: n)).toList();
+                int winTarget = (_selectedSetMode / 2).ceil();
+                if ([1, 2, 10].contains(_selectedSetMode)) winTarget = _selectedSetMode;
+                final match = MolkkyMatch(players: players, totalSetsToWin: winTarget);
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: match)));
+              },
+              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
+              child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GameScreen extends StatefulWidget {
+  final MolkkyMatch match;
+  const GameScreen({super.key, required this.match});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  int currentPlayerIndex = 0;
+  List<int> selectedSkitels = [];
+  int currentTurn = 1;
+
+  void _onSkitelTap(int num) {
+    setState(() {
+      if (selectedSkitels.contains(num)) {
+        selectedSkitels.remove(num);
+      } else {
+        selectedSkitels.add(num);
+      }
+    });
+  }
+
+  void _submitThrow() {
+    final player = widget.match.players[currentPlayerIndex];
+    setState(() {
+      GameLogic.processThrow(player, selectedSkitels, widget.match);
+      if (GameLogic.checkSetWinner(player, widget.match)) {
+        _showSetWinnerDialog(player);
+      }
+      selectedSkitels.clear();
+      _nextPlayer();
+    });
+  }
+
+  void _nextPlayer() {
+    int oldIndex = currentPlayerIndex;
+    do {
+      currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length;
+    } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != oldIndex);
+    
+    if (currentPlayerIndex == 0) {
+      currentTurn++;
+    }
+  }
+
+  void _undo() {
+    setState(() {
+      if (currentPlayerIndex == 0 && currentTurn > 1) {
+        currentTurn--;
+        currentPlayerIndex = widget.match.players.length - 1;
+      } else if (currentPlayerIndex > 0) {
+        currentPlayerIndex--;
+      }
+
+      final player = widget.match.players[currentPlayerIndex];
+      if (player.scoreHistory.isNotEmpty) {
+        int lastPoints = player.scoreHistory.removeLast();
+        // 簡易的な戻し。バーストはモデル側で厳密に管理すべきですが一旦簡略化
+        player.currentScore -= lastPoints; 
+        if (lastPoints == 0 && player.consecutiveMisses > 0) {
+          player.consecutiveMisses--;
+          player.isDisqualified = false;
+        }
+      }
+      selectedSkitels.clear();
+    });
+  }
+
+  void _showSetWinnerDialog(Player winner) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        title: const Text('セット終了！'),
+        content: Text('${winner.name} さんが50点！'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(c);
+              if (widget.match.matchWinner != null) {
+                _showMatchWinnerDialog(widget.match.matchWinner!);
+              } else {
+                setState(() {
+                  widget.match.currentSetIndex++;
+                  for (var p in widget.match.players) { p.resetForNewSet(); }
+                  currentPlayerIndex = 0;
+                  currentTurn = 1;
+                });
+              }
+            },
+            child: const Text('次へ'),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showMatchWinnerDialog(Player winner) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        title: const Text('🎊 優勝！ 🎊'),
+        content: Text('${winner.name} さんの勝利です！'),
+        actions: [
+          TextButton(onPressed: () => Navigator.popUntil(context, (route) => route.isFirst), child: const Text('終了'))
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentPlayer = widget.match.players[currentPlayerIndex];
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), backgroundColor: Colors.blue[50]),
+      body: Column(
+        children: [
+          // 上部: 現在のプレイヤー情報
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.blue[100]!, width: 2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(8),
+            child: Text(
+              '${currentPlayer.name} の番です (ターン $currentTurn)',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+          
+          // スコアボード（表形式：得点 | 合計）
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columnSpacing: 10,
+                    headingRowHeight: 40,
+                    dataRowMinHeight: 30,
+                    dataRowMaxHeight: 40,
+                    border: TableBorder.all(color: Colors.grey[300]!),
+                    headingRowColor: WidgetStateProperty.all(Colors.blue[50]),
+                    columns: [
+                      const DataColumn(label: SizedBox(width: 40, child: Text('ターン', textAlign: TextAlign.center))),
+                      ...widget.match.players.expand((p) => [
+                        DataColumn(label: Container(
+                          width: 80, 
+                          alignment: Alignment.center,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(p.name, style: TextStyle(fontSize: 12, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  Text('得点', style: TextStyle(fontSize: 9)),
+                                  Text('合計', style: TextStyle(fontSize: 9)),
+                                ],
+                              )
+                            ],
+                          ),
+                        )),
+                      ]),
+                    ],
+                    rows: List.generate(currentTurn, (tIdx) {
+                      int turnNum = tIdx + 1;
+                      return DataRow(cells: [
+                        DataCell(Center(child: Text('$turnNum'))),
+                        ...widget.match.players.expand((p) {
+                          int score = 0;
+                          int total = 0;
+                          if (p.scoreHistory.length >= turnNum) {
+                            score = p.scoreHistory[turnNum - 1];
+                            for (int i = 0; i < turnNum; i++) {
+                              // 本来はバースト等を考慮した累積が必要。簡易的に合計
+                              total += p.scoreHistory[i]; 
+                              // 50点超えのバーストを反映（簡易）
+                              if (total > 50) total = 25;
+                            }
+                          }
+                          return [
+                            DataCell(
+                              Row(
+                                children: [
+                                  Container(width: 40, alignment: Alignment.center, child: Text(p.scoreHistory.length >= turnNum ? '$score' : '-', style: const TextStyle(fontSize: 13))),
+                                  Container(width: 40, alignment: Alignment.center, color: Colors.blue[50], child: Text(p.scoreHistory.length >= turnNum ? '$total' : '-', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                                ],
+                              )
+                            ),
+                          ];
+                        }),
+                      ]);
+                    }),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // 入力エリア（ボタンサイズを適正化）
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0, -2))]
+            ),
+            child: Column(
+              children: [
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 2.0, // ボタンを横長にして高さを抑える
+                  ),
+                  itemCount: 12,
+                  itemBuilder: (c, i) {
+                    final num = i + 1;
+                    final isSelected = selectedSkitels.contains(num);
+                    return ElevatedButton(
+                      onPressed: () => _onSkitelTap(num),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        backgroundColor: isSelected ? Colors.orange[100] : Colors.white,
+                        foregroundColor: Colors.black,
+                        side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 1,
+                      ),
+                      child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: OutlinedButton(
+                        onPressed: _undo,
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), side: const BorderSide(color: Colors.red), foregroundColor: Colors.red),
+                        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.undo, size: 18), SizedBox(width: 4), Text('戻る')]),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _submitThrow,
+                        style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_outline),
+                            const SizedBox(width: 8),
+                            Text(
+                              selectedSkitels.isEmpty ? '0点 (ミス)' : '決定 (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length}点)',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
