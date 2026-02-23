@@ -156,7 +156,6 @@ class _GameScreenState extends State<GameScreen> {
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
-      // 通算履歴にも追加
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
 
@@ -207,8 +206,37 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('セット終了！'),
-        content: Text('${winner.name} さんが50点！\n(現在 ${winner.setsWon} セット獲得)'),
+        title: Text('第 ${widget.match.currentSetIndex} セット終了'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${winner.name} さんが50点到達！', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 20),
+              const Text('--- マッチ状況 ---', style: TextStyle(color: Colors.grey)),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: DataTable(
+                    columnSpacing: 10,
+                    columns: const [
+                      DataColumn(label: Text('名')),
+                      DataColumn(label: Text('セット')),
+                      DataColumn(label: Text('計')),
+                      DataColumn(label: Text('平均')),
+                    ],
+                    rows: widget.match.players.map((p) => DataRow(cells: [
+                      DataCell(Text(p.name)),
+                      DataCell(Text('${p.setsWon}')),
+                      DataCell(Text('${p.totalMatchScore}')),
+                      DataCell(Text(p.averageMatchScore.toStringAsFixed(1))),
+                    ])).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -223,7 +251,7 @@ class _GameScreenState extends State<GameScreen> {
                 });
               }
             },
-            child: const Text('次へ'),
+            child: const Text('次のセットへ'),
           )
         ],
       ),
@@ -305,8 +333,9 @@ class _GameScreenState extends State<GameScreen> {
                         )),
                       ]),
                     ],
-                    rows: List.generate(currentTurn, (tIdx) {
-                      int turnNum = tIdx + 1;
+                    // 最新のターンが一番上に来るように逆順で生成
+                    rows: List.generate(currentTurn, (i) {
+                      int turnNum = currentTurn - i; // 逆順
                       return DataRow(cells: [
                         DataCell(Center(child: Text('$turnNum'))),
                         ...widget.match.players.expand((p) {
@@ -315,8 +344,8 @@ class _GameScreenState extends State<GameScreen> {
                           if (p.scoreHistory.length >= turnNum) {
                             score = p.scoreHistory[turnNum - 1];
                             int tempTotal = 0;
-                            for (int i = 0; i < turnNum; i++) {
-                              tempTotal += p.scoreHistory[i];
+                            for (int k = 0; k < turnNum; k++) {
+                              tempTotal += p.scoreHistory[k];
                               if (tempTotal > 50) tempTotal = 25;
                             }
                             total = tempTotal;
