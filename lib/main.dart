@@ -40,7 +40,7 @@ class _SetupScreenState extends State<SetupScreen> {
     2: '2番 (2セット)',
     3: '2先 (2本先取)',
     5: '3先 (3本先取)',
-    10: '10番 (10セット)',
+    11: '11先 (11本先取)',
   };
 
   void _addPlayer() {
@@ -103,8 +103,16 @@ class _SetupScreenState extends State<SetupScreen> {
             ElevatedButton(
               onPressed: _playerNames.isEmpty ? null : () {
                 final players = _playerNames.map((n) => Player(id: n, name: n)).toList();
-                int winTarget = (_selectedSetMode / 2).ceil();
-                if ([1, 2, 10].contains(_selectedSetMode)) winTarget = _selectedSetMode;
+                
+                int winTarget;
+                if (_selectedSetMode == 11) {
+                  winTarget = 11;
+                } else if (_selectedSetMode == 1 || _selectedSetMode == 2) {
+                  winTarget = _selectedSetMode;
+                } else {
+                  winTarget = (_selectedSetMode / 2).ceil();
+                }
+                
                 final match = MolkkyMatch(players: players, totalSetsToWin: winTarget);
                 Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: match)));
               },
@@ -176,7 +184,6 @@ class _GameScreenState extends State<GameScreen> {
       final player = widget.match.players[currentPlayerIndex];
       if (player.scoreHistory.isNotEmpty) {
         int lastPoints = player.scoreHistory.removeLast();
-        // 簡易的な戻し。バーストはモデル側で厳密に管理すべきですが一旦簡略化
         player.currentScore -= lastPoints; 
         if (lastPoints == 0 && player.consecutiveMisses > 0) {
           player.consecutiveMisses--;
@@ -193,7 +200,7 @@ class _GameScreenState extends State<GameScreen> {
       barrierDismissible: false,
       builder: (c) => AlertDialog(
         title: const Text('セット終了！'),
-        content: Text('${winner.name} さんが50点！'),
+        content: Text('${winner.name} さんが50点！\n(現在 ${winner.setsWon} セット獲得)'),
         actions: [
           TextButton(
             onPressed: () {
@@ -238,7 +245,6 @@ class _GameScreenState extends State<GameScreen> {
       appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), backgroundColor: Colors.blue[50]),
       body: Column(
         children: [
-          // 上部: 現在のプレイヤー情報
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -255,7 +261,6 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
           
-          // スコアボード（表形式：得点 | 合計）
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -302,12 +307,12 @@ class _GameScreenState extends State<GameScreen> {
                           int total = 0;
                           if (p.scoreHistory.length >= turnNum) {
                             score = p.scoreHistory[turnNum - 1];
+                            int tempTotal = 0;
                             for (int i = 0; i < turnNum; i++) {
-                              // 本来はバースト等を考慮した累積が必要。簡易的に合計
-                              total += p.scoreHistory[i]; 
-                              // 50点超えのバーストを反映（簡易）
-                              if (total > 50) total = 25;
+                              tempTotal += p.scoreHistory[i];
+                              if (tempTotal > 50) tempTotal = 25;
                             }
+                            total = tempTotal;
                           }
                           return [
                             DataCell(
@@ -328,7 +333,6 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
 
-          // 入力エリア（ボタンサイズを適正化）
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -344,7 +348,7 @@ class _GameScreenState extends State<GameScreen> {
                     crossAxisCount: 4,
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 8,
-                    childAspectRatio: 2.0, // ボタンを横長にして高さを抑える
+                    childAspectRatio: 2.0,
                   ),
                   itemCount: 12,
                   itemBuilder: (c, i) {
