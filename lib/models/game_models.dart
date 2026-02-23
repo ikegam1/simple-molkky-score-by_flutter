@@ -25,7 +25,9 @@ class Player {
 class TurnRecord {
   final int turnNumber;
   final Map<String, int> scores;
-  TurnRecord(this.turnNumber, this.scores);
+  final Set<String> systemCalculatedPlayerIds; // システム補填（50点確定など）のプレイヤー
+  TurnRecord(this.turnNumber, this.scores, {Set<String>? systemCalculated}) 
+    : systemCalculatedPlayerIds = systemCalculated ?? {};
 }
 
 class SetRecord {
@@ -103,12 +105,9 @@ class MolkkyMatch {
     
     int nextIndex = currentSetIndex + 1;
     bool isDecidingSetStartRule = false;
-    
-    // 先取形式(raceTo)の最終セットのみ、スコア順で先行を決める特殊ルールを適用
     if (type == MatchType.raceTo) {
       if (nextIndex == (limit * 2) - 1) isDecidingSetStartRule = true;
     }
-    // 固定セット形式(fixedSets)は、常に交互(ローテーション)にするためここでは何もしない
 
     if (isDecidingSetStartRule) {
       players.sort((a, b) {
@@ -117,7 +116,6 @@ class MolkkyMatch {
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
-      // 通常のローテーション
       if (players.length > 1) {
         final first = players.removeAt(0);
         players.add(first);
