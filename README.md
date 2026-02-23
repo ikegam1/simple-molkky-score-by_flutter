@@ -3,6 +3,10 @@
 フィンランド発祥のスポーツ「モルック（Mölkky）」のスコアを管理するためのFlutterアプリです。
 シンプルで直感的な操作感と、公式ルールに基づいた詳細なスコア管理を実現します。
 
+## 公開ページ
+
+[https://github.com/ikegam1/simple-molkky-score-by_flutter/pull/3](https://ikegam1.github.io/simple-molkky-score-by_flutter/)
+
 ## ✨ 主な機能
 - **スコアボード機能:** 各ターンの得点と累計スコアを一覧表示（DataTable形式）。
 - **ドラッグ＆ドロップ:** プレイヤーの投擲順を自由に並び替え可能。
