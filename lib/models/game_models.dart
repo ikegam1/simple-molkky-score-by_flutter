@@ -30,8 +30,9 @@ class MolkkyMatch {
   final int maxMisses = 3;
   final int totalSetsToWin;
   int currentSetIndex = 1;
+  final DateTime startTime; // 開始時間
 
-  MolkkyMatch({required this.players, this.totalSetsToWin = 2});
+  MolkkyMatch({required this.players, this.totalSetsToWin = 2}) : startTime = DateTime.now();
 
   void prepareNextSet() {
     currentSetIndex++;
