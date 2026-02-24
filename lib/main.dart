@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
@@ -40,7 +41,7 @@ class _SetupScreenState extends State<SetupScreen> {
   final List<Player> _registeredPlayers = [];
   final TextEditingController _nameController = TextEditingController();
   int _selectedModeKey = 3;
-  String _appUserId = "";
+  String _firebaseUid = "";
   final Map<int, String> _options = { 1: '1番 (1セット)', 2: '2番 (2セット)', 3: '2先 (2本先取)', 5: '3先 (3本先取)', 10: '10番 (10セット)', 11: '11先 (11本先取)' };
   final _uuid = const Uuid();
 
@@ -51,21 +52,24 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _initApp() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? userId = prefs.getString('app_user_id');
-    if (userId == null) {
-      userId = _uuid.v4();
-      await prefs.setString('app_user_id', userId);
+    // 1. Firebase 匿名認証
+    try {
+      final userCredential = await FirebaseAuth.instance.signInAnonymously();
+      setState(() { _firebaseUid = userCredential.user!.uid; });
+    } catch (e) {
+      debugPrint("Auth Error: $e");
     }
+
+    // 2. ローカルプレイヤーリストの読み込み
+    final prefs = await SharedPreferences.getInstance();
     final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
-    List<Player> loadedPlayers = [];
     if (savedJsonList != null) {
-      loadedPlayers = savedJsonList.map((jsonStr) {
+      final List<Player> loadedPlayers = savedJsonList.map((jsonStr) {
         final Map<String, dynamic> data = jsonDecode(jsonStr);
         return Player(id: data['id'], name: data['name'], initialOrder: 0);
       }).toList();
+      setState(() { _registeredPlayers.addAll(loadedPlayers); });
     }
-    setState(() { _appUserId = userId!; _registeredPlayers.addAll(loadedPlayers); });
   }
 
   Future<void> _savePlayers() async {
@@ -84,13 +88,22 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('セットアップ')),
+      appBar: AppBar(
+        title: const Text('セットアップ'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
+            tooltip: '過去の全戦績',
+          )
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            if (_appUserId.isNotEmpty)
-              Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text('User ID: ${_appUserId.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey))),
+            if (_firebaseUid.isNotEmpty)
+              Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey))),
             TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
@@ -103,13 +116,20 @@ class _SetupScreenState extends State<SetupScreen> {
                 final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
                 MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
                 int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _appUserId, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.12', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            OutlinedButton.icon(
+              onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
+              icon: const Icon(Icons.cloud_done),
+              label: const Text('過去のクラウド戦績を確認'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+            ),
+            const SizedBox(height: 10),
+            const Text('v0.2.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -143,7 +163,6 @@ class _GameScreenState extends State<GameScreen> {
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
-
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       if (survivors.length == 1) {
         final s = survivors.first;
@@ -154,10 +173,8 @@ class _GameScreenState extends State<GameScreen> {
         systemCalculatedIds.add(s.id); 
         for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
       }
-
       Player? winner;
       for (var p in widget.match.players) if (p.currentScore == widget.match.targetScore) { winner = p; break; }
-
       if (winner != null) {
         isSetFinished = true; winner.setsWon++;
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
@@ -196,10 +213,8 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _uploadMatchData() async {
     try {
       final match = widget.match;
-      // 現在の進行中セットも完了分としてまとめる
       for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
       final setsToUpload = List<SetRecord>.from(match.completedSets)..add(match.currentSetRecord);
-
       final data = {
         'appUserId': widget.appUserId,
         'startTime': match.startTime,
@@ -219,11 +234,9 @@ class _GameScreenState extends State<GameScreen> {
           }).toList(),
         }).toList(),
       };
-
       await FirebaseFirestore.instance.collection('scores').add(data);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('試合結果をクラウドに保存しました！')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
+      debugPrint("Upload Error: $e");
     }
   }
 
@@ -304,7 +317,6 @@ class HistoryPage extends StatelessWidget {
   final MolkkyMatch match;
   final List<SetRecord> sets;
   const HistoryPage({super.key, required this.match, required this.sets});
-
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
@@ -349,6 +361,53 @@ class HistoryPage extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class GlobalHistoryPage extends StatelessWidget {
+  final String uid;
+  const GlobalHistoryPage({super.key, required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('クラウド戦績')),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('scores')
+            .where('appUserId', isEqualTo: uid)
+            .orderBy('startTime', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return Center(child: Text("エラー: ${snapshot.error}"));
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+
+          final docs = snapshot.data!.docs;
+          if (docs.isEmpty) return const Center(child: Text("まだクラウドに戦績がありません"));
+
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final data = docs[index].data() as Map<String, dynamic>;
+              final start = (data['startTime'] as Timestamp).toDate();
+              final dateStr = DateFormat('MM/dd HH:mm').format(start);
+              final winner = data['winner'] ?? "不明";
+              final players = (data['players'] as List).map((p) => p['name']).join(", ");
+
+              return ListTile(
+                leading: const Icon(Icons.cloud_done, color: Colors.blue),
+                title: Text("$dateStr 優勝: $winner"),
+                subtitle: Text("参加: $players"),
+                onTap: () {
+                  // 本来はここから詳細な HistoryPage へ飛ばす
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('詳細表示は今後のアップデートで実装予定です！')));
+                },
+              );
+            },
+          );
+        },
       ),
     );
   }
