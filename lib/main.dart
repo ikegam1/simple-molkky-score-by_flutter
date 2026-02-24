@@ -14,15 +14,15 @@ import 'logic/game_logic.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const SimpleMolkkyApp());
+  runApp(const EasyMolkkyApp());
 }
 
-class SimpleMolkkyApp extends StatelessWidget {
-  const SimpleMolkkyApp({super.key});
+class EasyMolkkyApp extends StatelessWidget {
+  const EasyMolkkyApp({super.key});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Simple Molkky Score',
+      title: 'Easy Molkky Score',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
       home: const SetupScreen(),
     );
@@ -84,7 +84,9 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('セットアップ'),
+        title: const Text(''), // セットアップの文字を消去
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -93,10 +95,17 @@ class _SetupScreenState extends State<SetupScreen> {
           )
         ],
       ),
+      extendBodyBehindAppBar: true,
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0),
         child: Column(
           children: [
+            const SizedBox(height: 20),
+            const Text(
+              'Easy Molkky Score',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+            ),
+            const SizedBox(height: 20),
             TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
@@ -124,7 +133,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v0.3.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.3.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -144,6 +153,7 @@ class _GameScreenState extends State<GameScreen> {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
+  final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
@@ -312,7 +322,7 @@ class HistoryPage extends StatelessWidget {
   final MolkkyMatch? match;
   final List<SetRecord> sets;
   final DateTime? startTime;
-  final List<Player>? players; // 詳細表示用のプレイヤー情報
+  final List<Player>? players;
   const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players});
   @override
   Widget build(BuildContext context) {
@@ -325,13 +335,14 @@ class HistoryPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Molkky Match Report', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[900])),
+            const Text('Easy Molkky Score Result', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
             Text('開始: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
             const Divider(height: 30),
             for (var set in sets) ...[
               Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
               SingleChildScrollView(scrollDirection: Axis.horizontal,
-                child: DataTable(columnSpacing: 20, headingRowHeight: 40,
+                child: DataTable(
+                  columnSpacing: 20, headingRowHeight: 40,
                   columns: [const DataColumn(label: Text('T')), ...displayPlayers.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))))],
                   rows: [
                     ...set.turns.map((turn) => DataRow(cells: [
