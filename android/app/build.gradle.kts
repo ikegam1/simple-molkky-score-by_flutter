@@ -4,11 +4,9 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 署名設定の読み込み
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -18,7 +16,8 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "jp.ikegam1.simple_molkky_score"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // プラグインの要求に合わせて更新
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -31,13 +30,12 @@ android {
 
     defaultConfig {
         applicationId = "jp.ikegam1.simple_molkky_score"
-        minSdk = flutter.minSdkVersion
+        minSdk = 23 // firebase_auth の要求に合わせて 21 -> 23 に変更
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
-    // 署名設定の定義
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
@@ -51,7 +49,6 @@ android {
 
     buildTypes {
         getByName("release") {
-            // リリースビルドに署名を適用
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
