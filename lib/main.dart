@@ -84,7 +84,7 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(''), // セットアップの文字を消去
+        title: const Text(''), 
         elevation: 0,
         backgroundColor: Colors.transparent,
         actions: [
@@ -153,7 +153,6 @@ class _GameScreenState extends State<GameScreen> {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
-  final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
