@@ -1,7 +1,9 @@
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
@@ -26,36 +28,66 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  final List<String> _playerNames = [];
+  final List<Player> _registeredPlayers = [];
   final TextEditingController _nameController = TextEditingController();
   int _selectedModeKey = 3;
+  String _appUserId = "";
   final Map<int, String> _options = { 1: '1番 (1セット)', 2: '2番 (2セット)', 3: '2先 (2本先取)', 5: '3先 (3本先取)', 10: '10番 (10セット)', 11: '11先 (11本先取)' };
+  final _uuid = const Uuid();
 
   @override
   void initState() {
     super.initState();
-    _loadPlayers();
+    _initApp();
   }
 
-  Future<void> _loadPlayers() async {
+  Future<void> _initApp() async {
     final prefs = await SharedPreferences.getInstance();
-    final List<String>? savedPlayers = prefs.getStringList('saved_player_names');
-    if (savedPlayers != null && savedPlayers.isNotEmpty) {
-      setState(() {
-        _playerNames.addAll(savedPlayers);
-      });
+    
+    // ユーザーIDの読み込みまたは生成
+    String? userId = prefs.getString('app_user_id');
+    if (userId == null) {
+      userId = _uuid.v4();
+      await prefs.setString('app_user_id', userId);
     }
+    
+    // プレイヤーリストの読み込み
+    final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
+    List<Player> loadedPlayers = [];
+    if (savedJsonList != null) {
+      loadedPlayers = savedJsonList.map((jsonStr) {
+        final Map<String, dynamic> data = jsonDecode(jsonStr);
+        return Player(
+          id: data['id'],
+          name: data['name'],
+          initialOrder: 0, // あとで再割り当て
+        );
+      }).toList();
+    }
+
+    setState(() {
+      _appUserId = userId!;
+      _registeredPlayers.addAll(loadedPlayers);
+    });
   }
 
   Future<void> _savePlayers() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('saved_player_names', _playerNames);
+    final List<String> jsonList = _registeredPlayers.map((p) => jsonEncode({
+      'id': p.id,
+      'name': p.name,
+    })).toList();
+    await prefs.setStringList('saved_players_v2', jsonList);
   }
 
   void _add() {
     if (_nameController.text.isNotEmpty) {
       setState(() {
-        _playerNames.add(_nameController.text);
+        _registeredPlayers.add(Player(
+          id: _uuid.v4(),
+          name: _nameController.text,
+          initialOrder: _registeredPlayers.length,
+        ));
         _nameController.clear();
       });
       _savePlayers();
@@ -70,45 +102,46 @@ class _SetupScreenState extends State<SetupScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            if (_appUserId.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text('User ID: ${_appUserId.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ),
             TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { 
-                setState(() { 
-                  if (o < n) n -= 1; 
-                  _playerNames.insert(n, _playerNames.removeAt(o)); 
-                }); 
+                setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); 
                 _savePlayers();
               }, 
               children: [ 
-                for (int i = 0; i < _playerNames.length; i++) 
+                for (int i = 0; i < _registeredPlayers.length; i++) 
                   ListTile(
-                    key: Key('$i-${_playerNames[i]}'), 
+                    key: Key(_registeredPlayers[i].id), 
                     leading: const Icon(Icons.drag_handle), 
-                    title: Text('${i + 1}. ${_playerNames[i]}'), 
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete), 
-                      onPressed: () { 
-                        setState(() => _playerNames.removeAt(i)); 
-                        _savePlayers();
-                      }
-                    )
+                    title: Text('${i + 1}. ${_registeredPlayers[i].name}'), 
+                    trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() => _registeredPlayers.removeAt(i)); _savePlayers(); })
                   ) 
               ]
             )),
             DropdownButtonFormField<int>(value: _selectedModeKey, items: _options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: const InputDecoration(labelText: '試合形式')),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _playerNames.isEmpty ? null : () {
-                final players = _playerNames.asMap().entries.map((e) => Player(id: e.value, name: e.value, initialOrder: e.key)).toList();
+              onPressed: _registeredPlayers.isEmpty ? null : () {
+                // 初期順序を再割り当てしてマッチを開始
+                final playersForMatch = _registeredPlayers.asMap().entries.map((e) {
+                  final p = e.value;
+                  return Player(id: p.id, name: p.name, initialOrder: e.key);
+                }).toList();
+                
                 MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
                 int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: MolkkyMatch(players: players, limit: limit, type: type))));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.10', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.11', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
