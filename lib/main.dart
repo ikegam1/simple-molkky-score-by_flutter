@@ -97,8 +97,6 @@ class _SetupScreenState extends State<SetupScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            if (_firebaseUid.isNotEmpty)
-              Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey))),
             TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
@@ -124,7 +122,9 @@ class _SetupScreenState extends State<SetupScreen> {
               style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.2.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            if (_firebaseUid.isNotEmpty)
+              Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            const Text('v0.2.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -309,13 +309,14 @@ class _GameScreenState extends State<GameScreen> {
 }
 
 class HistoryPage extends StatelessWidget {
-  final MolkkyMatch match;
+  final MolkkyMatch? match; // nullの場合はFirestoreからの表示
   final List<SetRecord> sets;
-  const HistoryPage({super.key, required this.match, required this.sets});
+  final DateTime? startTime;
+  const HistoryPage({super.key, this.match, required this.sets, this.startTime});
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
-    final players = match.players;
+    final players = match?.players ?? _guessPlayersFromSets(sets);
     return Scaffold(
       appBar: AppBar(title: const Text('全セット履歴')),
       body: SingleChildScrollView(
@@ -324,7 +325,7 @@ class HistoryPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Molkky Match Report', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[900])),
-            Text('開始: ${dateFormat.format(match.startTime)}', style: const TextStyle(color: Colors.grey)),
+            Text('開始: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
             const Divider(height: 30),
             for (var set in sets) ...[
               Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
@@ -344,7 +345,7 @@ class HistoryPage extends StatelessWidget {
                       cells: [
                         const DataCell(Text('計', style: TextStyle(fontWeight: FontWeight.bold))),
                         ...players.map((p) {
-                          int total = set.finalCumulativeScores[p.id] ?? p.currentScore;
+                          int total = set.finalCumulativeScores[p.id] ?? 0;
                           return DataCell(Text('$total', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)));
                         }),
                       ],
@@ -358,6 +359,12 @@ class HistoryPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<Player> _guessPlayersFromSets(List<SetRecord> sets) {
+    if (sets.isEmpty) return [];
+    final firstTurn = sets.first.turns.first;
+    return firstTurn.scores.keys.map((id) => Player(id: id, name: id, initialOrder: 0)).toList();
   }
 }
 
@@ -376,22 +383,14 @@ class GlobalHistoryPage extends StatelessWidget {
             .orderBy('startTime', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          // インデックス作成中などで発生するエラーをキャッチし、不自然なメッセージを隠す
           if (snapshot.hasError) {
             final error = snapshot.error.toString();
             if (error.contains("FAILED_PRECONDITION") || error.contains("index")) {
-               return const Center(
-                 child: Padding(
-                   padding: EdgeInsets.all(24.0),
-                   child: Text("戦績データを準備中です...\n(初回はインデックス作成のため数分かかる場合があります)", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-                 ),
-               );
+               return const Center(child: Padding(padding: EdgeInsets.all(24.0), child: Text("戦績データを準備中です...\n(初回は数分かかる場合があります)", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey))));
             }
-            return Center(child: Text("エラーが発生しました: $error"));
+            return Center(child: Text("エラー: $error"));
           }
-
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-
           final docs = snapshot.data!.docs;
           if (docs.isEmpty) return const Center(child: Text("まだ戦績がありません"));
 
@@ -402,20 +401,40 @@ class GlobalHistoryPage extends StatelessWidget {
               final start = (data['startTime'] as Timestamp).toDate();
               final dateStr = DateFormat('MM/dd HH:mm').format(start);
               final winner = data['winner'] ?? "不明";
-              final players = (data['players'] as List).map((p) => p['name']).join(", ");
+              final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
 
               return ListTile(
                 leading: const Icon(Icons.cloud_done, color: Colors.blue),
                 title: Text("$dateStr 優勝: $winner"),
-                subtitle: Text("参加: $players"),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('詳細表示は今後のアップデートで実装予定です！')));
-                },
+                subtitle: Text("参加: $playerNames"),
+                onTap: () => _viewDetail(context, data, start),
               );
             },
           );
         },
       ),
     );
+  }
+
+  void _viewDetail(BuildContext context, Map<String, dynamic> data, DateTime start) {
+    try {
+      final List<dynamic> historyData = data['history'] as List<dynamic>;
+      final List<SetRecord> sets = historyData.map((s) {
+        final set = SetRecord(s['setNumber'], s['starterId']);
+        (s['turns'] as List).forEach((t) {
+          set.turns.add(TurnRecord(
+            t['turnNumber'], 
+            Map<String, int>.from(t['scores']),
+            systemCalculated: Set<String>.from(t['systemCalculated'] ?? []),
+          ));
+        });
+        s['finalScores'].forEach((k, v) => set.finalCumulativeScores[k] = v);
+        return set;
+      }).toList();
+
+      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start)));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('詳細の読み込みに失敗しました: $e')));
+    }
   }
 }
