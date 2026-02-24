@@ -13,9 +13,7 @@ import 'logic/game_logic.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const SimpleMolkkyApp());
 }
 
@@ -52,15 +50,12 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _initApp() async {
-    // 1. Firebase 匿名認証
     try {
       final userCredential = await FirebaseAuth.instance.signInAnonymously();
       setState(() { _firebaseUid = userCredential.user!.uid; });
     } catch (e) {
       debugPrint("Auth Error: $e");
     }
-
-    // 2. ローカルプレイヤーリストの読み込み
     final prefs = await SharedPreferences.getInstance();
     final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
     if (savedJsonList != null) {
@@ -94,7 +89,7 @@ class _SetupScreenState extends State<SetupScreen> {
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
-            tooltip: '過去の全戦績',
+            tooltip: '戦績確認',
           )
         ],
       ),
@@ -125,11 +120,11 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(
               onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
               icon: const Icon(Icons.cloud_done),
-              label: const Text('過去のクラウド戦績を確認'),
+              label: const Text('戦績確認'),
               style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.2.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.2.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -373,7 +368,7 @@ class GlobalHistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('クラウド戦績')),
+      appBar: AppBar(title: const Text('戦績確認')),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('scores')
@@ -381,11 +376,24 @@ class GlobalHistoryPage extends StatelessWidget {
             .orderBy('startTime', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text("エラー: ${snapshot.error}"));
+          // インデックス作成中などで発生するエラーをキャッチし、不自然なメッセージを隠す
+          if (snapshot.hasError) {
+            final error = snapshot.error.toString();
+            if (error.contains("FAILED_PRECONDITION") || error.contains("index")) {
+               return const Center(
+                 child: Padding(
+                   padding: EdgeInsets.all(24.0),
+                   child: Text("戦績データを準備中です...\n(初回はインデックス作成のため数分かかる場合があります)", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                 ),
+               );
+            }
+            return Center(child: Text("エラーが発生しました: $error"));
+          }
+
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
 
           final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("まだクラウドに戦績がありません"));
+          if (docs.isEmpty) return const Center(child: Text("まだ戦績がありません"));
 
           return ListView.builder(
             itemCount: docs.length,
@@ -401,7 +409,6 @@ class GlobalHistoryPage extends StatelessWidget {
                 title: Text("$dateStr 優勝: $winner"),
                 subtitle: Text("参加: $players"),
                 onTap: () {
-                  // 本来はここから詳細な HistoryPage へ飛ばす
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('詳細表示は今後のアップデートで実装予定です！')));
                 },
               );
