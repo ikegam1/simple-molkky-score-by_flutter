@@ -4,10 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
-void main() => runApp(const SimpleMolkkyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const SimpleMolkkyApp());
+}
 
 class SimpleMolkkyApp extends StatelessWidget {
   const SimpleMolkkyApp({super.key});
@@ -43,53 +52,31 @@ class _SetupScreenState extends State<SetupScreen> {
 
   Future<void> _initApp() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // ユーザーIDの読み込みまたは生成
     String? userId = prefs.getString('app_user_id');
     if (userId == null) {
       userId = _uuid.v4();
       await prefs.setString('app_user_id', userId);
     }
-    
-    // プレイヤーリストの読み込み
     final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
     List<Player> loadedPlayers = [];
     if (savedJsonList != null) {
       loadedPlayers = savedJsonList.map((jsonStr) {
         final Map<String, dynamic> data = jsonDecode(jsonStr);
-        return Player(
-          id: data['id'],
-          name: data['name'],
-          initialOrder: 0, // あとで再割り当て
-        );
+        return Player(id: data['id'], name: data['name'], initialOrder: 0);
       }).toList();
     }
-
-    setState(() {
-      _appUserId = userId!;
-      _registeredPlayers.addAll(loadedPlayers);
-    });
+    setState(() { _appUserId = userId!; _registeredPlayers.addAll(loadedPlayers); });
   }
 
   Future<void> _savePlayers() async {
     final prefs = await SharedPreferences.getInstance();
-    final List<String> jsonList = _registeredPlayers.map((p) => jsonEncode({
-      'id': p.id,
-      'name': p.name,
-    })).toList();
+    final List<String> jsonList = _registeredPlayers.map((p) => jsonEncode({'id': p.id, 'name': p.name})).toList();
     await prefs.setStringList('saved_players_v2', jsonList);
   }
 
   void _add() {
     if (_nameController.text.isNotEmpty) {
-      setState(() {
-        _registeredPlayers.add(Player(
-          id: _uuid.v4(),
-          name: _nameController.text,
-          initialOrder: _registeredPlayers.length,
-        ));
-        _nameController.clear();
-      });
+      setState(() { _registeredPlayers.add(Player(id: _uuid.v4(), name: _nameController.text, initialOrder: _registeredPlayers.length)); _nameController.clear(); });
       _savePlayers();
     }
   }
@@ -103,45 +90,26 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Column(
           children: [
             if (_appUserId.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text('User ID: ${_appUserId.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              ),
+              Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text('User ID: ${_appUserId.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey))),
             TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
             Expanded(child: ReorderableListView(
-              onReorder: (o, n) { 
-                setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); 
-                _savePlayers();
-              }, 
-              children: [ 
-                for (int i = 0; i < _registeredPlayers.length; i++) 
-                  ListTile(
-                    key: Key(_registeredPlayers[i].id), 
-                    leading: const Icon(Icons.drag_handle), 
-                    title: Text('${i + 1}. ${_registeredPlayers[i].name}'), 
-                    trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() => _registeredPlayers.removeAt(i)); _savePlayers(); })
-                  ) 
-              ]
+              onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
+              children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() => _registeredPlayers.removeAt(i)); _savePlayers(); })) ]
             )),
             DropdownButtonFormField<int>(value: _selectedModeKey, items: _options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: const InputDecoration(labelText: '試合形式')),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
-                // 初期順序を再割り当てしてマッチを開始
-                final playersForMatch = _registeredPlayers.asMap().entries.map((e) {
-                  final p = e.value;
-                  return Player(id: p.id, name: p.name, initialOrder: e.key);
-                }).toList();
-                
+                final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
                 MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
                 int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _appUserId, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.11', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.12', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -151,7 +119,8 @@ class _SetupScreenState extends State<SetupScreen> {
 
 class GameScreen extends StatefulWidget {
   final MolkkyMatch match;
-  const GameScreen({super.key, required this.match});
+  final String appUserId;
+  const GameScreen({super.key, required this.match, required this.appUserId});
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -224,6 +193,40 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  Future<void> _uploadMatchData() async {
+    try {
+      final match = widget.match;
+      // 現在の進行中セットも完了分としてまとめる
+      for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+      final setsToUpload = List<SetRecord>.from(match.completedSets)..add(match.currentSetRecord);
+
+      final data = {
+        'appUserId': widget.appUserId,
+        'startTime': match.startTime,
+        'endTime': FieldValue.serverTimestamp(),
+        'matchType': match.type.toString(),
+        'limit': match.limit,
+        'winner': match.matchWinner?.name ?? "None",
+        'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
+        'history': setsToUpload.map((s) => {
+          'setNumber': s.setNumber,
+          'starterId': s.starterPlayerId,
+          'finalScores': s.finalCumulativeScores,
+          'turns': s.turns.map((t) => {
+            'turnNumber': t.turnNumber,
+            'scores': t.scores,
+            'systemCalculated': t.systemCalculatedPlayerIds.toList(),
+          }).toList(),
+        }).toList(),
+      };
+
+      await FirebaseFirestore.instance.collection('scores').add(data);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('試合結果をクラウドに保存しました！')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
+    }
+  }
+
   void _goToHistory() {
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
@@ -240,7 +243,7 @@ class _GameScreenState extends State<GameScreen> {
       actions: [
         TextButton(onPressed: _goToHistory, child: const Text('履歴を確認')),
         TextButton(onPressed: () {
-          Navigator.pop(c); if (widget.match.isMatchOver) _showMatchWinnerDialog(winner);
+          Navigator.pop(c); if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
           else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear(); });
         }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))]));
   }
