@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
@@ -30,7 +31,36 @@ class _SetupScreenState extends State<SetupScreen> {
   int _selectedModeKey = 3;
   final Map<int, String> _options = { 1: '1番 (1セット)', 2: '2番 (2セット)', 3: '2先 (2本先取)', 5: '3先 (3本先取)', 10: '10番 (10セット)', 11: '11先 (11本先取)' };
 
-  void _add() { if (_nameController.text.isNotEmpty) { setState(() { _playerNames.add(_nameController.text); _nameController.clear(); }); } }
+  @override
+  void initState() {
+    super.initState();
+    _loadPlayers();
+  }
+
+  Future<void> _loadPlayers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? savedPlayers = prefs.getStringList('saved_player_names');
+    if (savedPlayers != null && savedPlayers.isNotEmpty) {
+      setState(() {
+        _playerNames.addAll(savedPlayers);
+      });
+    }
+  }
+
+  Future<void> _savePlayers() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('saved_player_names', _playerNames);
+  }
+
+  void _add() {
+    if (_nameController.text.isNotEmpty) {
+      setState(() {
+        _playerNames.add(_nameController.text);
+        _nameController.clear();
+      });
+      _savePlayers();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +71,30 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Column(
           children: [
             TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
-            Expanded(child: ReorderableListView(onReorder: (o, n) { setState(() { if (o < n) n -= 1; _playerNames.insert(n, _playerNames.removeAt(o)); }); }, children: [ for (int i = 0; i < _playerNames.length; i++) ListTile(key: Key('$i-${_playerNames[i]}'), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_playerNames[i]}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => setState(() => _playerNames.removeAt(i)))) ])),
+            Expanded(child: ReorderableListView(
+              onReorder: (o, n) { 
+                setState(() { 
+                  if (o < n) n -= 1; 
+                  _playerNames.insert(n, _playerNames.removeAt(o)); 
+                }); 
+                _savePlayers();
+              }, 
+              children: [ 
+                for (int i = 0; i < _playerNames.length; i++) 
+                  ListTile(
+                    key: Key('$i-${_playerNames[i]}'), 
+                    leading: const Icon(Icons.drag_handle), 
+                    title: Text('${i + 1}. ${_playerNames[i]}'), 
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete), 
+                      onPressed: () { 
+                        setState(() => _playerNames.removeAt(i)); 
+                        _savePlayers();
+                      }
+                    )
+                  ) 
+              ]
+            )),
             DropdownButtonFormField<int>(value: _selectedModeKey, items: _options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: const InputDecoration(labelText: '試合形式')),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -55,7 +108,7 @@ class _SetupScreenState extends State<SetupScreen> {
               child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            const Text('v0.1.9', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.1.10', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -139,17 +192,13 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _goToHistory() {
-    // 進行中のターンも含めた履歴データを作成
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
       SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
       allSets.add(ongoing);
-    } else {
-      allSets.add(widget.match.currentSetRecord);
-    }
-
+    } else allSets.add(widget.match.currentSetRecord);
     Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(match: widget.match, sets: allSets)));
   }
 
@@ -224,7 +273,6 @@ class HistoryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
     final players = match.players;
-
     return Scaffold(
       appBar: AppBar(title: const Text('全セット履歴')),
       body: SingleChildScrollView(
@@ -236,42 +284,24 @@ class HistoryPage extends StatelessWidget {
             Text('開始: ${dateFormat.format(match.startTime)}', style: const TextStyle(color: Colors.grey)),
             const Divider(height: 30),
             for (var set in sets) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                color: const Color(0xFFE3F2FD),
-                child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columnSpacing: 20,
-                  headingRowHeight: 40,
-                  columns: [
-                    const DataColumn(label: Text('T')),
-                    ...players.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                  ],
+              Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+              SingleChildScrollView(scrollDirection: Axis.horizontal,
+                child: DataTable(columnSpacing: 20, headingRowHeight: 40,
+                  columns: [const DataColumn(label: Text('T')), ...players.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))))],
                   rows: [
                     ...set.turns.map((turn) => DataRow(cells: [
                       DataCell(Text('${turn.turnNumber}')),
                       ...players.map((p) {
-                        bool isStarter = p.id == set.starterPlayerId;
-                        bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
+                        bool isStarter = p.id == set.starterPlayerId; bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
                         String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
                         return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
                       }),
                     ])),
-                    DataRow(
-                      color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
+                    DataRow(color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
                       cells: [
                         const DataCell(Text('計', style: TextStyle(fontWeight: FontWeight.bold))),
                         ...players.map((p) {
-                          int total = set.finalCumulativeScores[p.id] ?? 0;
-                          if (set.finalCumulativeScores.isEmpty) {
-                             // まだ終了していないセットの場合は、そのセット単体の合計ではなく現在のマッチ得点を出すか検討
-                             // ここでは一貫性のために最終計として表示
-                             total = p.currentScore;
-                          }
+                          int total = set.finalCumulativeScores[p.id] ?? p.currentScore;
                           return DataCell(Text('$total', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)));
                         }),
                       ],
