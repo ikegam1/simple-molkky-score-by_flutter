@@ -1,4 +1,4 @@
-package com.example.simple_molkky_score
+package jp.ikegam1.simple_molkky_score
 
 import io.flutter.embedding.android.FlutterActivity
 
