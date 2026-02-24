@@ -124,7 +124,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v0.2.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.2.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -309,14 +309,15 @@ class _GameScreenState extends State<GameScreen> {
 }
 
 class HistoryPage extends StatelessWidget {
-  final MolkkyMatch? match; // nullの場合はFirestoreからの表示
+  final MolkkyMatch? match;
   final List<SetRecord> sets;
   final DateTime? startTime;
-  const HistoryPage({super.key, this.match, required this.sets, this.startTime});
+  final List<Player>? players; // 詳細表示用のプレイヤー情報
+  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players});
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
-    final players = match?.players ?? _guessPlayersFromSets(sets);
+    final displayPlayers = players ?? match?.players ?? [];
     return Scaffold(
       appBar: AppBar(title: const Text('全セット履歴')),
       body: SingleChildScrollView(
@@ -331,11 +332,11 @@ class HistoryPage extends StatelessWidget {
               Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
               SingleChildScrollView(scrollDirection: Axis.horizontal,
                 child: DataTable(columnSpacing: 20, headingRowHeight: 40,
-                  columns: [const DataColumn(label: Text('T')), ...players.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))))],
+                  columns: [const DataColumn(label: Text('T')), ...displayPlayers.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))))],
                   rows: [
                     ...set.turns.map((turn) => DataRow(cells: [
                       DataCell(Text('${turn.turnNumber}')),
-                      ...players.map((p) {
+                      ...displayPlayers.map((p) {
                         bool isStarter = p.id == set.starterPlayerId; bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
                         String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
                         return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
@@ -344,7 +345,7 @@ class HistoryPage extends StatelessWidget {
                     DataRow(color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
                       cells: [
                         const DataCell(Text('計', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ...players.map((p) {
+                        ...displayPlayers.map((p) {
                           int total = set.finalCumulativeScores[p.id] ?? 0;
                           return DataCell(Text('$total', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)));
                         }),
@@ -359,12 +360,6 @@ class HistoryPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  List<Player> _guessPlayersFromSets(List<SetRecord> sets) {
-    if (sets.isEmpty) return [];
-    final firstTurn = sets.first.turns.first;
-    return firstTurn.scores.keys.map((id) => Player(id: id, name: id, initialOrder: 0)).toList();
   }
 }
 
@@ -418,6 +413,9 @@ class GlobalHistoryPage extends StatelessWidget {
 
   void _viewDetail(BuildContext context, Map<String, dynamic> data, DateTime start) {
     try {
+      final List<dynamic> playersData = data['players'] as List<dynamic>;
+      final List<Player> players = playersData.map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0)).toList();
+
       final List<dynamic> historyData = data['history'] as List<dynamic>;
       final List<SetRecord> sets = historyData.map((s) {
         final set = SetRecord(s['setNumber'], s['starterId']);
@@ -432,7 +430,7 @@ class GlobalHistoryPage extends StatelessWidget {
         return set;
       }).toList();
 
-      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start)));
+      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start, players: players)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('詳細の読み込みに失敗しました: $e')));
     }
