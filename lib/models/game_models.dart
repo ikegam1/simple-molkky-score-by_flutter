@@ -8,10 +8,11 @@ class Player {
   int setsWon = 0;
   List<int> scoreHistory = []; 
   List<int> matchScoreHistory = [];
+  List<int> setFinalScores = []; // セットごとの確定スコア
 
   Player({required this.id, required this.name, required this.initialOrder});
 
-  int get totalMatchScore => matchScoreHistory.fold(0, (a, b) => a + b);
+  int get totalMatchScore => setFinalScores.fold(0, (a, b) => a + b); // 確定スコアの和
   int get totalMatchThrows => matchScoreHistory.length;
 
   void resetForNewSet() {
@@ -25,7 +26,7 @@ class Player {
 class TurnRecord {
   final int turnNumber;
   final Map<String, int> scores;
-  final Set<String> systemCalculatedPlayerIds; // システム補填（50点確定など）のプレイヤー
+  final Set<String> systemCalculatedPlayerIds;
   TurnRecord(this.turnNumber, this.scores, {Set<String>? systemCalculated}) 
     : systemCalculatedPlayerIds = systemCalculated ?? {};
 }
@@ -100,22 +101,31 @@ class MolkkyMatch {
   }
 
   void prepareNextSet() {
-    for (var p in players) currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+    for (var p in players) {
+      currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+      p.setFinalScores.add(p.currentScore); // 確定スコアを保存
+    }
     completedSets.add(currentSetRecord);
     
     int nextIndex = currentSetIndex + 1;
-    bool isDecidingSetStartRule = false;
+    bool shouldSortByScore = false;
+    
     if (type == MatchType.raceTo) {
-      if (nextIndex == (limit * 2) - 1) isDecidingSetStartRule = true;
+      // 2先なら3セット目、3先なら5セット目、11先なら21セット目が最終(Deciding)セット
+      if (nextIndex == (limit * 2) - 1) {
+        shouldSortByScore = true;
+      }
     }
 
-    if (isDecidingSetStartRule) {
+    if (shouldSortByScore) {
+      // 最終セット：確定スコア合計（高い順） > 総投数（低い順）
       players.sort((a, b) {
         if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
         if (a.totalMatchThrows != b.totalMatchThrows) return a.totalMatchThrows.compareTo(b.totalMatchThrows);
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
+      // それ以外は常に交互（ローテーション）
       if (players.length > 1) {
         final first = players.removeAt(0);
         players.add(first);
