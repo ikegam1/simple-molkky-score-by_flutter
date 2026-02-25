@@ -128,10 +128,15 @@ class MolkkyMatch {
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
-      // 通常セット：ローテーション
-      if (players.length > 1) {
-        final first = players.removeAt(0);
-        players.add(first);
+      // 特殊ルール: 「2番」(Fixed 2 sets) の第2セットは逆順 (表裏)
+      if (type == MatchType.fixedSets && limit == 2 && nextIndex == 2) {
+        players = players.reversed.toList();
+      } else {
+        // 通常セット：ローテーション (スライド)
+        if (players.length > 1) {
+          final first = players.removeAt(0);
+          players.add(first);
+        }
       }
     }
 
