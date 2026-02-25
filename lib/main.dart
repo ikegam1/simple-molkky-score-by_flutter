@@ -133,7 +133,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v0.4.6', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.4.7', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -167,7 +167,6 @@ class _GameScreenState extends State<GameScreen> {
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
-
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       if (survivors.length == 1) {
         final s = survivors.first;
@@ -178,13 +177,10 @@ class _GameScreenState extends State<GameScreen> {
         systemCalculatedIds.add(s.id); 
         for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
       }
-
       Player? winner;
       for (var p in widget.match.players) if (p.currentScore == widget.match.targetScore) { winner = p; break; }
-
       if (winner != null) {
-        isSetFinished = true;
-        winner.setsWon++;
+        isSetFinished = true; winner.setsWon++;
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
         _showSetWinnerDialog(winner);
       } else {
@@ -234,6 +230,7 @@ class _GameScreenState extends State<GameScreen> {
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber,
           'starterId': s.starterPlayerId,
+          'playerOrder': s.playerOrder,
           'finalScores': s.finalCumulativeScores,
           'turns': s.turns.map((t) => {
             'turnNumber': t.turnNumber,
@@ -251,7 +248,7 @@ class _GameScreenState extends State<GameScreen> {
   void _goToHistory() {
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
-      SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId);
+      SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId, widget.match.players.map((p)=>p.id).toList());
       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
       allSets.add(ongoing);
@@ -356,13 +353,12 @@ class HistoryPage extends StatelessWidget {
   }
 
   Widget _buildSetTable(SetRecord set, List<Player> allPlayers) {
-    // このセットの先行(starterPlayerId)を左端にするためにプレイヤーリストをソート
-    List<Player> displayOrder = List.from(allPlayers);
-    displayOrder.sort((a, b) {
-      if (a.id == set.starterPlayerId) return -1;
-      if (b.id == set.starterPlayerId) return 1;
-      return 0;
-    });
+    // セットごとに保存された playerOrder に基づいてプレイヤーを並び替える
+    List<Player> displayOrder = [];
+    for (var id in set.playerOrder) {
+      final p = allPlayers.firstWhere((player) => player.id == id, orElse: () => Player(id: id, name: "不明", initialOrder: 0));
+      displayOrder.add(p);
+    }
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -451,7 +447,8 @@ class GlobalHistoryPage extends StatelessWidget {
 
       final List<dynamic> historyData = data['history'] as List<dynamic>;
       final List<SetRecord> sets = historyData.map((s) {
-        final set = SetRecord(s['setNumber'], s['starterId']);
+        final List<String> order = List<String>.from(s['playerOrder'] ?? []);
+        final set = SetRecord(s['setNumber'], s['starterId'], order);
         (s['turns'] as List).forEach((t) {
           set.turns.add(TurnRecord(
             t['turnNumber'], 
