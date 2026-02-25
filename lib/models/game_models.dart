@@ -8,11 +8,11 @@ class Player {
   int setsWon = 0;
   List<int> scoreHistory = []; 
   List<int> matchScoreHistory = [];
-  List<int> setFinalScores = []; // セットごとの確定スコア
+  List<int> setFinalScores = [];
 
   Player({required this.id, required this.name, required this.initialOrder});
 
-  int get totalMatchScore => setFinalScores.fold(0, (a, b) => a + b); // 確定スコアの和
+  int get totalMatchScore => setFinalScores.fold(0, (a, b) => a + b);
   int get totalMatchThrows => matchScoreHistory.length;
 
   void resetForNewSet() {
@@ -35,8 +35,9 @@ class SetRecord {
   final int setNumber;
   final List<TurnRecord> turns = [];
   final Map<String, int> finalCumulativeScores = {};
+  final List<String> playerOrder; // このセットの実際の投擲順
   final String starterPlayerId;
-  SetRecord(this.setNumber, this.starterPlayerId);
+  SetRecord(this.setNumber, this.starterPlayerId, this.playerOrder);
 }
 
 enum MatchType { raceTo, fixedSets }
@@ -59,7 +60,7 @@ class MolkkyMatch {
     required this.limit,
     required this.type,
   }) : startTime = DateTime.now(),
-       currentSetRecord = SetRecord(1, players.first.id);
+       currentSetRecord = SetRecord(1, players.first.id, players.map((p) => p.id).toList());
 
   bool get isMatchOver {
     if (type == MatchType.fixedSets) return currentSetIndex >= limit;
@@ -103,7 +104,7 @@ class MolkkyMatch {
   void prepareNextSet() {
     for (var p in players) {
       currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
-      p.setFinalScores.add(p.currentScore); // 確定スコアを保存
+      p.setFinalScores.add(p.currentScore);
     }
     completedSets.add(currentSetRecord);
     
@@ -111,21 +112,23 @@ class MolkkyMatch {
     bool shouldSortByScore = false;
     
     if (type == MatchType.raceTo) {
-      // 2先なら3セット目、3先なら5セット目、11先なら21セット目が最終(Deciding)セット
-      if (nextIndex == (limit * 2) - 1) {
+      // 全員に先行が1回ずつ回るサイクルが終わった後の決着セット判定
+      // 例: 4人、2先(limit=2) なら 4 * (2-1) + 1 = 5セット目
+      int decidingSetThreshold = (players.length * (limit - 1)) + 1;
+      if (nextIndex == decidingSetThreshold) {
         shouldSortByScore = true;
       }
     }
 
     if (shouldSortByScore) {
-      // 最終セット：確定スコア合計（高い順） > 総投数（低い順）
+      // 決着セット：スコア順
       players.sort((a, b) {
         if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
         if (a.totalMatchThrows != b.totalMatchThrows) return a.totalMatchThrows.compareTo(b.totalMatchThrows);
         return a.initialOrder.compareTo(b.initialOrder);
       });
     } else {
-      // それ以外は常に交互（ローテーション）
+      // 通常セット：ローテーション
       if (players.length > 1) {
         final first = players.removeAt(0);
         players.add(first);
@@ -133,7 +136,8 @@ class MolkkyMatch {
     }
 
     currentSetIndex = nextIndex;
-    currentSetRecord = SetRecord(currentSetIndex, players.first.id);
+    // playerOrder を今の players リストの状態から固定
+    currentSetRecord = SetRecord(currentSetIndex, players.first.id, players.map((p) => p.id).toList());
     for (var p in players) p.resetForNewSet();
   }
 }
