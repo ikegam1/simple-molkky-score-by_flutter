@@ -133,11 +133,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-<<<<<<< Updated upstream
-            const Text('v0.4.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
-=======
             const Text('v0.4.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
->>>>>>> Stashed changes
           ],
         ),
       ),
@@ -171,6 +167,7 @@ class _GameScreenState extends State<GameScreen> {
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
+
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       if (survivors.length == 1) {
         final s = survivors.first;
@@ -181,10 +178,13 @@ class _GameScreenState extends State<GameScreen> {
         systemCalculatedIds.add(s.id); 
         for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
       }
+
       Player? winner;
       for (var p in widget.match.players) if (p.currentScore == widget.match.targetScore) { winner = p; break; }
+
       if (winner != null) {
-        isSetFinished = true; winner.setsWon++;
+        isSetFinished = true;
+        winner.setsWon++;
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
         _showSetWinnerDialog(winner);
       } else {
