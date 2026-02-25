@@ -133,7 +133,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v0.4.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.4.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
