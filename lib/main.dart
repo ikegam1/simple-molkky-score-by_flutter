@@ -153,7 +153,6 @@ class _GameScreenState extends State<GameScreen> {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
-  final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
