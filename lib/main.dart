@@ -133,7 +133,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v0.4.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.4.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -153,6 +153,7 @@ class _GameScreenState extends State<GameScreen> {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
+  final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
@@ -297,7 +298,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ))),
           ),
-          Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
+          Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 12), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
               GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0), itemCount: 12, itemBuilder: (c, i) {
                 final num = i + 1; final isSelected = selectedSkitels.contains(num);
@@ -309,6 +310,9 @@ class _GameScreenState extends State<GameScreen> {
                 const SizedBox(width: 8),
                 Expanded(flex: 2, child: ElevatedButton(onPressed: _submitThrow, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline), Text(selectedSkitels.isEmpty ? ' 0点 (ミス)' : ' 決定 (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length}点)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]))),
               ]),
+              const SizedBox(height: 12),
+              const Text('Easy Molkky Score', style: TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.w300)),
+              const SizedBox(height: 12),
             ]),
           ),
         ],
