@@ -133,7 +133,11 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+<<<<<<< Updated upstream
             const Text('v0.4.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
+=======
+            const Text('v0.4.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
+>>>>>>> Stashed changes
           ],
         ),
       ),
@@ -329,7 +333,7 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
-    final displayPlayers = players ?? match?.players ?? [];
+    final allPlayers = players ?? match?.players ?? [];
     return Scaffold(
       appBar: AppBar(title: const Text('全セット履歴')),
       body: SingleChildScrollView(
@@ -342,35 +346,51 @@ class HistoryPage extends StatelessWidget {
             const Divider(height: 30),
             for (var set in sets) ...[
               Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-              SingleChildScrollView(scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columnSpacing: 20, headingRowHeight: 40,
-                  columns: [const DataColumn(label: Text('T')), ...displayPlayers.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))))],
-                  rows: [
-                    ...set.turns.map((turn) => DataRow(cells: [
-                      DataCell(Text('${turn.turnNumber}')),
-                      ...displayPlayers.map((p) {
-                        bool isStarter = p.id == set.starterPlayerId; bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
-                        String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
-                        return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
-                      }),
-                    ])),
-                    DataRow(color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
-                      cells: [
-                        const DataCell(Text('計', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ...displayPlayers.map((p) {
-                          int total = set.finalCumulativeScores[p.id] ?? 0;
-                          return DataCell(Text('$total', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)));
-                        }),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              _buildSetTable(set, allPlayers),
               const SizedBox(height: 20),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSetTable(SetRecord set, List<Player> allPlayers) {
+    // このセットの先行(starterPlayerId)を左端にするためにプレイヤーリストをソート
+    List<Player> displayOrder = List.from(allPlayers);
+    displayOrder.sort((a, b) {
+      if (a.id == set.starterPlayerId) return -1;
+      if (b.id == set.starterPlayerId) return 1;
+      return 0;
+    });
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columnSpacing: 20,
+        headingRowHeight: 40,
+        columns: [
+          const DataColumn(label: Text('T')),
+          ...displayOrder.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)))),
+        ],
+        rows: [
+          ...set.turns.map((turn) => DataRow(cells: [
+            DataCell(Text('${turn.turnNumber}')),
+            ...displayOrder.map((p) {
+              bool isStarter = p.id == set.starterPlayerId;
+              bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
+              String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
+              return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
+            }),
+          ])),
+          DataRow(
+            color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
+            cells: [
+              const DataCell(Text('計', style: TextStyle(fontWeight: FontWeight.bold))),
+              ...displayOrder.map((p) => DataCell(Text('${set.finalCumulativeScores[p.id] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)))),
+            ],
+          ),
+        ],
       ),
     );
   }
