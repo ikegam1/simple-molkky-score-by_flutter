@@ -153,7 +153,6 @@ class _GameScreenState extends State<GameScreen> {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
-  final ScreenshotController screenshotController = ScreenshotController();
   bool isSetFinished = false;
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
@@ -298,7 +297,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ))),
           ),
-          Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 12), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
+          Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
               GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0), itemCount: 12, itemBuilder: (c, i) {
                 final num = i + 1; final isSelected = selectedSkitels.contains(num);
