@@ -133,7 +133,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v0.3.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v0.4.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -297,7 +297,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ))),
           ),
-          Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
+          Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
               GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0), itemCount: 12, itemBuilder: (c, i) {
                 final num = i + 1; final isSelected = selectedSkitels.contains(num);
