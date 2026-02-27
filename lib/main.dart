@@ -19,7 +19,7 @@ class L10n {
   L10n(this.locale);
 
   static L10n of(BuildContext context) {
-    return Localizations.of<L10n>(context, L10n)!;
+    return Localizations.of<L10n>(context, L10n) ?? L10n(const Locale('ja'));
   }
 
   static const Map<String, Map<String, String>> _values = {
@@ -82,7 +82,9 @@ class L10n {
   };
 
   String get(String key, {Map<String, String>? args}) {
-    String value = _values[locale.languageCode]?[key] ?? _values['en']![key]!;
+    // 言語コードが ja または ja_JP 等であれば ja を使用、それ以外は en
+    String lang = locale.languageCode.startsWith('ja') ? 'ja' : 'en';
+    String value = _values[lang]?[key] ?? _values['en']![key] ?? key;
     if (args != null) {
       args.forEach((k, v) => value = value.replaceAll('{$k}', v));
     }
@@ -93,7 +95,7 @@ class L10n {
 class L10nDelegate extends LocalizationsDelegate<L10n> {
   const L10nDelegate();
   @override
-  bool isSupported(Locale locale) => ['en', 'ja'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => true; // すべての言語を受け入れ、内部で en/ja に振り分ける
   @override
   Future<L10n> load(Locale locale) async => L10n(locale);
   @override
@@ -123,7 +125,13 @@ class EasyMolkkyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('ja'), Locale('en')],
+      supportedLocales: const [Locale('ja', 'JP'), Locale('en', 'US'), Locale('ja'), Locale('en')],
+      // 言語判定のカスタマイズ
+      localeResolutionCallback: (locale, supportedLocales) {
+        if (locale == null) return const Locale('ja');
+        if (locale.languageCode.startsWith('ja')) return const Locale('ja');
+        return const Locale('en');
+      },
       home: const SetupScreen(),
     );
   }
@@ -239,7 +247,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.0.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.0.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -352,7 +360,6 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _goToHistory() {
-    final t = L10n.of(context);
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
       SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId, widget.match.players.map((p)=>p.id).toList());
@@ -364,19 +371,24 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showSetWinnerDialog(Player winner) {
+    // Dialogを表示する際、builder内の context ではなく親の context または L10n.of(context) を事前に取得
     final t = L10n.of(context);
-    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), content: Text(t.get('winner_is', args: {'name': winner.name})),
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), 
+      content: Text(t.get('winner_is', args: {'name': winner.name})),
       actions: [
         TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
         TextButton(onPressed: () {
-          Navigator.pop(c); if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
+          Navigator.pop(ctx); if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
           else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear(); });
         }, child: Text(widget.match.isMatchOver ? t.get('final_result') : t.get('next_set')))]));
   }
 
   void _showMatchWinnerDialog(Player winner) {
     final t = L10n.of(context);
-    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: Text(t.get('match_over')), content: Text(t.get('winner_crown', args: {'name': winner.name})),
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text(t.get('match_over')), 
+      content: Text(t.get('winner_crown', args: {'name': winner.name})),
       actions: [
         TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
         TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))
