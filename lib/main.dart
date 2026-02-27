@@ -1,10 +1,11 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,16 +13,100 @@ import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
+// --- Localization Support ---
+class L10n {
+  final Locale locale;
+  L10n(this.locale);
+
+  static L10n of(BuildContext context) {
+    return Localizations.of<L10n>(context, L10n)!;
+  }
+
+  static const Map<String, Map<String, String>> _values = {
+    'en': {
+      'app_title': 'Easy Molkky Score',
+      'player_name': 'Player Name',
+      'start_game': 'Start Game',
+      'match_history': 'History',
+      'game_mode': 'Game Mode',
+      'sets_count': 'Sets: {n}',
+      'race_to': 'First to {n} sets',
+      'set_n': 'Set {n}',
+      'turn_n': 'Turn {n}',
+      'turn_label': 'T',
+      'points': 'Pts',
+      'total': 'Total',
+      'confirm': 'Confirm',
+      'undo': 'Undo',
+      'miss': 'Miss',
+      'history_title': 'Match History',
+      'winner_is': '{name} Wins!',
+      'next_set': 'Next Set',
+      'final_result': 'Final Result',
+      'match_over': 'Match Over',
+      'winner_crown': 'Winner: {name}',
+      'finish': 'Finish',
+      'anonymous_id': 'Firebase ID: {id}',
+      'loading_history': 'Loading history...',
+      'no_history': 'No match history yet.',
+      'error': 'Error: {msg}',
+    },
+    'ja': {
+      'app_title': 'Easy Molkky Score',
+      'player_name': 'プレイヤー名',
+      'start_game': 'ゲーム開始',
+      'match_history': '戦績確認',
+      'game_mode': '試合形式',
+      'sets_count': '{n}番 ({n}セット)',
+      'race_to': '{n}先 ({n}本先取)',
+      'set_n': '第 {n} セット',
+      'turn_n': 'ターン {n}',
+      'turn_label': 'ターン',
+      'points': '得点',
+      'total': '合計',
+      'confirm': '決定',
+      'undo': '戻る',
+      'miss': 'ミス',
+      'history_title': '全セット履歴',
+      'winner_is': '{name} さんが勝利！',
+      'next_set': '次のセットへ',
+      'final_result': '最終結果へ',
+      'match_over': '🎊 マッチ終了 🎊',
+      'winner_crown': '優勝: {name} さん',
+      'finish': '終了',
+      'anonymous_id': 'Firebase ID: {id}',
+      'loading_history': '戦績データを準備中です...',
+      'no_history': 'まだ戦績がありません',
+      'error': 'エラー: {msg}',
+    }
+  };
+
+  String get(String key, {Map<String, String>? args}) {
+    String value = _values[locale.languageCode]?[key] ?? _values['en']![key]!;
+    if (args != null) {
+      args.forEach((k, v) => value = value.replaceAll('{$k}', v));
+    }
+    return value;
+  }
+}
+
+class L10nDelegate extends LocalizationsDelegate<L10n> {
+  const L10nDelegate();
+  @override
+  bool isSupported(Locale locale) => ['en', 'ja'].contains(locale.languageCode);
+  @override
+  Future<L10n> load(Locale locale) async => L10n(locale);
+  @override
+  bool shouldReload(L10nDelegate old) => false;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  
-  // Edge-to-Edge 対応のためのシステムUI透過設定
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     systemNavigationBarColor: Colors.transparent,
   ));
-
   runApp(const EasyMolkkyApp());
 }
 
@@ -32,6 +117,13 @@ class EasyMolkkyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Easy Molkky Score',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      localizationsDelegates: const [
+        L10nDelegate(),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('ja'), Locale('en')],
       home: const SetupScreen(),
     );
   }
@@ -48,7 +140,6 @@ class _SetupScreenState extends State<SetupScreen> {
   final TextEditingController _nameController = TextEditingController();
   int _selectedModeKey = 3;
   String _firebaseUid = "";
-  final Map<int, String> _options = { 1: '1番 (1セット)', 2: '2番 (2セット)', 3: '2先 (2本先取)', 5: '3先 (3本先取)', 10: '10番 (10セット)', 11: '11先 (11本先取)' };
   final _uuid = const Uuid();
 
   @override
@@ -90,6 +181,16 @@ class _SetupScreenState extends State<SetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = L10n.of(context);
+    final Map<int, String> options = {
+      1: t.get('sets_count', args: {'n': '1'}),
+      2: t.get('sets_count', args: {'n': '2'}),
+      3: t.get('race_to', args: {'n': '2'}),
+      5: t.get('race_to', args: {'n': '3'}),
+      10: t.get('sets_count', args: {'n': '10'}),
+      11: t.get('race_to', args: {'n': '11'})
+    };
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(''), 
@@ -99,7 +200,7 @@ class _SetupScreenState extends State<SetupScreen> {
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
-            tooltip: '戦績確認',
+            tooltip: t.get('match_history'),
           )
         ],
       ),
@@ -109,17 +210,14 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Column(
           children: [
             const SizedBox(height: 20),
-            const Text(
-              'Easy Molkky Score',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent),
-            ),
+            Text(t.get('app_title'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
             const SizedBox(height: 20),
-            TextField(controller: _nameController, decoration: InputDecoration(labelText: 'プレイヤー名', suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
+            TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
               children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() => _registeredPlayers.removeAt(i)); _savePlayers(); })) ]
             )),
-            DropdownButtonFormField<int>(value: _selectedModeKey, items: _options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: const InputDecoration(labelText: '試合形式')),
+            DropdownButtonFormField<int>(value: _selectedModeKey, items: options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: InputDecoration(labelText: t.get('game_mode'))),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
@@ -129,19 +227,19 @@ class _SetupScreenState extends State<SetupScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
-              child: const Text('ゲーム開始', style: TextStyle(color: Colors.white, fontSize: 18)),
+              child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
               icon: const Icon(Icons.cloud_done),
-              label: const Text('戦績確認'),
+              label: Text(t.get('match_history')),
               style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
             ),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
-              Text('Firebase ID: ${_firebaseUid.substring(0, 8)}...', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.0.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            const Text('v1.0.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -254,6 +352,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _goToHistory() {
+    final t = L10n.of(context);
     List<SetRecord> allSets = List.from(widget.match.completedSets);
     if (!isSetFinished) {
       SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId, widget.match.players.map((p)=>p.id).toList());
@@ -265,36 +364,39 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showSetWinnerDialog(Player winner) {
-    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: Text('第 ${widget.match.currentSetIndex} セット終了'), content: Text('${winner.name} さんが勝利！'),
+    final t = L10n.of(context);
+    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), content: Text(t.get('winner_is', args: {'name': winner.name})),
       actions: [
-        TextButton(onPressed: _goToHistory, child: const Text('履歴を確認')),
+        TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
         TextButton(onPressed: () {
           Navigator.pop(c); if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
           else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear(); });
-        }, child: Text(widget.match.isMatchOver ? '最終結果へ' : '次のセットへ'))]));
+        }, child: Text(widget.match.isMatchOver ? t.get('final_result') : t.get('next_set')))]));
   }
 
   void _showMatchWinnerDialog(Player winner) {
-    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: const Text('🎊 マッチ終了 🎊'), content: Text('優勝: ${winner.name} さん'),
+    final t = L10n.of(context);
+    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(title: Text(t.get('match_over')), content: Text(t.get('winner_crown', args: {'name': winner.name})),
       actions: [
-        TextButton(onPressed: _goToHistory, child: const Text('履歴を確認')),
-        TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('終了'))
+        TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
+        TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))
       ]));
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = L10n.of(context);
     final currentPlayer = widget.match.players[currentPlayerIndex];
     return Scaffold(
-      appBar: AppBar(title: Text('第 ${widget.match.currentSetIndex} セット'), actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: const Text('履歴'))]),
+      appBar: AppBar(title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
       body: Column(
         children: [
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
-            child: Text('${currentPlayer.name} の番 (ターン $currentTurnInSet)', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            child: Text('${currentPlayer.name} (${t.get('turn_n', args: {'n': '$currentTurnInSet'})})', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
           Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
             child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
               child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
-                columns: [const DataColumn(label: SizedBox(width: 40, child: Text('ターン'))), ...widget.match.players.expand((p) => [DataColumn(label: Container(width: 80, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: TextStyle(fontSize: 12, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold)), const Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text('得点', style: TextStyle(fontSize: 9)), Text('合計', style: TextStyle(fontSize: 9))])])))])],
+                columns: [DataColumn(label: SizedBox(width: 40, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) => [DataColumn(label: Container(width: 80, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: TextStyle(fontSize: 12, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold)), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(t.get('points'), style: const TextStyle(fontSize: 9)), Text(t.get('total'), style: const TextStyle(fontSize: 9))])])))])],
                 rows: List.generate(currentTurnInSet, (i) {
                   int turn = currentTurnInSet - i;
                   return DataRow(cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
@@ -314,12 +416,12 @@ class _GameScreenState extends State<GameScreen> {
               }),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.undo, size: 18), Text(' 戻る')]))),
+                Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 18), Text(' ${t.get('undo')}')]))),
                 const SizedBox(width: 8),
-                Expanded(flex: 2, child: ElevatedButton(onPressed: _submitThrow, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline), Text(selectedSkitels.isEmpty ? ' 0点 (ミス)' : ' 決定 (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length}点)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]))),
+                Expanded(flex: 2, child: ElevatedButton(onPressed: _submitThrow, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline), Text(selectedSkitels.isEmpty ? ' 0 ${t.get('pts')} (${t.get('miss')})' : ' ${t.get('confirm')} (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length} ${t.get('pts')})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]))),
               ]),
               const SizedBox(height: 12),
-              const Text('Easy Molkky Score', style: TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.w300)),
+              Text(t.get('app_title'), style: const TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.w300)),
               const SizedBox(height: 12),
             ]),
           ),
@@ -337,21 +439,22 @@ class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players});
   @override
   Widget build(BuildContext context) {
+    final t = L10n.of(context);
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
     final allPlayers = players ?? match?.players ?? [];
     return Scaffold(
-      appBar: AppBar(title: const Text('全セット履歴')),
+      appBar: AppBar(title: Text(t.get('history_title'))),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Easy Molkky Score Result', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-            Text('開始: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
+            Text('${t.get('app_title')} Result', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+            Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
             const Divider(height: 30),
             for (var set in sets) ...[
-              Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text('第 ${set.setNumber} セット', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-              _buildSetTable(set, allPlayers),
+              Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text(t.get('set_n', args: {'n': '${set.setNumber}'}), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+              _buildSetTable(context, set, allPlayers),
               const SizedBox(height: 20),
             ],
           ],
@@ -360,11 +463,11 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSetTable(SetRecord set, List<Player> allPlayers) {
-    // セットごとに保存された playerOrder に基づいてプレイヤーを並び替える
+  Widget _buildSetTable(BuildContext context, SetRecord set, List<Player> allPlayers) {
+    final t = L10n.of(context);
     List<Player> displayOrder = [];
     for (var id in set.playerOrder) {
-      final p = allPlayers.firstWhere((player) => player.id == id, orElse: () => Player(id: id, name: "不明", initialOrder: 0));
+      final p = allPlayers.firstWhere((player) => player.id == id, orElse: () => Player(id: id, name: "???", initialOrder: 0));
       displayOrder.add(p);
     }
 
@@ -374,7 +477,7 @@ class HistoryPage extends StatelessWidget {
         columnSpacing: 20,
         headingRowHeight: 40,
         columns: [
-          const DataColumn(label: Text('T')),
+          DataColumn(label: Text(t.get('turn_label'))),
           ...displayOrder.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)))),
         ],
         rows: [
@@ -390,7 +493,7 @@ class HistoryPage extends StatelessWidget {
           DataRow(
             color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
             cells: [
-              const DataCell(Text('計', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataCell(Text(t.get('total'), style: const TextStyle(fontWeight: FontWeight.bold))),
               ...displayOrder.map((p) => DataCell(Text('${set.finalCumulativeScores[p.id] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)))),
             ],
           ),
@@ -406,8 +509,9 @@ class GlobalHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = L10n.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('戦績確認')),
+      appBar: AppBar(title: Text(t.get('match_history'))),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('scores')
@@ -418,13 +522,13 @@ class GlobalHistoryPage extends StatelessWidget {
           if (snapshot.hasError) {
             final error = snapshot.error.toString();
             if (error.contains("FAILED_PRECONDITION") || error.contains("index")) {
-               return const Center(child: Padding(padding: EdgeInsets.all(24.0), child: Text("戦績データを準備中です...\n(初回は数分かかる場合があります)", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey))));
+               return Center(child: Padding(padding: const EdgeInsets.all(24.0), child: Text(t.get('loading_history'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey))));
             }
-            return Center(child: Text("エラー: $error"));
+            return Center(child: Text(t.get('error', args: {'msg': error})));
           }
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("まだ戦績がありません"));
+          if (docs.isEmpty) return Center(child: Text(t.get('no_history')));
 
           return ListView.builder(
             itemCount: docs.length,
@@ -432,13 +536,13 @@ class GlobalHistoryPage extends StatelessWidget {
               final data = docs[index].data() as Map<String, dynamic>;
               final start = (data['startTime'] as Timestamp).toDate();
               final dateStr = DateFormat('MM/dd HH:mm').format(start);
-              final winner = data['winner'] ?? "不明";
+              final winner = data['winner'] ?? "???";
               final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
 
               return ListTile(
                 leading: const Icon(Icons.cloud_done, color: Colors.blue),
-                title: Text("$dateStr 優勝: $winner"),
-                subtitle: Text("参加: $playerNames"),
+                title: Text("$dateStr Win: $winner"),
+                subtitle: Text("Players: $playerNames"),
                 onTap: () => _viewDetail(context, data, start),
               );
             },
@@ -449,6 +553,7 @@ class GlobalHistoryPage extends StatelessWidget {
   }
 
   void _viewDetail(BuildContext context, Map<String, dynamic> data, DateTime start) {
+    final t = L10n.of(context);
     try {
       final List<dynamic> playersData = data['players'] as List<dynamic>;
       final List<Player> players = playersData.map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0)).toList();
@@ -470,7 +575,7 @@ class GlobalHistoryPage extends StatelessWidget {
 
       Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start, players: players)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('詳細の読み込みに失敗しました: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'}))));
     }
   }
 }
