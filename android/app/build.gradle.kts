@@ -31,7 +31,7 @@ android {
     defaultConfig {
         applicationId = "jp.ikegam1.simple_molkky_score"
         minSdk = 23 // firebase_auth の要求に合わせて 21 -> 23 に変更
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35 // Android 15 (Edge-to-Edge 強制) 対応
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
