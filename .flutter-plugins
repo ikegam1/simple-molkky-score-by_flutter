@@ -1,0 +1,15 @@
+# This is a generated file; do not edit or check into version control.
+cloud_firestore=/Users/ko1/.pub-cache/hosted/pub.dev/cloud_firestore-6.1.2/
+cloud_firestore_web=/Users/ko1/.pub-cache/hosted/pub.dev/cloud_firestore_web-5.1.2/
+firebase_auth=/Users/ko1/.pub-cache/hosted/pub.dev/firebase_auth-6.1.4/
+firebase_auth_web=/Users/ko1/.pub-cache/hosted/pub.dev/firebase_auth_web-6.1.2/
+firebase_core=/Users/ko1/.pub-cache/hosted/pub.dev/firebase_core-4.4.0/
+firebase_core_web=/Users/ko1/.pub-cache/hosted/pub.dev/firebase_core_web-3.4.0/
+path_provider_linux=/Users/ko1/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1/
+path_provider_windows=/Users/ko1/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0/
+shared_preferences=/Users/ko1/.pub-cache/hosted/pub.dev/shared_preferences-2.5.3/
+shared_preferences_android=/Users/ko1/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.13/
+shared_preferences_foundation=/Users/ko1/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.5.4/
+shared_preferences_linux=/Users/ko1/.pub-cache/hosted/pub.dev/shared_preferences_linux-2.4.1/
+shared_preferences_web=/Users/ko1/.pub-cache/hosted/pub.dev/shared_preferences_web-2.4.3/
+shared_preferences_windows=/Users/ko1/.pub-cache/hosted/pub.dev/shared_preferences_windows-2.4.1/

@@ -1,0 +1,2 @@
+/Users/ko1/development/simple_molkky_score/android/app/.cxx/RelWithDebInfo/3wwr7181/arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/ko1/development/simple_molkky_score/android/app/.cxx/RelWithDebInfo/3wwr7181/arm64-v8a/CMakeFiles/rebuild_cache.dir

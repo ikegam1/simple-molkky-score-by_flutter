@@ -1,0 +1,46 @@
+[
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-hdpi_launcher_icon.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-hdpi/launcher_icon.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/drawable-v21_launch_background.xml.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/drawable-v21/launch_background.xml"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-xxhdpi_launcher_icon.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-xxhdpi/launcher_icon.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-xhdpi_launcher_icon.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-xhdpi/launcher_icon.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-mdpi_launcher_icon.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-mdpi/launcher_icon.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-xxxhdpi_launcher_icon.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-xxxhdpi/launcher_icon.png"
+    },
+    {
+        "merged": "jp.ikegam1.simple_molkky_score.app-release-50:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "jp.ikegam1.simple_molkky_score.app-main-44:/mipmap-xxxhdpi/ic_launcher.png"
+    }
+]
