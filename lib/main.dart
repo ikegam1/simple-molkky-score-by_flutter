@@ -19,7 +19,12 @@ class L10n {
   L10n(this.locale);
 
   static L10n of(BuildContext context) {
-    return Localizations.of<L10n>(context, L10n) ?? L10n(const Locale('ja'));
+    // Contextから取得を試みるが、失敗した場合はデフォルトで日本語(ja)を返す
+    try {
+      return Localizations.of<L10n>(context, L10n) ?? L10n(const Locale('ja'));
+    } catch (_) {
+      return L10n(const Locale('ja'));
+    }
   }
 
   static const Map<String, Map<String, String>> _values = {
@@ -82,8 +87,8 @@ class L10n {
   };
 
   String get(String key, {Map<String, String>? args}) {
-    // 言語コードが ja または ja_JP 等であれば ja を使用、それ以外は en
-    String lang = locale.languageCode.startsWith('ja') ? 'ja' : 'en';
+    // ja_JP や ja など "ja" を含む場合は日本語、それ以外を英語とする
+    String lang = (locale.languageCode.toLowerCase().contains('ja')) ? 'ja' : 'en';
     String value = _values[lang]?[key] ?? _values['en']![key] ?? key;
     if (args != null) {
       args.forEach((k, v) => value = value.replaceAll('{$k}', v));
@@ -95,7 +100,7 @@ class L10n {
 class L10nDelegate extends LocalizationsDelegate<L10n> {
   const L10nDelegate();
   @override
-  bool isSupported(Locale locale) => true; // すべての言語を受け入れ、内部で en/ja に振り分ける
+  bool isSupported(Locale locale) => true;
   @override
   Future<L10n> load(Locale locale) async => L10n(locale);
   @override
@@ -104,7 +109,12 @@ class L10nDelegate extends LocalizationsDelegate<L10n> {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    debugPrint("Firebase init error: $e");
+  }
+  
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     systemNavigationBarColor: Colors.transparent,
@@ -125,11 +135,14 @@ class EasyMolkkyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('ja', 'JP'), Locale('en', 'US'), Locale('ja'), Locale('en')],
-      // 言語判定のカスタマイズ
+      // 言語設定の優先順位: 日本語を一番上に
+      supportedLocales: const [Locale('ja'), Locale('en')],
       localeResolutionCallback: (locale, supportedLocales) {
-        if (locale == null) return const Locale('ja');
-        if (locale.languageCode.startsWith('ja')) return const Locale('ja');
+        if (locale != null) {
+          if (locale.languageCode.toLowerCase().contains('ja')) {
+            return const Locale('ja');
+          }
+        }
         return const Locale('en');
       },
       home: const SetupScreen(),
@@ -229,10 +242,16 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
-                final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
-                MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
-                int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
+                try {
+                  final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
+                  MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
+                  int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+                  
+                  final match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match)));
+                } catch (e) {
+                  debugPrint("Navigation Error: $e");
+                }
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
@@ -247,7 +266,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty)
               Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.0.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.0.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -275,6 +294,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _submitThrow() {
     if (isSetFinished) return;
+    if (widget.match.players.isEmpty) return;
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
@@ -308,6 +328,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _nextPlayer() {
+    if (widget.match.players.isEmpty) return;
     int start = currentPlayerIndex;
     do { currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length; } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != start);
     if (currentPlayerIndex == 0) currentTurnInSet++;
@@ -315,6 +336,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _undo() {
     if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0)) return;
+    if (widget.match.players.isEmpty) return;
     setState(() {
       if (currentPlayerIndex == 0) { currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1; } else { currentPlayerIndex--; }
       while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) { currentPlayerIndex--; }
@@ -371,7 +393,6 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showSetWinnerDialog(Player winner) {
-    // Dialogを表示する際、builder内の context ではなく親の context または L10n.of(context) を事前に取得
     final t = L10n.of(context);
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
       title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), 
@@ -398,6 +419,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
+    if (widget.match.players.isEmpty) return Scaffold(body: Center(child: Text(t.get('error', args: {'msg': 'No players'}))));
     final currentPlayer = widget.match.players[currentPlayerIndex];
     return Scaffold(
       appBar: AppBar(title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
