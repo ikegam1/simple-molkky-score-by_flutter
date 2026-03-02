@@ -63,7 +63,8 @@ class MolkkyMatch {
        currentSetRecord = SetRecord(1, players.first.id, players.map((p) => p.id).toList());
 
   bool get isMatchOver {
-    if (type == MatchType.fixedSets) return currentSetIndex >= limit;
+    // 修正: completedSets.length で判定することで、指定セット数が「完了」するまで終わらないようにする
+    if (type == MatchType.fixedSets) return completedSets.length >= limit;
     for (var p in players) {
       if (p.setsWon >= limit) {
         if (limit == 11) return matchWinner != null;
@@ -75,7 +76,8 @@ class MolkkyMatch {
 
   Player? get matchWinner {
     if (type == MatchType.fixedSets) {
-      if (currentSetIndex < limit) return null;
+      // マッチが終わっていない（全セット完了していない）場合は勝者を決めない
+      if (completedSets.length < limit) return null;
       final sorted = List<Player>.from(players);
       sorted.sort((a, b) {
         if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
@@ -103,12 +105,16 @@ class MolkkyMatch {
 
   // 次のセットの準備 (基本ロジック)
   void prepareNextSet({bool manualOrder = false}) {
+    // 現在のセットの結果を記録
     for (var p in players) {
       currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
       p.setFinalScores.add(p.currentScore);
     }
     completedSets.add(currentSetRecord);
     
+    // マッチがここで終了判定になる場合は、新しいセットレコードを作らない
+    if (isMatchOver) return;
+
     int nextIndex = currentSetIndex + 1;
     
     if (!manualOrder) {
@@ -144,7 +150,7 @@ class MolkkyMatch {
   // 手動で調整した順序を適用する
   void applyManualOrder(List<Player> newOrder) {
     players = List.from(newOrder);
-    // 現在のセットレコード（直前の prepareNextSet で作られたもの）を上書き
+    // prepareNextSet で作成された currentSetRecord を新しい順序で更新
     currentSetRecord = SetRecord(currentSetIndex, players.first.id, players.map((p) => p.id).toList());
   }
 }
