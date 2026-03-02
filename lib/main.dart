@@ -58,6 +58,7 @@ class L10n {
       'duplicate_name': 'Name already exists',
       'name_too_long': 'Max 20 characters',
       'reorder_hint': 'Adjust throw order for next set',
+      'switch_lang': 'Language: English',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -90,6 +91,7 @@ class L10n {
       'duplicate_name': 'その名前は既に登録されています',
       'name_too_long': '名前は20文字以内で入力してください',
       'reorder_hint': '次セットの投げ順を調整できます',
+      'switch_lang': '言語: 日本語',
     }
   };
 
@@ -120,16 +122,48 @@ void main() async {
   runApp(const EasyMolkkyApp());
 }
 
-class EasyMolkkyApp extends StatelessWidget {
+class EasyMolkkyApp extends StatefulWidget {
   const EasyMolkkyApp({super.key});
+  
+  static _EasyMolkkyAppState of(BuildContext context) => context.findAncestorStateOfType<_EasyMolkkyAppState>()!;
+
+  @override
+  State<EasyMolkkyApp> createState() => _EasyMolkkyAppState();
+}
+
+class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
+  Locale? _locale;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocale();
+  }
+
+  Future<void> _loadLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? langCode = prefs.getString('user_lang');
+    if (langCode != null) {
+      setState(() { _locale = Locale(langCode); });
+    }
+  }
+
+  Future<void> setLocale(Locale locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_lang', locale.languageCode);
+    setState(() { _locale = locale; });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Easy Molkky Score',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      locale: _locale,
       localizationsDelegates: const [L10nDelegate(), GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
       supportedLocales: const [Locale('ja'), Locale('en')],
       localeResolutionCallback: (locale, supportedLocales) {
+        if (_locale != null) return _locale; // ユーザー設定があれば優先
         if (locale != null && locale.languageCode.startsWith('ja')) return const Locale('ja');
         return const Locale('en');
       },
@@ -213,6 +247,13 @@ class _SetupScreenState extends State<SetupScreen> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0, backgroundColor: Colors.transparent,
+        leading: TextButton(
+          onPressed: () {
+            final current = Localizations.localeOf(context).languageCode;
+            EasyMolkkyApp.of(context).setLocale(current == 'ja' ? const Locale('en') : const Locale('ja'));
+          },
+          child: Text(Localizations.localeOf(context).languageCode == 'ja' ? 'EN' : 'JA', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         actions: [IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history'))],
       ),
       extendBodyBehindAppBar: true,
@@ -244,7 +285,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.1.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.2.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -360,9 +401,8 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showSetWinnerDialog(Player winner) {
     final t = L10n.of(context);
-    // 次セットへの移行前にプレイヤーの並び替えができるように players のコピーを保持
-    List<Player> reorderList = List.from(widget.match.players);
-    widget.match.prepareNextSet(manualOrder: false); // 先にロジック上の基本順序を確定させる
+    widget.match.prepareNextSet(manualOrder: false);
+    List<Player> reorderList = List.from(widget.match.players); 
 
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
       return AlertDialog(
@@ -395,7 +435,7 @@ class _GameScreenState extends State<GameScreen> {
             if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
             else {
               setState(() {
-                widget.match.applyManualOrder(reorderList); // ユーザーが調整した順番を適用
+                widget.match.applyManualOrder(reorderList);
                 currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
               });
             }
