@@ -101,7 +101,8 @@ class MolkkyMatch {
     return null;
   }
 
-  void prepareNextSet() {
+  // 次のセットの準備 (基本ロジック)
+  void prepareNextSet({bool manualOrder = false}) {
     for (var p in players) {
       currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
       p.setFinalScores.add(p.currentScore);
@@ -109,40 +110,41 @@ class MolkkyMatch {
     completedSets.add(currentSetRecord);
     
     int nextIndex = currentSetIndex + 1;
-    bool shouldSortByScore = false;
     
-    if (type == MatchType.raceTo) {
-      // 全員に先行が1回ずつ回るサイクルが終わった後の決着セット判定
-      // 例: 4人、2先(limit=2) なら 4 * (2-1) + 1 = 5セット目
-      int decidingSetThreshold = (players.length * (limit - 1)) + 1;
-      if (nextIndex == decidingSetThreshold) {
-        shouldSortByScore = true;
+    if (!manualOrder) {
+      bool shouldSortByScore = false;
+      if (type == MatchType.raceTo) {
+        int decidingSetThreshold = (players.length * (limit - 1)) + 1;
+        if (nextIndex >= decidingSetThreshold) shouldSortByScore = true;
       }
-    }
 
-    if (shouldSortByScore) {
-      // 決着セット：スコア順
-      players.sort((a, b) {
-        if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
-        if (a.totalMatchThrows != b.totalMatchThrows) return a.totalMatchThrows.compareTo(b.totalMatchThrows);
-        return a.initialOrder.compareTo(b.initialOrder);
-      });
-    } else {
-      // 特殊ルール: 「2番」(Fixed 2 sets) の第2セットは逆順 (表裏)
-      if (type == MatchType.fixedSets && limit == 2 && nextIndex == 2) {
-        players = players.reversed.toList();
+      if (shouldSortByScore) {
+        players.sort((a, b) {
+          if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
+          if (a.totalMatchThrows != b.totalMatchThrows) return a.totalMatchThrows.compareTo(b.totalMatchThrows);
+          return a.initialOrder.compareTo(b.initialOrder);
+        });
       } else {
-        // 通常セット：ローテーション (スライド)
-        if (players.length > 1) {
-          final first = players.removeAt(0);
-          players.add(first);
+        if (type == MatchType.fixedSets && limit == 2 && nextIndex == 2) {
+          players = players.reversed.toList();
+        } else {
+          if (players.length > 1) {
+            final first = players.removeAt(0);
+            players.add(first);
+          }
         }
       }
     }
 
     currentSetIndex = nextIndex;
-    // playerOrder を今の players リストの状態から固定
     currentSetRecord = SetRecord(currentSetIndex, players.first.id, players.map((p) => p.id).toList());
     for (var p in players) p.resetForNewSet();
+  }
+
+  // 手動で調整した順序を適用する
+  void applyManualOrder(List<Player> newOrder) {
+    players = List.from(newOrder);
+    // 現在のセットレコード（直前の prepareNextSet で作られたもの）を上書き
+    currentSetRecord = SetRecord(currentSetIndex, players.first.id, players.map((p) => p.id).toList());
   }
 }
