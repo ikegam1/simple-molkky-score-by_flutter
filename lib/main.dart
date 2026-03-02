@@ -19,7 +19,6 @@ class L10n {
   L10n(this.locale);
 
   static L10n of(BuildContext context) {
-    // Contextから取得を試みるが、失敗した場合はデフォルトで日本語(ja)を返す
     try {
       return Localizations.of<L10n>(context, L10n) ?? L10n(const Locale('ja'));
     } catch (_) {
@@ -55,6 +54,10 @@ class L10n {
       'loading_history': 'Loading history...',
       'no_history': 'No match history yet.',
       'error': 'Error: {msg}',
+      'max_players_reached': 'Max 8 players allowed',
+      'duplicate_name': 'Name already exists',
+      'name_too_long': 'Max 20 characters',
+      'reorder_hint': 'Adjust throw order for next set',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -83,12 +86,15 @@ class L10n {
       'loading_history': '戦績データを準備中です...',
       'no_history': 'まだ戦績がありません',
       'error': 'エラー: {msg}',
+      'max_players_reached': '最大8人まで登録可能です',
+      'duplicate_name': 'その名前は既に登録されています',
+      'name_too_long': '名前は20文字以内で入力してください',
+      'reorder_hint': '次セットの投げ順を調整できます',
     }
   };
 
   String get(String key, {Map<String, String>? args}) {
-    // ja_JP や ja など "ja" を含む場合は日本語、それ以外を英語とする
-    String lang = (locale.languageCode.toLowerCase().contains('ja')) ? 'ja' : 'en';
+    String lang = locale.languageCode.startsWith('ja') ? 'ja' : 'en';
     String value = _values[lang]?[key] ?? _values['en']![key] ?? key;
     if (args != null) {
       args.forEach((k, v) => value = value.replaceAll('{$k}', v));
@@ -109,16 +115,8 @@ class L10nDelegate extends LocalizationsDelegate<L10n> {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  } catch (e) {
-    debugPrint("Firebase init error: $e");
-  }
-  
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Colors.transparent,
-  ));
+  try { await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); } catch (e) { debugPrint("Firebase init error: $e"); }
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, systemNavigationBarColor: Colors.transparent));
   runApp(const EasyMolkkyApp());
 }
 
@@ -129,20 +127,10 @@ class EasyMolkkyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Easy Molkky Score',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
-      localizationsDelegates: const [
-        L10nDelegate(),
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      // 言語設定の優先順位: 日本語を一番上に
+      localizationsDelegates: const [L10nDelegate(), GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
       supportedLocales: const [Locale('ja'), Locale('en')],
       localeResolutionCallback: (locale, supportedLocales) {
-        if (locale != null) {
-          if (locale.languageCode.toLowerCase().contains('ja')) {
-            return const Locale('ja');
-          }
-        }
+        if (locale != null && locale.languageCode.startsWith('ja')) return const Locale('ja');
         return const Locale('en');
       },
       home: const SetupScreen(),
@@ -173,9 +161,7 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       final userCredential = await FirebaseAuth.instance.signInAnonymously();
       setState(() { _firebaseUid = userCredential.user!.uid; });
-    } catch (e) {
-      debugPrint("Auth Error: $e");
-    }
+    } catch (e) { debugPrint("Auth Error: $e"); }
     final prefs = await SharedPreferences.getInstance();
     final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
     if (savedJsonList != null) {
@@ -194,10 +180,22 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   void _add() {
-    if (_nameController.text.isNotEmpty) {
-      setState(() { _registeredPlayers.add(Player(id: _uuid.v4(), name: _nameController.text, initialOrder: _registeredPlayers.length)); _nameController.clear(); });
-      _savePlayers();
-    }
+    final t = L10n.of(context);
+    String name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    if (_registeredPlayers.length >= 8) { _showError(t.get('max_players_reached')); return; }
+    if (name.length > 20) { _showError(t.get('name_too_long')); return; }
+    if (_registeredPlayers.any((p) => p.name.toLowerCase() == name.toLowerCase())) { _showError(t.get('duplicate_name')); return; }
+
+    setState(() { 
+      _registeredPlayers.add(Player(id: _uuid.v4(), name: name, initialOrder: _registeredPlayers.length)); 
+      _nameController.clear(); 
+    });
+    _savePlayers();
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
   }
 
   @override
@@ -214,16 +212,8 @@ class _SetupScreenState extends State<SetupScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(''), 
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
-            tooltip: t.get('match_history'),
-          )
-        ],
+        elevation: 0, backgroundColor: Colors.transparent,
+        actions: [IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history'))],
       ),
       extendBodyBehindAppBar: true,
       body: Padding(
@@ -233,7 +223,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 20),
             Text(t.get('app_title'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
             const SizedBox(height: 20),
-            TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add()),
+            TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add(), maxLength: 20, buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
               children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() => _registeredPlayers.removeAt(i)); _savePlayers(); })) ]
@@ -242,31 +232,19 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
-                try {
-                  final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
-                  MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
-                  int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                  
-                  final match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
-                  Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match)));
-                } catch (e) {
-                  debugPrint("Navigation Error: $e");
-                }
+                final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
+                MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
+                int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
             ),
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
-              icon: const Icon(Icons.cloud_done),
-              label: Text(t.get('match_history')),
-              style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
-            ),
+            OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
-            if (_firebaseUid.isNotEmpty)
-              Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.0.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            const Text('v1.1.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -294,7 +272,6 @@ class _GameScreenState extends State<GameScreen> {
 
   void _submitThrow() {
     if (isSetFinished) return;
-    if (widget.match.players.isEmpty) return;
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
@@ -328,7 +305,6 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _nextPlayer() {
-    if (widget.match.players.isEmpty) return;
     int start = currentPlayerIndex;
     do { currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length; } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != start);
     if (currentPlayerIndex == 0) currentTurnInSet++;
@@ -336,7 +312,6 @@ class _GameScreenState extends State<GameScreen> {
 
   void _undo() {
     if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0)) return;
-    if (widget.match.players.isEmpty) return;
     setState(() {
       if (currentPlayerIndex == 0) { currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1; } else { currentPlayerIndex--; }
       while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) { currentPlayerIndex--; }
@@ -364,21 +339,12 @@ class _GameScreenState extends State<GameScreen> {
         'winner': match.matchWinner?.name ?? "None",
         'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
         'history': setsToUpload.map((s) => {
-          'setNumber': s.setNumber,
-          'starterId': s.starterPlayerId,
-          'playerOrder': s.playerOrder,
-          'finalScores': s.finalCumulativeScores,
-          'turns': s.turns.map((t) => {
-            'turnNumber': t.turnNumber,
-            'scores': t.scores,
-            'systemCalculated': t.systemCalculatedPlayerIds.toList(),
-          }).toList(),
+          'setNumber': s.setNumber, 'starterId': s.starterPlayerId, 'playerOrder': s.playerOrder, 'finalScores': s.finalCumulativeScores,
+          'turns': s.turns.map((t) => {'turnNumber': t.turnNumber, 'scores': t.scores, 'systemCalculated': t.systemCalculatedPlayerIds.toList()}).toList(),
         }).toList(),
       };
       await FirebaseFirestore.instance.collection('scores').add(data);
-    } catch (e) {
-      debugPrint("Upload Error: $e");
-    }
+    } catch (e) { debugPrint("Upload Error: $e"); }
   }
 
   void _goToHistory() {
@@ -394,26 +360,56 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showSetWinnerDialog(Player winner) {
     final t = L10n.of(context);
-    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), 
-      content: Text(t.get('winner_is', args: {'name': winner.name})),
-      actions: [
-        TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
-        TextButton(onPressed: () {
-          Navigator.pop(ctx); if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
-          else setState(() { widget.match.prepareNextSet(); currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear(); });
-        }, child: Text(widget.match.isMatchOver ? t.get('final_result') : t.get('next_set')))]));
+    // 次セットへの移行前にプレイヤーの並び替えができるように players のコピーを保持
+    List<Player> reorderList = List.from(widget.match.players);
+    widget.match.prepareNextSet(manualOrder: false); // 先にロジック上の基本順序を確定させる
+
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
+      return AlertDialog(
+        title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex - 1}'})),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(t.get('winner_is', args: {'name': winner.name})),
+            const SizedBox(height: 16),
+            if (!widget.match.isMatchOver) ...[
+              const Divider(),
+              Text(t.get('reorder_hint'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Container(
+                width: double.maxFinite,
+                height: 200,
+                child: ReorderableListView(
+                  shrinkWrap: true,
+                  onReorder: (o, n) { setDialogState(() { if (o < n) n -= 1; reorderList.insert(n, reorderList.removeAt(o)); }); },
+                  children: [ for (var p in reorderList) ListTile(key: Key(p.id), dense: true, leading: const Icon(Icons.drag_handle, size: 20), title: Text(p.name)) ],
+                ),
+              ),
+            ]
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
+          TextButton(onPressed: () {
+            Navigator.pop(ctx);
+            if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
+            else {
+              setState(() {
+                widget.match.applyManualOrder(reorderList); // ユーザーが調整した順番を適用
+                currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
+              });
+            }
+          }, child: Text(widget.match.isMatchOver ? t.get('final_result') : t.get('next_set'))),
+        ],
+      );
+    }));
   }
 
   void _showMatchWinnerDialog(Player winner) {
     final t = L10n.of(context);
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text(t.get('match_over')), 
-      content: Text(t.get('winner_crown', args: {'name': winner.name})),
-      actions: [
-        TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
-        TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))
-      ]));
+      title: Text(t.get('match_over')), content: Text(t.get('winner_crown', args: {'name': winner.name})),
+      actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
   }
 
   @override
@@ -478,22 +474,16 @@ class HistoryPage extends StatelessWidget {
     final allPlayers = players ?? match?.players ?? [];
     return Scaffold(
       appBar: AppBar(title: Text(t.get('history_title'))),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${t.get('app_title')} Result', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-            Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
-            const Divider(height: 30),
-            for (var set in sets) ...[
-              Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text(t.get('set_n', args: {'n': '${set.setNumber}'}), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-              _buildSetTable(context, set, allPlayers),
-              const SizedBox(height: 20),
-            ],
-          ],
-        ),
-      ),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${t.get('app_title')} Result', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+        Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
+        const Divider(height: 30),
+        for (var set in sets) ...[
+          Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text(t.get('set_n', args: {'n': '${set.setNumber}'}), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          _buildSetTable(context, set, allPlayers),
+          const SizedBox(height: 20),
+        ],
+      ])),
     );
   }
 
@@ -504,83 +494,47 @@ class HistoryPage extends StatelessWidget {
       final p = allPlayers.firstWhere((player) => player.id == id, orElse: () => Player(id: id, name: "???", initialOrder: 0));
       displayOrder.add(p);
     }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columnSpacing: 20,
-        headingRowHeight: 40,
-        columns: [
-          DataColumn(label: Text(t.get('turn_label'))),
-          ...displayOrder.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)))),
-        ],
-        rows: [
-          ...set.turns.map((turn) => DataRow(cells: [
-            DataCell(Text('${turn.turnNumber}')),
-            ...displayOrder.map((p) {
-              bool isStarter = p.id == set.starterPlayerId;
-              bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
-              String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
-              return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
-            }),
-          ])),
-          DataRow(
-            color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
-            cells: [
-              DataCell(Text(t.get('total'), style: const TextStyle(fontWeight: FontWeight.bold))),
-              ...displayOrder.map((p) => DataCell(Text('${set.finalCumulativeScores[p.id] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16)))),
-            ],
-          ),
-        ],
-      ),
-    );
+    return SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(columnSpacing: 20, headingRowHeight: 40,
+      columns: [DataColumn(label: Text(t.get('turn_label'))), ...displayOrder.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))))],
+      rows: [
+        ...set.turns.map((turn) => DataRow(cells: [DataCell(Text('${turn.turnNumber}')), ...displayOrder.map((p) {
+          bool isStarter = p.id == set.starterPlayerId;
+          bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
+          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
+          return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
+        })])),
+        DataRow(color: WidgetStateProperty.all(const Color(0xFFFFF8E1)), cells: [DataCell(Text(t.get('total'), style: const TextStyle(fontWeight: FontWeight.bold))), ...displayOrder.map((p) => DataCell(Text('${set.finalCumulativeScores[p.id] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16))))]),
+      ],
+    ));
   }
 }
 
 class GlobalHistoryPage extends StatelessWidget {
   final String uid;
   const GlobalHistoryPage({super.key, required this.uid});
-
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(t.get('match_history'))),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('scores')
-            .where('appUserId', isEqualTo: uid)
-            .orderBy('startTime', descending: true)
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('scores').where('appUserId', isEqualTo: uid).orderBy('startTime', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             final error = snapshot.error.toString();
-            if (error.contains("FAILED_PRECONDITION") || error.contains("index")) {
-               return Center(child: Padding(padding: const EdgeInsets.all(24.0), child: Text(t.get('loading_history'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey))));
-            }
+            if (error.contains("FAILED_PRECONDITION") || error.contains("index")) return Center(child: Padding(padding: const EdgeInsets.all(24.0), child: Text(t.get('loading_history'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey))));
             return Center(child: Text(t.get('error', args: {'msg': error})));
           }
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           final docs = snapshot.data!.docs;
           if (docs.isEmpty) return Center(child: Text(t.get('no_history')));
-
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
-              final start = (data['startTime'] as Timestamp).toDate();
-              final dateStr = DateFormat('MM/dd HH:mm').format(start);
-              final winner = data['winner'] ?? "???";
-              final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
-
-              return ListTile(
-                leading: const Icon(Icons.cloud_done, color: Colors.blue),
-                title: Text("$dateStr Win: $winner"),
-                subtitle: Text("Players: $playerNames"),
-                onTap: () => _viewDetail(context, data, start),
-              );
-            },
-          );
+          return ListView.builder(itemCount: docs.length, itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final start = (data['startTime'] as Timestamp).toDate();
+            final winner = data['winner'] ?? "???";
+            final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
+            return ListTile(leading: const Icon(Icons.cloud_done, color: Colors.blue), title: Text("${DateFormat('MM/dd HH:mm').format(start)} Win: $winner"), subtitle: Text("Players: $playerNames"), onTap: () => _viewDetail(context, data, start));
+          });
         },
       ),
     );
@@ -589,27 +543,14 @@ class GlobalHistoryPage extends StatelessWidget {
   void _viewDetail(BuildContext context, Map<String, dynamic> data, DateTime start) {
     final t = L10n.of(context);
     try {
-      final List<dynamic> playersData = data['players'] as List<dynamic>;
-      final List<Player> players = playersData.map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0)).toList();
-
-      final List<dynamic> historyData = data['history'] as List<dynamic>;
-      final List<SetRecord> sets = historyData.map((s) {
-        final List<String> order = List<String>.from(s['playerOrder'] ?? []);
-        final set = SetRecord(s['setNumber'], s['starterId'], order);
-        (s['turns'] as List).forEach((t) {
-          set.turns.add(TurnRecord(
-            t['turnNumber'], 
-            Map<String, int>.from(t['scores']),
-            systemCalculated: Set<String>.from(t['systemCalculated'] ?? []),
-          ));
-        });
+      final List<Player> players = (data['players'] as List).map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0)).toList();
+      final List<SetRecord> sets = (data['history'] as List).map((s) {
+        final set = SetRecord(s['setNumber'], s['starterId'], List<String>.from(s['playerOrder'] ?? []));
+        (s['turns'] as List).forEach((t) => set.turns.add(TurnRecord(t['turnNumber'], Map<String, int>.from(t['scores']), systemCalculated: Set<String>.from(t['systemCalculated'] ?? []))));
         s['finalScores'].forEach((k, v) => set.finalCumulativeScores[k] = v);
         return set;
       }).toList();
-
       Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start, players: players)));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'}))));
-    }
+    } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'})))); }
   }
 }
