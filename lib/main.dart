@@ -285,7 +285,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.2.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.2.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -369,8 +369,8 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _uploadMatchData() async {
     try {
       final match = widget.match;
-      for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
-      final setsToUpload = List<SetRecord>.from(match.completedSets)..add(match.currentSetRecord);
+      // 修正: すでに completedSets に全セットが入っているため、二重登録を排除する
+      final setsToUpload = match.completedSets;
       final data = {
         'appUserId': widget.appUserId,
         'startTime': match.startTime,
@@ -389,17 +389,13 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _goToHistory() {
-    // 履歴生成ロジックの修正: 重複排除
     List<SetRecord> allSets = List.from(widget.match.completedSets);
-    
-    // セット進行中（中断）の場合のみ、現在の未完了セットを履歴に載せる
     if (!isSetFinished) {
       SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId, widget.match.players.map((p)=>p.id).toList());
       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
       allSets.add(ongoing);
     }
-    
     Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(match: widget.match, sets: allSets)));
   }
 
