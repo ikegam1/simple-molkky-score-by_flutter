@@ -29,6 +29,9 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Run Flutter Widget Tests
+        run: flutter test
+
       - name: Setup Node.js for Playwright
         uses: actions/setup-node@v4
         with:
