@@ -285,7 +285,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.2.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.2.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -320,7 +320,9 @@ class _GameScreenState extends State<GameScreen> {
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
-      if (survivors.length == 1) {
+      
+      // 修正: 参加人数が2名以上の場合のみサバイバル判定（残り1人で勝利）を発動させる
+      if (widget.match.players.length >= 2 && survivors.length == 1) {
         final s = survivors.first;
         int needed = widget.match.targetScore - s.currentScore;
         s.currentScore = widget.match.targetScore;
@@ -329,6 +331,7 @@ class _GameScreenState extends State<GameScreen> {
         systemCalculatedIds.add(s.id); 
         for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
       }
+
       Player? winner;
       for (var p in widget.match.players) if (p.currentScore == widget.match.targetScore) { winner = p; break; }
       if (winner != null) {
@@ -369,7 +372,6 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _uploadMatchData() async {
     try {
       final match = widget.match;
-      // 修正: すでに completedSets に全セットが入っているため、二重登録を排除する
       final setsToUpload = match.completedSets;
       final data = {
         'appUserId': widget.appUserId,
