@@ -29179,7 +29179,7 @@ $S:2}
 A.aAD.prototype={
 $1(a){var s=A.di().b
 s=s==null?null:s.canvasKitBaseUrl
-return(s==null?"https://www.gstatic.com/flutter-canvaskit/327ed814500baca0480a02f8555aa84a9afe32bf/":s)+a},
+return(s==null?"https://www.gstatic.com/flutter-canvaskit/e4b8dca3f1b4ede4c30371002441c88c12187ed6/":s)+a},
 $S:34}
 A.Kv.prototype={
 Xf(){var s=this.acC(),r=$.bg.cd().ImageFilter.MakeColorFilter(s,null)
@@ -102018,7 +102018,7 @@ B.a9Q=new A.m(!0,B.W,null,".AppleSystemUIFont",null,null,null,null,null,null,nul
 B.aab=new A.m(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelMedium",null,null,null,null)
 B.a7h=new A.m(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelSmall",null,null,null,null)
 B.abg=new A.dT(B.a92,B.a7Z,B.a93,B.a9w,B.a7G,B.a7O,B.a8h,B.a9r,B.a8u,B.a9U,B.a7a,B.a7s,B.a9Q,B.aab,B.a7h)
-B.abh=new A.vD("v1.2.2",null,B.Hd,null,null,null,null,null,null)
+B.abh=new A.vD("v1.2.4",null,B.Hd,null,null,null,null,null,null)
 B.ags=new A.apt(0,"system")
 B.a1H=new A.h(0.056,0.024)
 B.a1X=new A.h(0.108,0.3085)
