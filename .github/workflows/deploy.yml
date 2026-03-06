@@ -41,7 +41,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Build Web for Test
-        run: flutter build web --release --base-href / --web-renderer html
+        run: flutter build web --release --base-href /
 
       - name: Run E2E Tests
         run: |
