@@ -4,12 +4,15 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
-  build-and-deploy:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,12 +26,34 @@ jobs:
         run: |
           echo "${{ secrets.FIREBASE_OPTIONS_BASE64 }}" | base64 --decode > lib/firebase_options.dart
 
-      - name: Build Web
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Setup Node.js for Playwright
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Playwright Dependencies
         run: |
-          flutter pub get
-          flutter build web --release --base-href "/simple-molkky-score-by_flutter/"
+          cd e2e_tests
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Build Web for Test
+        run: flutter build web --release --base-href /
+
+      - name: Run E2E Tests
+        run: |
+          cd e2e_tests
+          npm run test
+
+      - name: Build Web for Deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: flutter build web --release --base-href "/simple-molkky-score-by_flutter/"
 
       - name: Deploy Web to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
