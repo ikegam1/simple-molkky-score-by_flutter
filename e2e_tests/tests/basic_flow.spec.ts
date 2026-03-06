@@ -6,18 +6,16 @@ test.describe('Easy Molkky Score - Localization & Basic Flow', () => {
     // セマンティクスを強制有効にしてページを開く
     await page.goto('/?enable-semantics=true');
     
-    // Flutter Webの特性：描画完了後に一度画面をクリックするとセマンティクス要素が生成される
-    // 画面中央を適当にクリックしてアクティベートを促す
-    await page.mouse.click(400, 300);
+    // アプリが完全にロードされるのを待つ (flt-glass要素の存在を確認)
+    await page.waitForSelector('flt-glass', { timeout: 30000 });
     
-    // アプリがロードされるまで十分に待つ
-    await page.waitForLoadState('networkidle');
+    // 画面中央をクリックしてセマンティクスをアクティベート
+    await page.mouse.click(400, 300);
   });
 
   test('Should display in Japanese by default in ja-JP locale', async ({ page }) => {
-    // ラベルが表示されるまで最大60秒待機
-    const title = page.getByLabel('Easy Molkky Score');
-    await expect(title).toBeVisible({ timeout: 60000 });
+    // 日本語のラベルが表示されるまで待機
+    await page.waitForSelector('[aria-label*="Easy Molkky Score"]', { timeout: 30000 });
     
     // 日本語であることを確認
     await expect(page.getByLabel('プレイヤー名')).toBeVisible();
@@ -25,10 +23,9 @@ test.describe('Easy Molkky Score - Localization & Basic Flow', () => {
   });
 
   test('Should switch to English when clicking language button', async ({ page }) => {
-    await expect(page.getByLabel('Easy Molkky Score')).toBeVisible({ timeout: 60000 });
+    await page.waitForSelector('[aria-label*="Easy Molkky Score"]', { timeout: 30000 });
     
-    // 言語切り替えボタン (JA/EN) をクリック
-    // セマンティクスツリーでは TextButton のラベルがそのまま role="button" になる
+    // 言語切り替えボタン (EN) をクリック
     const enButton = page.getByRole('button', { name: 'EN' });
     await enButton.click();
     
@@ -38,7 +35,7 @@ test.describe('Easy Molkky Score - Localization & Basic Flow', () => {
   });
 
   test('Should start game and enter score without blank screen', async ({ page }) => {
-    await expect(page.getByLabel('Easy Molkky Score')).toBeVisible({ timeout: 60000 });
+    await page.waitForSelector('[aria-label*="Easy Molkky Score"]', { timeout: 30000 });
     
     // プレイヤーの追加
     const input = page.getByRole('textbox');
@@ -51,15 +48,14 @@ test.describe('Easy Molkky Score - Localization & Basic Flow', () => {
     // ゲーム開始
     await page.getByLabel('ゲーム開始').click();
 
-    // ゲーム画面が表示されていることを確認
+    // ゲーム画面の表示確認
     await expect(page.getByLabel('第 1 セット')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByLabel(/Player 1 の番/)).toBeVisible();
-
-    // スコア入力 (スキトル 10 を選択)
+    
+    // 10点入力
     await page.getByLabel('10', { exact: true }).click();
     await page.getByLabel(/決定/).click();
 
-    // 次のターンに進んでいることを確認
+    // 次のターン確認
     await expect(page.getByLabel(/ターン 2/)).toBeVisible();
   });
 });

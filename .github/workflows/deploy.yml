@@ -47,6 +47,14 @@ jobs:
         run: |
           cd e2e_tests
           npm run test
+      
+      - name: Upload Test Results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e_tests/playwright-report/
+          retention-days: 30
 
       - name: Build Web for Deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
