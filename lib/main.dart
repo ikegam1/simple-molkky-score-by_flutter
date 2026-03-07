@@ -285,7 +285,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.3.6', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.5.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -321,7 +321,6 @@ class _GameScreenState extends State<GameScreen> {
       turnInProgressScores[player.id] = lastPoints;
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
       
-      // 修正: 参加人数が2名以上の場合のみサバイバル判定（残り1人で勝利）を発動させる
       if (widget.match.players.length >= 2 && survivors.length == 1) {
         final s = survivors.first;
         int needed = widget.match.targetScore - s.currentScore;
@@ -334,10 +333,18 @@ class _GameScreenState extends State<GameScreen> {
 
       Player? winner;
       for (var p in widget.match.players) if (p.currentScore == widget.match.targetScore) { winner = p; break; }
+      
       if (winner != null) {
         isSetFinished = true; winner.setsWon++;
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
-        _showSetWinnerDialog(winner);
+        
+        // 修正: セットが終わった瞬間に「マッチ全体も終わったか」を判定する
+        if (widget.match.isMatchOver) {
+           _uploadMatchData();
+           _showMatchWinnerDialog(winner);
+        } else {
+           _showSetWinnerDialog(winner);
+        }
       } else {
         if (currentPlayerIndex == widget.match.players.length - 1) {
           widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
@@ -372,7 +379,14 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _uploadMatchData() async {
     try {
       final match = widget.match;
-      final setsToUpload = match.completedSets;
+      // 修正: すでに completedSets に現在のセットが入っている場合はそれを使うが、
+      // まだ入っていない（マッチ終了ダイアログが直接呼ばれた）場合は追加する
+      List<SetRecord> setsToUpload = List.from(match.completedSets);
+      if (!setsToUpload.any((s) => s.setNumber == match.currentSetRecord.setNumber)) {
+         for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+         setsToUpload.add(match.currentSetRecord);
+      }
+
       final data = {
         'appUserId': widget.appUserId,
         'startTime': match.startTime,
@@ -397,6 +411,11 @@ class _GameScreenState extends State<GameScreen> {
       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
       allSets.add(ongoing);
+    } else {
+      // セットが終わっているがまだ completedSets に入っていない場合（マッチ終了時など）
+      if (!allSets.any((s) => s.setNumber == widget.match.currentSetRecord.setNumber)) {
+        allSets.add(widget.match.currentSetRecord);
+      }
     }
     Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(match: widget.match, sets: allSets)));
   }
@@ -414,34 +433,29 @@ class _GameScreenState extends State<GameScreen> {
           children: [
             Text(t.get('winner_is', args: {'name': winner.name})),
             const SizedBox(height: 16),
-            if (!widget.match.isMatchOver) ...[
-              const Divider(),
-              Text(t.get('reorder_hint'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 8),
-              Container(
-                width: double.maxFinite,
-                height: 200,
-                child: ReorderableListView(
-                  shrinkWrap: true,
-                  onReorder: (o, n) { setDialogState(() { if (o < n) n -= 1; reorderList.insert(n, reorderList.removeAt(o)); }); },
-                  children: [ for (var p in reorderList) ListTile(key: Key(p.id), dense: true, leading: const Icon(Icons.drag_handle, size: 20), title: Text(p.name)) ],
-                ),
+            const Divider(),
+            Text(t.get('reorder_hint'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Container(
+              width: double.maxFinite,
+              height: 200,
+              child: ReorderableListView(
+                shrinkWrap: true,
+                onReorder: (o, n) { setDialogState(() { if (o < n) n -= 1; reorderList.insert(n, reorderList.removeAt(o)); }); },
+                children: [ for (var p in reorderList) ListTile(key: Key(p.id), dense: true, leading: const Icon(Icons.drag_handle, size: 20), title: Text(p.name)) ],
               ),
-            ]
+            ),
           ],
         ),
         actions: [
           TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
           TextButton(onPressed: () {
             Navigator.pop(ctx);
-            if (widget.match.isMatchOver) { _uploadMatchData(); _showMatchWinnerDialog(winner); }
-            else {
-              setState(() {
-                widget.match.applyManualOrder(reorderList);
-                currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
-              });
-            }
-          }, child: Text(widget.match.isMatchOver ? t.get('final_result') : t.get('next_set'))),
+            setState(() {
+              widget.match.applyManualOrder(reorderList);
+              currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
+            });
+          }, child: Text(t.get('next_set'))),
         ],
       );
     }));
