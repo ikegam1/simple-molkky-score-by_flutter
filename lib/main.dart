@@ -59,6 +59,7 @@ class L10n {
       'name_too_long': 'Max 20 characters',
       'reorder_hint': 'Adjust throw order for next set',
       'switch_lang': 'Language: English',
+      'reach_msg': '{name}, {n} to win! 🎯',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -92,6 +93,7 @@ class L10n {
       'name_too_long': '名前は20文字以内で入力してください',
       'reorder_hint': '次セットの投げ順を調整できます',
       'switch_lang': '言語: 日本語',
+      'reach_msg': '{name} さん、{n}でアガリです🎯',
     }
   };
 
@@ -285,7 +287,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.5.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.6.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -338,8 +340,16 @@ class _GameScreenState extends State<GameScreen> {
         isSetFinished = true; winner.setsWon++;
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
         
-        // 修正: セットが終わった瞬間に「マッチ全体も終わったか」を判定する
-        if (widget.match.isMatchOver) {
+        // 重要：マッチ終了判定を正確に行うために一時的にcompletedSetsに含めてチェック
+        final tempCompleted = List<SetRecord>.from(widget.match.completedSets)..add(widget.match.currentSetRecord);
+        bool matchTrulyOver = false;
+        if (widget.match.type == MatchType.fixedSets) {
+          matchTrulyOver = tempCompleted.length >= widget.match.limit;
+        } else {
+          matchTrulyOver = widget.match.isMatchOver;
+        }
+
+        if (matchTrulyOver) {
            _uploadMatchData();
            _showMatchWinnerDialog(winner);
         } else {
@@ -379,8 +389,6 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _uploadMatchData() async {
     try {
       final match = widget.match;
-      // 修正: すでに completedSets に現在のセットが入っている場合はそれを使うが、
-      // まだ入っていない（マッチ終了ダイアログが直接呼ばれた）場合は追加する
       List<SetRecord> setsToUpload = List.from(match.completedSets);
       if (!setsToUpload.any((s) => s.setNumber == match.currentSetRecord.setNumber)) {
          for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
@@ -412,7 +420,6 @@ class _GameScreenState extends State<GameScreen> {
       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
       allSets.add(ongoing);
     } else {
-      // セットが終わっているがまだ completedSets に入っていない場合（マッチ終了時など）
       if (!allSets.any((s) => s.setNumber == widget.match.currentSetRecord.setNumber)) {
         allSets.add(widget.match.currentSetRecord);
       }
@@ -422,12 +429,13 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showSetWinnerDialog(Player winner) {
     final t = L10n.of(context);
+    final int finishedSetNum = widget.match.currentSetIndex; // 現在のセット番号を保持
     widget.match.prepareNextSet(manualOrder: false);
     List<Player> reorderList = List.from(widget.match.players); 
 
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
       return AlertDialog(
-        title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex - 1}'})),
+        title: Text(t.get('set_n', args: {'n': '$finishedSetNum'})), // 修正：終わったセットの番号を表示
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -463,8 +471,10 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showMatchWinnerDialog(Player winner) {
     final t = L10n.of(context);
+    final int finishedSetNum = widget.match.currentSetIndex;
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text(t.get('match_over')), content: Text(t.get('winner_crown', args: {'name': winner.name})),
+      title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'), // 修正：セット番号も表示
+      content: Text(t.get('winner_crown', args: {'name': winner.name})),
       actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
   }
 
@@ -473,12 +483,34 @@ class _GameScreenState extends State<GameScreen> {
     final t = L10n.of(context);
     if (widget.match.players.isEmpty) return Scaffold(body: Center(child: Text(t.get('error', args: {'msg': 'No players'}))));
     final currentPlayer = widget.match.players[currentPlayerIndex];
+    
+    // ミスを☠で表現する文字列作成
+    String missIcons = '';
+    if (currentPlayer.consecutiveMisses == 1) missIcons = ' ☠';
+    if (currentPlayer.consecutiveMisses == 2) missIcons = ' ☠☠';
+    Color nameColor = currentPlayer.consecutiveMisses >= 2 ? Colors.red : Colors.black;
+
+    // アガリガイドメッセージ
+    String? reachMsg;
+    if (currentPlayer.currentScore >= 38 && !isSetFinished) {
+      reachMsg = t.get('reach_msg', args: {'name': currentPlayer.name, 'n': '${50 - currentPlayer.currentScore}'});
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
       body: Column(
         children: [
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
-            child: Text('${currentPlayer.name} (${t.get('turn_n', args: {'n': '$currentTurnInSet'})})', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            child: Column(
+              children: [
+                RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
+                  TextSpan(text: '${currentPlayer.name} '),
+                  TextSpan(text: '(${t.get('turn_n', args: {'n': '$currentTurnInSet'})})'),
+                  TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
+                ])),
+                if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
+              ],
+            )),
           Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
             child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
               child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
@@ -487,8 +519,11 @@ class _GameScreenState extends State<GameScreen> {
                   int turn = currentTurnInSet - i;
                   return DataRow(cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
                     int score = 0, total = 0;
-                    if (p.scoreHistory.length >= turn) { score = p.scoreHistory[turn - 1]; int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; } total = tmp; }
-                    return [DataCell(Row(children: [Container(width: 40, alignment: Alignment.center, child: Text(p.scoreHistory.length >= turn ? '$score' : '-')), Container(width: 40, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(p.scoreHistory.length >= turn ? '$total' : '-', style: const TextStyle(fontWeight: FontWeight.bold)))]))];
+                    bool hasScore = p.scoreHistory.length >= turn;
+                    if (hasScore) { score = p.scoreHistory[turn - 1]; int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; } total = tmp; }
+                    return [DataCell(Row(children: [
+                      Container(width: 40, alignment: Alignment.center, child: Text(hasScore ? '$score' : '', style: const TextStyle(fontSize: 15))), // 修正：空白化 & 1ptアップ
+                      Container(width: 40, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))]))]; // 修正：1ptアップ
                   })]);
                 }),
               ),
@@ -556,7 +591,7 @@ class HistoryPage extends StatelessWidget {
         ...set.turns.map((turn) => DataRow(cells: [DataCell(Text('${turn.turnNumber}')), ...displayOrder.map((p) {
           bool isStarter = p.id == set.starterPlayerId;
           bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
-          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "-";
+          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : ""; // 修正：空白化
           return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
         })])),
         DataRow(color: WidgetStateProperty.all(const Color(0xFFFFF8E1)), cells: [DataCell(Text(t.get('total'), style: const TextStyle(fontWeight: FontWeight.bold))), ...displayOrder.map((p) => DataCell(Text('${set.finalCumulativeScores[p.id] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16))))]),
