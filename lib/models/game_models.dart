@@ -51,7 +51,7 @@ class MolkkyMatch {
   final MatchType type;
   int currentSetIndex = 1;
   final DateTime startTime;
-  
+
   List<SetRecord> completedSets = [];
   SetRecord currentSetRecord;
 
@@ -61,6 +61,19 @@ class MolkkyMatch {
     required this.type,
   }) : startTime = DateTime.now(),
        currentSetRecord = SetRecord(1, players.first.id, players.map((p) => p.id).toList());
+
+  bool get _isCurrentSetAlreadyFinalized =>
+      completedSets.any((s) => s.setNumber == currentSetRecord.setNumber);
+
+  void finalizeCurrentSetIfNeeded() {
+    if (_isCurrentSetAlreadyFinalized) return;
+
+    for (var p in players) {
+      currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+      p.setFinalScores.add(p.currentScore);
+    }
+    completedSets.add(currentSetRecord);
+  }
 
   bool get isMatchOver {
     // 修正: completedSets.length で判定することで、指定セット数が「完了」するまで終わらないようにする
@@ -105,13 +118,9 @@ class MolkkyMatch {
 
   // 次のセットの準備 (基本ロジック)
   void prepareNextSet({bool manualOrder = false}) {
-    // 現在のセットの結果を記録
-    for (var p in players) {
-      currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
-      p.setFinalScores.add(p.currentScore);
-    }
-    completedSets.add(currentSetRecord);
-    
+    // 現在のセットの結果を記録（重複追加防止）
+    finalizeCurrentSetIfNeeded();
+
     // マッチがここで終了判定になる場合は、新しいセットレコードを作らない
     if (isMatchOver) return;
 

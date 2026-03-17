@@ -287,7 +287,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.6.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.6.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -350,8 +350,10 @@ class _GameScreenState extends State<GameScreen> {
         }
 
         if (matchTrulyOver) {
-           _uploadMatchData();
-           _showMatchWinnerDialog(winner);
+           widget.match.finalizeCurrentSetIfNeeded();
+           final finalWinner = widget.match.matchWinner ?? winner;
+           _uploadMatchData(finalWinner);
+           _showMatchWinnerDialog(finalWinner);
         } else {
            _showSetWinnerDialog(winner);
         }
@@ -386,7 +388,7 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  Future<void> _uploadMatchData() async {
+  Future<void> _uploadMatchData(Player finalWinner) async {
     try {
       final match = widget.match;
       List<SetRecord> setsToUpload = List.from(match.completedSets);
@@ -401,7 +403,7 @@ class _GameScreenState extends State<GameScreen> {
         'endTime': FieldValue.serverTimestamp(),
         'matchType': match.type.toString(),
         'limit': match.limit,
-        'winner': match.matchWinner?.name ?? "None",
+        'winner': finalWinner.name,
         'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber, 'starterId': s.starterPlayerId, 'playerOrder': s.playerOrder, 'finalScores': s.finalCumulativeScores,
