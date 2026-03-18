@@ -287,7 +287,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.6.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.6.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -575,16 +575,24 @@ class _GameScreenState extends State<GameScreen> {
           ),
           Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
-              GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0), itemCount: 12, itemBuilder: (c, i) {
-                final num = i + 1; final isSelected = selectedSkitels.contains(num);
-                return GestureDetector(
-                  onDoubleTap: () {
-                    if (isSetFinished) return;
-                    setState(() => selectedSkitels = [num]);
-                    _submitThrow();
-                  },
-                  child: ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                );
+              LayoutBuilder(builder: (_, gc) {
+                // 点数ボタングリッドの高さを画面の40%に制限（横長画面対策）
+                final maxGridH = MediaQuery.of(context).size.height * 0.4;
+                // gc はContainer内幅（左右padding 24px除外済み）、列間スペース8×3
+                final cellH = (maxGridH - 8.0 * 2) / 3; // 3行・行間2つ
+                final cellW = (gc.maxWidth - 8.0 * 3) / 4; // 4列・列間3つ
+                final aspectRatio = (cellW / cellH).clamp(2.0, double.infinity);
+                return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
+                  final num = i + 1; final isSelected = selectedSkitels.contains(num);
+                  return GestureDetector(
+                    onDoubleTap: () {
+                      if (isSetFinished) return;
+                      setState(() => selectedSkitels = [num]);
+                      _submitThrow();
+                    },
+                    child: ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                  );
+                });
               }),
               const SizedBox(height: 12),
               Row(children: [
