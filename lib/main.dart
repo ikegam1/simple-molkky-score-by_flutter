@@ -497,47 +497,23 @@ class _GameScreenState extends State<GameScreen> {
     return finalizedIncludesCurrent ? finalizedTotal : finalizedTotal + p.currentScore;
   }
 
+  String _stars(int setsWon) => setsWon <= 0 ? '' : '⭐' * setsWon;
+
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
     if (players.length == 2) {
       final a = players[0];
       final b = players[1];
       return Text(
-        '${a.currentScore}(${_runningTotal(a)}) - ${b.currentScore}(${_runningTotal(b)})',
+        '${a.currentScore}(${_runningTotal(a)})${_stars(a.setsWon)} - ${b.currentScore}(${_runningTotal(b)})${_stars(b.setsWon)}',
         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
       );
     }
 
     final text = players
-        .map((p) => '${p.name} ${p.currentScore}(${_runningTotal(p)})')
+        .map((p) => '${p.name} ${p.currentScore}(${_runningTotal(p)})${_stars(p.setsWon)}')
         .join('  -  ');
     return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
-  }
-
-  Widget _buildSetCountRow() {
-    final players = widget.match.players;
-    if (players.length == 2) {
-      final a = players[0];
-      final b = players[1];
-      return RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(text: '${a.setsWon}', style: _setCountStyle(a)),
-            const TextSpan(text: ' - ', style: TextStyle(fontSize: 16, color: Colors.black87)),
-            TextSpan(text: '${b.setsWon}', style: _setCountStyle(b)),
-          ],
-        ),
-      );
-    }
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 4,
-      alignment: WrapAlignment.center,
-      children: players
-          .map((p) => Text('${p.name}:${p.setsWon}', style: _setCountStyle(p)))
-          .toList(),
-    );
   }
 
   @override
@@ -565,8 +541,6 @@ class _GameScreenState extends State<GameScreen> {
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
             child: Column(
               children: [
-                _buildSetCountRow(),
-                const SizedBox(height: 4),
                 _buildScoreSummaryRow(),
                 const SizedBox(height: 6),
                 RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
@@ -689,15 +663,20 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHistoryTotalScore(List<Player> allPlayers, Map<String, int> totals) {
+  Widget _buildHistoryTotalScore(List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
     if (allPlayers.length == 2) {
       final a = allPlayers[0];
       final b = allPlayers[1];
-      return Text('${totals[a.id] ?? 0} - ${totals[b.id] ?? 0}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
+      final aStars = (wins[a.id] ?? 0) > 0 ? '⭐' * (wins[a.id] ?? 0) : '';
+      final bStars = (wins[b.id] ?? 0) > 0 ? '⭐' * (wins[b.id] ?? 0) : '';
+      return Text(
+        '${totals[a.id] ?? 0}$aStars - ${totals[b.id] ?? 0}$bStars',
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      );
     }
 
     return Text(
-      allPlayers.map((p) => '${p.name} ${totals[p.id] ?? 0}').join('  -  '),
+      allPlayers.map((p) => '${p.name} ${totals[p.id] ?? 0}${(wins[p.id] ?? 0) > 0 ? ('⭐' * (wins[p.id] ?? 0)) : ''}').join('  -  '),
       style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
     );
   }
@@ -720,16 +699,7 @@ class HistoryPage extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             color: const Color(0xFFE3F2FD),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Sets: ${sets.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 4),
-                _buildHistorySetCount(allPlayers, wins),
-                const SizedBox(height: 2),
-                _buildHistoryTotalScore(allPlayers, totals),
-              ],
-            ),
+            child: _buildHistoryTotalScore(allPlayers, totals, wins),
           );
         }),
         const SizedBox(height: 12),
