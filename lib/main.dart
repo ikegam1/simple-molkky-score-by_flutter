@@ -490,7 +490,12 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  int _runningTotal(Player p) => p.setFinalScores.fold(0, (a, b) => a + b) + p.currentScore;
+  int _runningTotal(Player p) {
+    final finalizedIncludesCurrent =
+        widget.match.completedSets.any((s) => s.setNumber == widget.match.currentSetRecord.setNumber);
+    final finalizedTotal = p.setFinalScores.fold(0, (a, b) => a + b);
+    return finalizedIncludesCurrent ? finalizedTotal : finalizedTotal + p.currentScore;
+  }
 
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
@@ -627,10 +632,10 @@ class HistoryPage extends StatelessWidget {
   final List<Player>? players;
   const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players});
 
-  Map<String, int> _setWinsUpTo(SetRecord targetSet, List<Player> allPlayers) {
+  Map<String, int> _finalSetWins(List<Player> allPlayers) {
     final wins = <String, int>{for (var p in allPlayers) p.id: 0};
 
-    for (final set in sets.where((s) => s.setNumber <= targetSet.setNumber)) {
+    for (final set in sets) {
       String? winnerId;
       int best = -1;
       for (final p in allPlayers) {
@@ -645,10 +650,10 @@ class HistoryPage extends StatelessWidget {
     return wins;
   }
 
-  Map<String, int> _cumulativeTotalsUpTo(SetRecord targetSet, List<Player> allPlayers) {
+  Map<String, int> _finalTotals(List<Player> allPlayers) {
     final totals = <String, int>{for (var p in allPlayers) p.id: 0};
 
-    for (final set in sets.where((s) => s.setNumber <= targetSet.setNumber)) {
+    for (final set in sets) {
       for (final p in allPlayers) {
         totals[p.id] = (totals[p.id] ?? 0) + (set.finalCumulativeScores[p.id] ?? 0);
       }
@@ -708,26 +713,33 @@ class HistoryPage extends StatelessWidget {
         Text('${t.get('app_title')} Result', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
         Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
         const Divider(height: 30),
+        Builder(builder: (context) {
+          final wins = _finalSetWins(allPlayers);
+          final totals = _finalTotals(allPlayers);
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            color: const Color(0xFFE3F2FD),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Sets: ${sets.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                _buildHistorySetCount(allPlayers, wins),
+                const SizedBox(height: 2),
+                _buildHistoryTotalScore(allPlayers, totals),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 12),
         for (var set in sets) ...[
-          Builder(builder: (context) {
-            final wins = _setWinsUpTo(set, allPlayers);
-            final totals = _cumulativeTotalsUpTo(set, allPlayers);
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              color: const Color(0xFFE3F2FD),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${t.get('set_n', args: {'n': '${set.setNumber}'})} / ${sets.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  _buildHistorySetCount(allPlayers, wins),
-                  const SizedBox(height: 2),
-                  _buildHistoryTotalScore(allPlayers, totals),
-                ],
-              ),
-            );
-          }),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            color: const Color(0xFFE3F2FD),
+            child: Text(t.get('set_n', args: {'n': '${set.setNumber}'}), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
           _buildSetTable(context, set, allPlayers),
           const SizedBox(height: 20),
         ],
