@@ -287,7 +287,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.6.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.6.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -604,7 +604,8 @@ class HistoryPage extends StatelessWidget {
   final List<SetRecord> sets;
   final DateTime? startTime;
   final List<Player>? players;
-  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players});
+  final String? winnerName;
+  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName});
 
   Map<String, int> _finalSetWins(List<Player> allPlayers) {
     final wins = <String, int>{for (var p in allPlayers) p.id: 0};
@@ -663,6 +664,21 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
+  String _resolveWinnerName(List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+    if (winnerName != null && winnerName!.trim().isNotEmpty && winnerName != 'None') return winnerName!;
+    if (match?.matchWinner != null) return match!.matchWinner!.name;
+
+    final sorted = List<Player>.from(allPlayers);
+    sorted.sort((a, b) {
+      final setCmp = (wins[b.id] ?? 0).compareTo(wins[a.id] ?? 0);
+      if (setCmp != 0) return setCmp;
+      final totalCmp = (totals[b.id] ?? 0).compareTo(totals[a.id] ?? 0);
+      if (totalCmp != 0) return totalCmp;
+      return a.initialOrder.compareTo(b.initialOrder);
+    });
+    return sorted.isNotEmpty ? sorted.first.name : '???';
+  }
+
   Widget _buildHistoryTotalScore(List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
     if (allPlayers.length == 2) {
       final a = allPlayers[0];
@@ -695,11 +711,19 @@ class HistoryPage extends StatelessWidget {
         Builder(builder: (context) {
           final wins = _finalSetWins(allPlayers);
           final totals = _finalTotals(allPlayers);
+          final winner = _resolveWinnerName(allPlayers, totals, wins);
           return Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             color: const Color(0xFFE3F2FD),
-            child: _buildHistoryTotalScore(allPlayers, totals, wins),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Winner : $winner', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                _buildHistoryTotalScore(allPlayers, totals, wins),
+              ],
+            ),
           );
         }),
         const SizedBox(height: 12),
@@ -780,7 +804,7 @@ class GlobalHistoryPage extends StatelessWidget {
         s['finalScores'].forEach((k, v) => set.finalCumulativeScores[k] = v);
         return set;
       }).toList();
-      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start, players: players)));
+      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start, players: players, winnerName: data['winner'] as String?)));
     } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'})))); }
   }
 }
