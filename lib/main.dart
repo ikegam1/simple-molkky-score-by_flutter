@@ -287,7 +287,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.6.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.6.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -475,9 +475,64 @@ class _GameScreenState extends State<GameScreen> {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'), // 修正：セット番号も表示
+      title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'),
       content: Text(t.get('winner_crown', args: {'name': winner.name})),
       actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
+  }
+
+  TextStyle _setCountStyle(Player player) {
+    final maxSets = widget.match.players.fold<int>(0, (m, p) => p.setsWon > m ? p.setsWon : m);
+    final isLeader = player.setsWon == maxSets && maxSets > 0;
+    return TextStyle(
+      fontSize: 16,
+      fontWeight: isLeader ? FontWeight.w800 : FontWeight.w500,
+      color: isLeader ? Colors.indigo : Colors.black87,
+    );
+  }
+
+  int _runningTotal(Player p) => p.setFinalScores.fold(0, (a, b) => a + b) + p.currentScore;
+
+  Widget _buildScoreSummaryRow() {
+    final players = widget.match.players;
+    if (players.length == 2) {
+      final a = players[0];
+      final b = players[1];
+      return Text(
+        '${a.currentScore}(${_runningTotal(a)}) - ${b.currentScore}(${_runningTotal(b)})',
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      );
+    }
+
+    final text = players
+        .map((p) => '${p.name} ${p.currentScore}(${_runningTotal(p)})')
+        .join('  -  ');
+    return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
+  }
+
+  Widget _buildSetCountRow() {
+    final players = widget.match.players;
+    if (players.length == 2) {
+      final a = players[0];
+      final b = players[1];
+      return RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(text: '${a.setsWon}', style: _setCountStyle(a)),
+            const TextSpan(text: ' - ', style: TextStyle(fontSize: 16, color: Colors.black87)),
+            TextSpan(text: '${b.setsWon}', style: _setCountStyle(b)),
+          ],
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      alignment: WrapAlignment.center,
+      children: players
+          .map((p) => Text('${p.name}:${p.setsWon}', style: _setCountStyle(p)))
+          .toList(),
+    );
   }
 
   @override
@@ -505,6 +560,10 @@ class _GameScreenState extends State<GameScreen> {
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
             child: Column(
               children: [
+                _buildSetCountRow(),
+                const SizedBox(height: 4),
+                _buildScoreSummaryRow(),
+                const SizedBox(height: 6),
                 RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
                   TextSpan(text: '${currentPlayer.name} '),
                   TextSpan(text: '(${t.get('turn_n', args: {'n': '$currentTurnInSet'})})'),
@@ -535,7 +594,14 @@ class _GameScreenState extends State<GameScreen> {
             child: Column(children: [
               GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.0), itemCount: 12, itemBuilder: (c, i) {
                 final num = i + 1; final isSelected = selectedSkitels.contains(num);
-                return ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)));
+                return GestureDetector(
+                  onDoubleTap: () {
+                    if (isSetFinished) return;
+                    setState(() => selectedSkitels = [num]);
+                    _submitThrow();
+                  },
+                  child: ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                );
               }),
               const SizedBox(height: 12),
               Row(children: [
@@ -560,6 +626,77 @@ class HistoryPage extends StatelessWidget {
   final DateTime? startTime;
   final List<Player>? players;
   const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players});
+
+  Map<String, int> _setWinsUpTo(SetRecord targetSet, List<Player> allPlayers) {
+    final wins = <String, int>{for (var p in allPlayers) p.id: 0};
+
+    for (final set in sets.where((s) => s.setNumber <= targetSet.setNumber)) {
+      String? winnerId;
+      int best = -1;
+      for (final p in allPlayers) {
+        final score = set.finalCumulativeScores[p.id] ?? 0;
+        if (score > best) {
+          best = score;
+          winnerId = p.id;
+        }
+      }
+      if (winnerId != null) wins[winnerId] = (wins[winnerId] ?? 0) + 1;
+    }
+    return wins;
+  }
+
+  Map<String, int> _cumulativeTotalsUpTo(SetRecord targetSet, List<Player> allPlayers) {
+    final totals = <String, int>{for (var p in allPlayers) p.id: 0};
+
+    for (final set in sets.where((s) => s.setNumber <= targetSet.setNumber)) {
+      for (final p in allPlayers) {
+        totals[p.id] = (totals[p.id] ?? 0) + (set.finalCumulativeScores[p.id] ?? 0);
+      }
+    }
+    return totals;
+  }
+
+  Widget _buildHistorySetCount(List<Player> allPlayers, Map<String, int> wins) {
+    int maxWins = 0;
+    for (final p in allPlayers) {
+      maxWins = (wins[p.id] ?? 0) > maxWins ? (wins[p.id] ?? 0) : maxWins;
+    }
+
+    if (allPlayers.length == 2) {
+      final a = allPlayers[0];
+      final b = allPlayers[1];
+      return RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(text: '${wins[a.id] ?? 0}', style: TextStyle(fontSize: 16, fontWeight: (wins[a.id] ?? 0) == maxWins && maxWins > 0 ? FontWeight.w800 : FontWeight.w500, color: Colors.indigo)),
+            const TextSpan(text: ' - ', style: TextStyle(fontSize: 16, color: Colors.black87)),
+            TextSpan(text: '${wins[b.id] ?? 0}', style: TextStyle(fontSize: 16, fontWeight: (wins[b.id] ?? 0) == maxWins && maxWins > 0 ? FontWeight.w800 : FontWeight.w500, color: Colors.indigo)),
+          ],
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 10,
+      children: allPlayers
+          .map((p) => Text('${p.name}:${wins[p.id] ?? 0}', style: TextStyle(fontSize: 14, fontWeight: (wins[p.id] ?? 0) == maxWins && maxWins > 0 ? FontWeight.w800 : FontWeight.w500)))
+          .toList(),
+    );
+  }
+
+  Widget _buildHistoryTotalScore(List<Player> allPlayers, Map<String, int> totals) {
+    if (allPlayers.length == 2) {
+      final a = allPlayers[0];
+      final b = allPlayers[1];
+      return Text('${totals[a.id] ?? 0} - ${totals[b.id] ?? 0}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
+    }
+
+    return Text(
+      allPlayers.map((p) => '${p.name} ${totals[p.id] ?? 0}').join('  -  '),
+      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
@@ -572,7 +709,25 @@ class HistoryPage extends StatelessWidget {
         Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
         const Divider(height: 30),
         for (var set in sets) ...[
-          Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), color: const Color(0xFFE3F2FD), child: Text(t.get('set_n', args: {'n': '${set.setNumber}'}), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Builder(builder: (context) {
+            final wins = _setWinsUpTo(set, allPlayers);
+            final totals = _cumulativeTotalsUpTo(set, allPlayers);
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              color: const Color(0xFFE3F2FD),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${t.get('set_n', args: {'n': '${set.setNumber}'})} / ${sets.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  _buildHistorySetCount(allPlayers, wins),
+                  const SizedBox(height: 2),
+                  _buildHistoryTotalScore(allPlayers, totals),
+                ],
+              ),
+            );
+          }),
           _buildSetTable(context, set, allPlayers),
           const SizedBox(height: 20),
         ],
