@@ -6,7 +6,8 @@ class Player {
   int consecutiveMisses = 0;
   bool isDisqualified = false;
   int setsWon = 0;
-  List<int> scoreHistory = []; 
+  List<int> scoreHistory = [];
+  List<int> scoreSnapshot = []; // 各投擲前の currentScore を記録（アンドゥ用）
   List<int> matchScoreHistory = [];
   List<int> setFinalScores = [];
 
@@ -20,6 +21,7 @@ class Player {
     consecutiveMisses = 0;
     isDisqualified = false;
     scoreHistory = [];
+    scoreSnapshot = [];
   }
 }
 

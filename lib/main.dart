@@ -327,6 +327,7 @@ class _GameScreenState extends State<GameScreen> {
         final s = survivors.first;
         int needed = widget.match.targetScore - s.currentScore;
         s.currentScore = widget.match.targetScore;
+        s.scoreHistory.add(needed); // セット内スコア表示用（matchScoreHistory と対で必要）
         s.matchScoreHistory.add(needed);
         turnInProgressScores[s.id] = needed;
         systemCalculatedIds.add(s.id); 
@@ -370,7 +371,8 @@ class _GameScreenState extends State<GameScreen> {
   void _nextPlayer() {
     int start = currentPlayerIndex;
     do { currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length; } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != start);
-    if (currentPlayerIndex == 0) currentTurnInSet++;
+    // currentPlayerIndex <= start はラップアラウンドを意味する（プレイヤー0が失格でも正しく判定）
+    if (currentPlayerIndex <= start) currentTurnInSet++;
   }
 
   void _undo() {
@@ -380,7 +382,9 @@ class _GameScreenState extends State<GameScreen> {
       while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) { currentPlayerIndex--; }
       final p = widget.match.players[currentPlayerIndex];
       if (p.scoreHistory.isNotEmpty) {
-        int last = p.scoreHistory.removeLast(); p.matchScoreHistory.removeLast(); p.currentScore -= last;
+        int last = p.scoreHistory.removeLast(); p.matchScoreHistory.removeLast();
+        // scoreSnapshot を使って投擲前スコアを正確に復元（バースト時も正しく戻る）
+        if (p.scoreSnapshot.isNotEmpty) p.currentScore = p.scoreSnapshot.removeLast();
         turnInProgressScores.remove(p.id); systemCalculatedIds.remove(p.id);
         if (last == 0 && p.consecutiveMisses > 0) { p.consecutiveMisses--; p.isDisqualified = false; }
       }
@@ -612,12 +616,20 @@ class HistoryPage extends StatelessWidget {
 
     for (final set in sets) {
       String? winnerId;
-      int best = -1;
+      // モルックの勝利条件は50点ちょうど。サバイバー自動完了も50点に設定されるため、
+      // 最高スコアではなく50点のプレイヤーを勝者とする。
       for (final p in allPlayers) {
-        final score = set.finalCumulativeScores[p.id] ?? 0;
-        if (score > best) {
-          best = score;
+        if ((set.finalCumulativeScores[p.id] ?? 0) == 50) {
           winnerId = p.id;
+          break;
+        }
+      }
+      // フォールバック：50点のプレイヤーがいない場合（進行中セット表示時など）は最高スコアで判定
+      if (winnerId == null) {
+        int best = -1;
+        for (final p in allPlayers) {
+          final score = set.finalCumulativeScores[p.id] ?? 0;
+          if (score > best) { best = score; winnerId = p.id; }
         }
       }
       if (winnerId != null) wins[winnerId] = (wins[winnerId] ?? 0) + 1;

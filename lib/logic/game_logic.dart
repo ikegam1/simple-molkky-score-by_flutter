@@ -5,6 +5,9 @@ class GameLogic {
   static void processThrow(Player player, List<int> knockedDownSkitels, MolkkyMatch match) {
     if (player.isDisqualified) return;
 
+    // アンドゥ用に投擲前スコアを保存
+    player.scoreSnapshot.add(player.currentScore);
+
     int points = 0;
     if (knockedDownSkitels.isEmpty) {
       // ミス
