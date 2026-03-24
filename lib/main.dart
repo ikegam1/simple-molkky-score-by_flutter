@@ -289,7 +289,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.6.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.6.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -316,6 +316,7 @@ class _GameScreenState extends State<GameScreen> {
   // 音声認識
   final SpeechToText _speech = SpeechToText();
   bool _speechAvailable = false;
+  String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
 
   @override
   void initState() {
@@ -330,34 +331,46 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _initSpeech() async {
-    if (kIsWeb) return; // Web では音声入力を無効化
     _speechAvailable = await _speech.initialize(
       onStatus: (status) {
         if (!mounted) return;
-        // 認識が止まったら自動再起動（isSetFinished のときは再起動しない）
-        if ((status == 'done' || status == 'notListening') && !isSetFinished) {
-          Future.microtask(_startListening);
+        setState(() {});
+        // 'done' のみで再起動。
+        // 'notListening' は listen() 直後にも発火するため、
+        // ここで再起動するとループ（緑点滅）の原因になる。
+        if (status == 'done' && !isSetFinished) {
+          Future.delayed(const Duration(milliseconds: 500), _startListening);
         }
-        setState(() {}); // マイクアイコン更新
       },
-      onError: (_) {
+      onError: (error) {
+        debugPrint('Speech error: ${error.errorMsg}');
         if (!mounted) return;
+        setState(() {});
         if (!isSetFinished) Future.delayed(const Duration(seconds: 2), _startListening);
       },
     );
-    if (_speechAvailable && mounted) _startListening();
+    if (mounted) setState(() {});
+    // 初期化直後も少し待ってから開始（サービス起動を待つ）
+    if (_speechAvailable && mounted) {
+      Future.delayed(const Duration(milliseconds: 500), _startListening);
+    }
   }
 
   void _startListening() {
     if (!_speechAvailable || _speech.isListening || isSetFinished || !mounted) return;
     _speech.listen(
       onResult: (result) {
-        if (!mounted || !result.finalResult) return;
-        _processVoiceInput(result.recognizedWords);
+        if (!mounted) return;
+        // 認識中テキストをリアルタイム表示
+        setState(() => _voiceText = result.recognizedWords);
+        if (result.finalResult) {
+          _processVoiceInput(result.recognizedWords);
+          setState(() => _voiceText = '');
+        }
       },
-      localeId: 'ja_JP',
+      // localeId を省略してシステムデフォルトを使用（ja_JP 非搭載端末での失敗を防ぐ）
       listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 3),
+      pauseFor: const Duration(seconds: 5),
     );
   }
 
@@ -367,7 +380,6 @@ class _GameScreenState extends State<GameScreen> {
     final score = _parseVoiceScore(text);
     if (score == null) return;
 
-    // 認識結果をSnackBarで表示
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('🎤 $text'),
@@ -375,23 +387,42 @@ class _GameScreenState extends State<GameScreen> {
       backgroundColor: Colors.blue.shade700,
     ));
 
-    // score < 0 はミス、0以上はそのpin番号
     if (score < 0) {
       selectedSkitels = [];
     } else {
-      selectedSkitels = [score]; // pin N を1本倒した = N点
+      selectedSkitels = [score];
     }
     _submitThrow();
   }
 
-  /// ウェイクワード「投擲終了」以降のテキストから点数を解析する。
+  /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
+  int _wakeWordEnd(String text) {
+    // 完全一致パターン
+    for (final w in [
+      '投擲終了', '投てき終了', 'とうてき終了', '投テキ終了',
+      '投擲しゅうりょう', '投擲修了', '投擲週了',
+    ]) {
+      final idx = text.indexOf(w);
+      if (idx >= 0) return idx + w.length;
+    }
+    // 部分一致（STT認識ズレ対応）：「とうてきしゅうりょう」の中間音素を検出
+    for (final w in [
+      'てきしゅ', '敵襲', 'てき終', 'てき修', 'テキ終', 'テキ修',
+    ]) {
+      final idx = text.indexOf(w);
+      if (idx >= 0) return idx + w.length;
+    }
+    return -1;
+  }
+
+  /// ウェイクワード以降のテキストから点数を解析する。
   /// 戻り値: 1〜12=ピン番号、-1=ミス、null=認識失敗
   int? _parseVoiceScore(String text) {
-    final wakeIdx = text.indexOf('投擲終了');
-    if (wakeIdx < 0) return null;
+    final wakeEnd = _wakeWordEnd(text);
+    if (wakeEnd < 0) return null;
 
     final afterWake = text
-        .substring(wakeIdx + 4)
+        .substring(wakeEnd)
         .replaceAll(RegExp(r'[、。,.\s　]'), '');
 
     if (afterWake.isEmpty) return null;
@@ -672,10 +703,18 @@ class _GameScreenState extends State<GameScreen> {
                 if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
                 if (_speechAvailable) Padding(
                   padding: const EdgeInsets.only(top: 4.0),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_speech.isListening ? Icons.mic : Icons.mic_off, size: 13, color: _speech.isListening ? Colors.green : Colors.grey),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(_speech.isListening ? Icons.mic : Icons.mic_off, size: 13,
+                        color: _speech.isListening ? Colors.green : Colors.grey),
                     const SizedBox(width: 3),
-                    Text(_speech.isListening ? '「投擲終了、N点／ミス」' : '...', style: TextStyle(fontSize: 11, color: _speech.isListening ? Colors.green : Colors.grey)),
+                    Flexible(child: Text(
+                      _speech.isListening
+                          ? (_voiceText.isEmpty ? '「投擲終了、N点／ミス」' : _voiceText)
+                          : '...',
+                      style: TextStyle(fontSize: 11,
+                          color: _speech.isListening ? Colors.green : Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    )),
                   ]),
                 ),
               ],
