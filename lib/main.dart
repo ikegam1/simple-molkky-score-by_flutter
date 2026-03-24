@@ -331,7 +331,6 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _initSpeech() async {
-    if (kIsWeb) return;
     _speechAvailable = await _speech.initialize(
       onStatus: (status) {
         if (!mounted) return;
@@ -398,7 +397,18 @@ class _GameScreenState extends State<GameScreen> {
 
   /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
   int _wakeWordEnd(String text) {
-    for (final w in ['投擲終了', '投てき終了', 'とうてき終了', '投テキ終了', '投擲しゅうりょう']) {
+    // 完全一致パターン
+    for (final w in [
+      '投擲終了', '投てき終了', 'とうてき終了', '投テキ終了',
+      '投擲しゅうりょう', '投擲修了', '投擲週了',
+    ]) {
+      final idx = text.indexOf(w);
+      if (idx >= 0) return idx + w.length;
+    }
+    // 部分一致（STT認識ズレ対応）：「とうてきしゅうりょう」の中間音素を検出
+    for (final w in [
+      'てきしゅ', '敵襲', 'てき終', 'てき修', 'テキ終', 'テキ修',
+    ]) {
       final idx = text.indexOf(w);
       if (idx >= 0) return idx + w.length;
     }
