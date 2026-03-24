@@ -581,6 +581,8 @@ class _GameScreenState extends State<GameScreen> {
       _elapsedTimer?.cancel();
       _autoMicTimer?.cancel();
       _speech.stop();
+    } else {
+      _resetElapsedTimer();
     }
   }
 
@@ -839,57 +841,37 @@ class _GameScreenState extends State<GameScreen> {
           ),
           Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: LayoutBuilder(builder: (_, gc) {
-                      // 点数ボタングリッドの高さを画面の40%に制限（横長画面対策）
-                      final maxGridH = MediaQuery.of(context).size.height * 0.4;
-                      // gc はContainer内幅（左右padding 24px除外済み）、列間スペース8×3
-                      final cellH = (maxGridH - 8.0 * 2) / 3; // 3行・行間2つ
-                      final cellW = (gc.maxWidth - 8.0 * 3) / 4; // 4列・列間3つ
-                      final aspectRatio = (cellW / cellH).clamp(2.0, double.infinity);
-                      return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
-                        final num = i + 1; final isSelected = selectedSkitels.contains(num);
-                        return GestureDetector(
-                          onDoubleTap: () {
-                            if (isSetFinished) return;
-                            setState(() => selectedSkitels = [num]);
-                            _submitThrow();
-                          },
-                          child: ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                        );
-                      });
-                    }),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 44,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$_elapsedSeconds',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontFamily: 'Courier',
-                            fontWeight: FontWeight.bold,
-                            color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              LayoutBuilder(builder: (_, gc) {
+                // 点数ボタングリッドの高さを画面の40%に制限（横長画面対策）
+                final maxGridH = MediaQuery.of(context).size.height * 0.4;
+                final cellH = (maxGridH - 8.0 * 2) / 3;
+                final cellW = (gc.maxWidth - 8.0 * 3) / 4;
+                final aspectRatio = (cellW / cellH).clamp(2.0, double.infinity);
+                return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
+                  final num = i + 1; final isSelected = selectedSkitels.contains(num);
+                  return GestureDetector(
+                    onDoubleTap: () {
+                      if (isSetFinished) return;
+                      setState(() => selectedSkitels = [num]);
+                      _submitThrow();
+                    },
+                    child: ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                  );
+                });
+              }),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 18), Text(' ${t.get('undo')}')]))),
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 4)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 16), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 13))]))),
                 const SizedBox(width: 8),
                 Expanded(flex: 2, child: ElevatedButton(onPressed: _submitThrow, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline), Text(selectedSkitels.isEmpty ? ' 0 ${t.get('pts')} (${t.get('miss')})' : ' ${t.get('confirm')} (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length} ${t.get('pts')})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]))),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 52,
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text('$_elapsedSeconds', style: TextStyle(fontSize: 26, fontFamily: 'Courier', fontWeight: FontWeight.bold, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
+                    const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  ]),
+                ),
               ]),
               const SizedBox(height: 12),
               Text(t.get('app_title'), style: const TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.w300)),
