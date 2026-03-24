@@ -341,6 +341,7 @@ class _GameScreenState extends State<GameScreen> {
   int _elapsedSeconds = 0;
   Timer? _elapsedTimer;
   Timer? _speechConfirmTimer;
+  int _listenSessionId = 0; // セッションIDで古い認識結果を除外する
 
   @override
   void initState() {
@@ -435,20 +436,24 @@ class _GameScreenState extends State<GameScreen> {
 
   void _startListening() {
     if (!widget.voiceEnabled || !_speechAvailable || _speech.isListening || isSetFinished || !mounted || !_voiceActive) return;
+    final sessionId = ++_listenSessionId;
     _speech.listen(
       onResult: (result) {
-        if (!mounted) return;
-        // 認識中テキストをリアルタイム表示
+        // 古いセッションの遅延結果は無視する
+        if (!mounted || _listenSessionId != sessionId) return;
         setState(() => _voiceText = result.recognizedWords);
 
-        // 認識が途切れてから一定時間（800ms）経ったら確定処理を試みる
+        // 途中結果：3秒フォールバックタイマー（finalResultが遅い端末への保険）
         _speechConfirmTimer?.cancel();
-        if (result.recognizedWords.trim().isNotEmpty) {
-          _speechConfirmTimer = Timer(const Duration(milliseconds: 1000), () {
-            if (mounted && _voiceActive) {
-              _processVoiceInput(result.recognizedWords);
-              // 確定したので一旦テキストをクリア
-              setState(() => _voiceText = '');
+        if (!result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+          _speechConfirmTimer = Timer(const Duration(milliseconds: 1500), () {
+            if (mounted && _voiceActive && _listenSessionId == sessionId) {
+              final handled = _processVoiceInput(result.recognizedWords);
+              if (handled) {
+                // スコア確定時のみセッションを無効化して遅延finalResultの二重送信を防ぐ
+                ++_listenSessionId;
+                setState(() => _voiceText = '');
+              }
             }
           });
         }
@@ -465,11 +470,11 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  /// 音声入力を解析してスコアを適用する
-  void _processVoiceInput(String text) {
-    if (isSetFinished) return;
+  /// 音声入力を解析してスコアを適用する。スコアを確定した場合 true を返す
+  bool _processVoiceInput(String text) {
+    if (isSetFinished) return false;
     final score = _parseVoiceScore(text);
-    if (score == null) return;
+    if (score == null) return false;
 
     // 成功時に音とバイブレーションでフィードバック
     HapticFeedback.mediumImpact();
@@ -489,6 +494,7 @@ class _GameScreenState extends State<GameScreen> {
     }
     _submitThrow();
     // _submitThrow内の else ブランチで _startAutoMic / _resetElapsedTimer が呼ばれる
+    return true;
   }
 
   /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
@@ -508,6 +514,7 @@ class _GameScreenState extends State<GameScreen> {
     for (final w in [
       'てきしゅ', '敵襲', 'てき終', 'てき修', 'テキ終', 'テキ修',
       '圧倒的', // STT誤認識パターン
+      '入力',   // 「入力10点」など
       '終了',   // 「終了2点」など短い発話にも対応
     ]) {
       final idx = normalized.indexOf(w);
@@ -519,9 +526,32 @@ class _GameScreenState extends State<GameScreen> {
   /// ウェイクワード以降のテキストから点数を解析する。
   /// 戻り値: 1〜12=ピン番号、-1=ミス、null=認識失敗
   int? _parseVoiceScore(String text) {
-    final wakeEnd = _wakeWordEnd(text);
     final normalized = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
 
+    // 「N点を入力」「N点入れて」「N点入力」パターン（点数がウェイクワードの前に来る）
+    // アラビア数字（「10点入力」「10てん入力」の両形式に対応）
+    final scoreFirstMatch = RegExp(r'(\d{1,2})(?:点|てん)(?:を入力|入れて|入力)').firstMatch(normalized);
+    if (scoreFirstMatch != null) {
+      final n = int.tryParse(scoreFirstMatch.group(1)!);
+      if (n != null && n >= 1 && n <= 12) return n;
+    }
+    // 日本語数字（長いものを先に照合して誤マッチを防ぐ）
+    // 日本語数字（長いものを先に照合して誤マッチを防ぐ）
+    // 「点」はSTTでは「てん」と出ることもある
+    const jpScoreFirstList = <(String, int)>[
+      ('じゅうに', 12), ('十二', 12), ('じゅういち', 11), ('十一', 11),
+      ('じゅう', 10), ('十', 10), ('きゅう', 9), ('九', 9),
+      ('はち', 8), ('八', 8), ('なな', 7), ('しち', 7), ('七', 7),
+      ('ろく', 6), ('六', 6), ('ご', 5), ('五', 5),
+      ('よん', 4), ('よっ', 4), ('四', 4), ('さん', 3), ('三', 3),
+      ('に', 2), ('二', 2), ('いっ', 1), ('いち', 1), ('一', 1),
+    ];
+    for (final (jp, score) in jpScoreFirstList) {
+      // 「にてん入力」「さんてんを入力」「十てん入れて」など
+      if (RegExp('${RegExp.escape(jp)}(?:てん|点)(?:を入力|入れて|入力)').hasMatch(normalized)) return score;
+    }
+
+    final wakeEnd = _wakeWordEnd(text);
     String afterWake;
     if (wakeEnd >= 0) {
       afterWake = normalized.substring(wakeEnd);
