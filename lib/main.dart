@@ -391,7 +391,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _startAutoMic() {
-    if (!_speechAvailable) return;
+    if (!_speechAvailable || !mounted) return;
     _autoMicTimer?.cancel();
     setState(() => _autoMicActive = true);
     _autoMicTimer = Timer(const Duration(seconds: 60), () {
@@ -399,7 +399,11 @@ class _GameScreenState extends State<GameScreen> {
       setState(() => _autoMicActive = false);
       _speech.stop();
     });
-    if (!_speech.isListening) _startListening();
+    // 必ず stop してから少し待って再スタート（エンジンのリセットを確実にする）
+    _speech.stop();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted && _voiceActive) _startListening();
+    });
   }
 
   void _resetElapsedTimer() {
@@ -452,15 +456,12 @@ class _GameScreenState extends State<GameScreen> {
       selectedSkitels = [score];
     }
     _submitThrow();
-    // 入力処理後すぐに次の音声入力を受け付ける（60秒タイマーリセット）
-    _speech.stop();
-    _startAutoMic(); // reset 60s timer after each score input
-    _resetElapsedTimer();
+    // _submitThrow内の else ブランチで _startAutoMic / _resetElapsedTimer が呼ばれる
   }
 
   /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
   int _wakeWordEnd(String text) {
-    // 完全一致パターン
+    // 完全一致パターン（長いものを先に照合して誤マッチを防ぐ）
     for (final w in [
       '投擲終了', '投てき終了', 'とうてき終了', '投テキ終了',
       '投擲しゅうりょう', '投擲修了', '投擲週了',
@@ -468,9 +469,11 @@ class _GameScreenState extends State<GameScreen> {
       final idx = text.indexOf(w);
       if (idx >= 0) return idx + w.length;
     }
-    // 部分一致（STT認識ズレ対応）：「とうてきしゅうりょう」の中間音素を検出
+    // 部分一致（STT認識ズレ対応）
     for (final w in [
       'てきしゅ', '敵襲', 'てき終', 'てき修', 'テキ終', 'テキ修',
+      '圧倒的', // STT誤認識パターン
+      '終了',   // 「終了2点」など短い発話にも対応
     ]) {
       final idx = text.indexOf(w);
       if (idx >= 0) return idx + w.length;
@@ -583,6 +586,7 @@ class _GameScreenState extends State<GameScreen> {
       _speech.stop();
     } else {
       _resetElapsedTimer();
+      _startAutoMic(); // 点数確定後に確実に入力待ち再開
     }
   }
 
@@ -608,10 +612,9 @@ class _GameScreenState extends State<GameScreen> {
       }
       selectedSkitels.clear();
     });
-    // アンドゥ後すぐに音声入力を再開（60秒タイマーリセット）
-    _speech.stop();
-    _startAutoMic(); // reset 60s timer after undo
+    // アンドゥ後に確実に入力待ち再開
     _resetElapsedTimer();
+    _startAutoMic();
   }
 
   Future<void> _uploadMatchData(Player finalWinner) async {
