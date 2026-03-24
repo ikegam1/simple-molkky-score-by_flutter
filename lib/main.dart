@@ -1,5 +1,6 @@
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -329,6 +330,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _initSpeech() async {
+    if (kIsWeb) return; // Web では音声入力を無効化
     _speechAvailable = await _speech.initialize(
       onStatus: (status) {
         if (!mounted) return;
