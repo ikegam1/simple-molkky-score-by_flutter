@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -319,14 +320,27 @@ class _GameScreenState extends State<GameScreen> {
   String? _localeId; // 利用可能な日本語ロケールID
   String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
 
+  bool _micHeld = false;          // user is holding mic button
+  bool _autoMicActive = false;    // 60s auto mode is active
+  Timer? _autoMicTimer;           // countdown for auto mode
+
+  bool get _voiceActive => _micHeld || _autoMicActive;
+
+  // 経過秒タイマー
+  int _elapsedSeconds = 0;
+  Timer? _elapsedTimer;
+
   @override
   void initState() {
     super.initState();
     _initSpeech();
+    _resetElapsedTimer();
   }
 
   @override
   void dispose() {
+    _autoMicTimer?.cancel();
+    _elapsedTimer?.cancel();
     _speech.stop();
     super.dispose();
   }
@@ -339,15 +353,17 @@ class _GameScreenState extends State<GameScreen> {
         // 'done' のみで再起動。
         // 'notListening' は listen() 直後にも発火するため、
         // ここで再起動するとループ（緑点滅）の原因になる。
-        if (status == 'done' && !isSetFinished) {
-          Future.delayed(const Duration(milliseconds: 500), _startListening);
+        if (status == 'done' && !isSetFinished && _voiceActive) {
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (_voiceActive) _startListening();
+          });
         }
       },
       onError: (error) {
         debugPrint('Speech error: ${error.errorMsg}');
         if (!mounted) return;
         setState(() {});
-        if (!isSetFinished) Future.delayed(const Duration(seconds: 2), _startListening);
+        if (!isSetFinished && _voiceActive) Future.delayed(const Duration(seconds: 1), _startListening);
       },
     );
     if (_speechAvailable) {
@@ -361,14 +377,39 @@ class _GameScreenState extends State<GameScreen> {
       debugPrint('Speech locale: $_localeId');
     }
     if (mounted) setState(() {});
-    // 初期化直後も少し待ってから開始（サービス起動を待つ）
+    // 初期化直後は自動60秒モードで開始
     if (_speechAvailable && mounted) {
-      Future.delayed(const Duration(milliseconds: 500), _startListening);
+      _startAutoMic();
     }
   }
 
+  void _startAutoMic() {
+    if (!_speechAvailable) return;
+    _autoMicTimer?.cancel();
+    setState(() => _autoMicActive = true);
+    _autoMicTimer = Timer(const Duration(seconds: 60), () {
+      if (!mounted) return;
+      setState(() => _autoMicActive = false);
+      _speech.stop();
+    });
+    if (!_speech.isListening) _startListening();
+  }
+
+  void _resetElapsedTimer() {
+    _elapsedTimer?.cancel();
+    setState(() => _elapsedSeconds = 0);
+    if (isSetFinished) return;
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) { _elapsedTimer?.cancel(); return; }
+      setState(() => _elapsedSeconds++);
+      if (_elapsedSeconds == 60) {
+        SystemSound.play(SystemSoundType.alert);
+      }
+    });
+  }
+
   void _startListening() {
-    if (!_speechAvailable || _speech.isListening || isSetFinished || !mounted) return;
+    if (!_speechAvailable || _speech.isListening || isSetFinished || !mounted || !_voiceActive) return;
     _speech.listen(
       onResult: (result) {
         if (!mounted) return;
@@ -404,9 +445,10 @@ class _GameScreenState extends State<GameScreen> {
       selectedSkitels = [score];
     }
     _submitThrow();
-    // 入力処理後すぐに次の音声入力を受け付ける
+    // 入力処理後すぐに次の音声入力を受け付ける（60秒タイマーリセット）
     _speech.stop();
-    Future.delayed(const Duration(milliseconds: 500), _startListening);
+    _startAutoMic(); // reset 60s timer after each score input
+    _resetElapsedTimer();
   }
 
   /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
@@ -527,6 +569,12 @@ class _GameScreenState extends State<GameScreen> {
         selectedSkitels.clear(); _nextPlayer();
       }
     });
+    // セット終了時はタイマーと音声を停止
+    if (isSetFinished) {
+      _elapsedTimer?.cancel();
+      _autoMicTimer?.cancel();
+      _speech.stop();
+    }
   }
 
   void _nextPlayer() {
@@ -551,9 +599,10 @@ class _GameScreenState extends State<GameScreen> {
       }
       selectedSkitels.clear();
     });
-    // アンドゥ後すぐに音声入力を再開
+    // アンドゥ後すぐに音声入力を再開（60秒タイマーリセット）
     _speech.stop();
-    Future.delayed(const Duration(milliseconds: 500), _startListening);
+    _startAutoMic(); // reset 60s timer after undo
+    _resetElapsedTimer();
   }
 
   Future<void> _uploadMatchData(Player finalWinner) async {
@@ -633,7 +682,8 @@ class _GameScreenState extends State<GameScreen> {
               widget.match.applyManualOrder(reorderList);
               currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
             });
-            _startListening(); // 次のセット開始時に音声認識を再開
+            _startAutoMic(); // 次のセット開始時に自動60秒モードで音声認識を再開
+            _resetElapsedTimer();
           }, child: Text(t.get('next_set'))),
         ],
       );
@@ -667,6 +717,37 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   String _stars(int setsWon) => setsWon <= 0 ? '' : '⭐' * setsWon;
+
+  Widget _buildMicButton() {
+    final active = _voiceActive;
+    return GestureDetector(
+      onTapDown: (_) {
+        setState(() => _micHeld = true);
+        if (!_speech.isListening) _startListening();
+      },
+      onTapUp: (_) {
+        setState(() => _micHeld = false);
+        if (!_autoMicActive) _speech.stop();
+      },
+      onTapCancel: () {
+        setState(() => _micHeld = false);
+        if (!_autoMicActive) _speech.stop();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: active ? Colors.green : Colors.grey[300],
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          active ? Icons.mic : Icons.mic_off,
+          size: 20,
+          color: active ? Colors.white : Colors.grey[600],
+        ),
+      ),
+    );
+  }
 
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
@@ -704,7 +785,13 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})), actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
+      appBar: AppBar(
+        title: Row(children: [
+          Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
+          const SizedBox(width: 8),
+          if (_speechAvailable) _buildMicButton(),
+        ]),
+        actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
       body: Column(
         children: [
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
@@ -718,22 +805,11 @@ class _GameScreenState extends State<GameScreen> {
                   TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
                 ])),
                 if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
-                if (_speechAvailable) Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(_speech.isListening ? Icons.mic : Icons.mic_off, size: 13,
-                        color: _speech.isListening ? Colors.green : Colors.grey),
-                    const SizedBox(width: 3),
-                    Flexible(child: Text(
-                      _speech.isListening
-                          ? (_voiceText.isEmpty ? '「投擲終了、N点／ミス」' : _voiceText)
-                          : '...',
-                      style: TextStyle(fontSize: 11,
-                          color: _speech.isListening ? Colors.green : Colors.grey),
-                      overflow: TextOverflow.ellipsis,
-                    )),
-                  ]),
-                ),
+                if (_speechAvailable && _speech.isListening && _voiceText.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(_voiceText, style: const TextStyle(fontSize: 11, color: Colors.blue), overflow: TextOverflow.ellipsis),
+                  ),
               ],
             )),
           Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
@@ -756,25 +832,52 @@ class _GameScreenState extends State<GameScreen> {
           ),
           Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
-              LayoutBuilder(builder: (_, gc) {
-                // 点数ボタングリッドの高さを画面の40%に制限（横長画面対策）
-                final maxGridH = MediaQuery.of(context).size.height * 0.4;
-                // gc はContainer内幅（左右padding 24px除外済み）、列間スペース8×3
-                final cellH = (maxGridH - 8.0 * 2) / 3; // 3行・行間2つ
-                final cellW = (gc.maxWidth - 8.0 * 3) / 4; // 4列・列間3つ
-                final aspectRatio = (cellW / cellH).clamp(2.0, double.infinity);
-                return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
-                  final num = i + 1; final isSelected = selectedSkitels.contains(num);
-                  return GestureDetector(
-                    onDoubleTap: () {
-                      if (isSetFinished) return;
-                      setState(() => selectedSkitels = [num]);
-                      _submitThrow();
-                    },
-                    child: ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                  );
-                });
-              }),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LayoutBuilder(builder: (_, gc) {
+                      // 点数ボタングリッドの高さを画面の40%に制限（横長画面対策）
+                      final maxGridH = MediaQuery.of(context).size.height * 0.4;
+                      // gc はContainer内幅（左右padding 24px除外済み）、列間スペース8×3
+                      final cellH = (maxGridH - 8.0 * 2) / 3; // 3行・行間2つ
+                      final cellW = (gc.maxWidth - 8.0 * 3) / 4; // 4列・列間3つ
+                      final aspectRatio = (cellW / cellH).clamp(2.0, double.infinity);
+                      return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
+                        final num = i + 1; final isSelected = selectedSkitels.contains(num);
+                        return GestureDetector(
+                          onDoubleTap: () {
+                            if (isSetFinished) return;
+                            setState(() => selectedSkitels = [num]);
+                            _submitThrow();
+                          },
+                          child: ElevatedButton(onPressed: () => _onSkitelTap(num), style: ElevatedButton.styleFrom(backgroundColor: isSelected ? const Color(0xFFFFF3E0) : Colors.white, foregroundColor: Colors.black, side: BorderSide(color: isSelected ? Colors.orange : Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text('$num', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                        );
+                      });
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 44,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$_elapsedSeconds',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontFamily: 'Courier',
+                            fontWeight: FontWeight.bold,
+                            color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 18), Text(' ${t.get('undo')}')]))),
