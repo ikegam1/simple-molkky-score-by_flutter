@@ -189,6 +189,7 @@ class _SetupScreenState extends State<SetupScreen> {
   int _selectedModeKey = 3;
   String _firebaseUid = "";
   final _uuid = const Uuid();
+  bool _voiceInputEnabled = false; // 音声入力設定の追加
 
   @override
   void initState() {
@@ -275,13 +276,22 @@ class _SetupScreenState extends State<SetupScreen> {
               children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() => _registeredPlayers.removeAt(i)); _savePlayers(); })) ]
             )),
             DropdownButtonFormField<int>(value: _selectedModeKey, items: options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: InputDecoration(labelText: t.get('game_mode'))),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
+            // 音声入力設定スイッチの追加
+            SwitchListTile(
+              title: const Text('音声入力 (試験中)', style: TextStyle(fontSize: 16)),
+              value: _voiceInputEnabled,
+              onChanged: (bool value) => setState(() => _voiceInputEnabled = value),
+              secondary: Icon(Icons.mic, color: _voiceInputEnabled ? Colors.blue : Colors.grey),
+              contentPadding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
                 final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
                 MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
                 int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type))));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type), voiceEnabled: _voiceInputEnabled)));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
@@ -290,7 +300,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.8.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.8.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -301,7 +311,8 @@ class _SetupScreenState extends State<SetupScreen> {
 class GameScreen extends StatefulWidget {
   final MolkkyMatch match;
   final String appUserId;
-  const GameScreen({super.key, required this.match, required this.appUserId});
+  final bool voiceEnabled;
+  const GameScreen({super.key, required this.match, required this.appUserId, this.voiceEnabled = false});
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -348,6 +359,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _initSpeech() async {
+    if (!widget.voiceEnabled) return; // 音声無効時は初期化しない
     _speechAvailable = await _speech.initialize(
       onStatus: (status) {
         if (!mounted) return;
@@ -393,7 +405,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _startAutoMic() {
-    if (!_speechAvailable || !mounted) return;
+    if (!widget.voiceEnabled || !_speechAvailable || !mounted) return;
     _autoMicTimer?.cancel();
     setState(() => _autoMicActive = true);
     _autoMicTimer = Timer(const Duration(seconds: 60), () {
@@ -422,7 +434,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _startListening() {
-    if (!_speechAvailable || _speech.isListening || isSetFinished || !mounted || !_voiceActive) return;
+    if (!widget.voiceEnabled || !_speechAvailable || _speech.isListening || isSetFinished || !mounted || !_voiceActive) return;
     _speech.listen(
       onResult: (result) {
         if (!mounted) return;
@@ -514,18 +526,8 @@ class _GameScreenState extends State<GameScreen> {
     if (wakeEnd >= 0) {
       afterWake = normalized.substring(wakeEnd);
     } else {
-      // ウェイクワードがない場合でも、特定のキーワード（点、ミス）が含まれていれば解析を試みる
-      if (normalized.contains('点') || normalized.contains('ミス') || normalized.contains('みす')) {
-        afterWake = normalized;
-      } else {
-        // 数字のみの場合も一応チェック
-        final onlyDigit = RegExp(r'^(\d+)$').firstMatch(normalized);
-        if (onlyDigit != null) {
-          final n = int.tryParse(onlyDigit.group(1)!);
-          if (n != null && n >= 1 && n <= 12) return n;
-        }
-        return null;
-      }
+      // ウェイクワードが必須なため、それ以外は無視する
+      return null;
     }
 
     if (afterWake.isEmpty) return null;
