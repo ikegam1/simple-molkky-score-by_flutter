@@ -427,7 +427,7 @@ class _GameScreenState extends State<GameScreen> {
           setState(() => _voiceText = '');
         }
       },
-      localeId: _localeId,
+      localeId: _localeId ?? 'ja-JP',
       listenFor: const Duration(seconds: 60),
       pauseFor: const Duration(seconds: 60),
     );
