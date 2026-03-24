@@ -342,6 +342,7 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _autoMicTimer?.cancel();
     _elapsedTimer?.cancel();
+    _speechConfirmTimer?.cancel();
     _speech.stop();
     super.dispose();
   }
