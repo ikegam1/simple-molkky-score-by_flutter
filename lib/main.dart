@@ -336,8 +336,10 @@ class _GameScreenState extends State<GameScreen> {
       onStatus: (status) {
         if (!mounted) return;
         setState(() {});
-        // notListening になったら少し待ってから再起動（即時再起動はレースコンディションの原因）
-        if (status == 'notListening' && !isSetFinished) {
+        // 'done' のみで再起動。
+        // 'notListening' は listen() 直後にも発火するため、
+        // ここで再起動するとループ（緑点滅）の原因になる。
+        if (status == 'done' && !isSetFinished) {
           Future.delayed(const Duration(milliseconds: 500), _startListening);
         }
       },
