@@ -290,7 +290,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.8.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.8.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -329,6 +329,7 @@ class _GameScreenState extends State<GameScreen> {
   // 経過秒タイマー
   int _elapsedSeconds = 0;
   Timer? _elapsedTimer;
+  Timer? _speechConfirmTimer;
 
   @override
   void initState() {
@@ -426,7 +427,21 @@ class _GameScreenState extends State<GameScreen> {
         if (!mounted) return;
         // 認識中テキストをリアルタイム表示
         setState(() => _voiceText = result.recognizedWords);
+
+        // 認識が途切れてから一定時間（800ms）経ったら確定処理を試みる
+        _speechConfirmTimer?.cancel();
+        if (result.recognizedWords.trim().isNotEmpty) {
+          _speechConfirmTimer = Timer(const Duration(milliseconds: 1000), () {
+            if (mounted && _voiceActive) {
+              _processVoiceInput(result.recognizedWords);
+              // 確定したので一旦テキストをクリア
+              setState(() => _voiceText = '');
+            }
+          });
+        }
+
         if (result.finalResult) {
+          _speechConfirmTimer?.cancel();
           _processVoiceInput(result.recognizedWords);
           setState(() => _voiceText = '');
         }
@@ -442,6 +457,10 @@ class _GameScreenState extends State<GameScreen> {
     if (isSetFinished) return;
     final score = _parseVoiceScore(text);
     if (score == null) return;
+
+    // 成功時に音とバイブレーションでフィードバック
+    HapticFeedback.mediumImpact();
+    SystemSound.play(SystemSoundType.click);
 
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -461,12 +480,15 @@ class _GameScreenState extends State<GameScreen> {
 
   /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
   int _wakeWordEnd(String text) {
+    // 句読点やスペースを排除して比較（認識精度向上）
+    final normalized = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
+    
     // 完全一致パターン（長いものを先に照合して誤マッチを防ぐ）
     for (final w in [
       '投擲終了', '投てき終了', 'とうてき終了', '投テキ終了',
       '投擲しゅうりょう', '投擲修了', '投擲週了',
     ]) {
-      final idx = text.indexOf(w);
+      final idx = normalized.indexOf(w);
       if (idx >= 0) return idx + w.length;
     }
     // 部分一致（STT認識ズレ対応）
@@ -475,7 +497,7 @@ class _GameScreenState extends State<GameScreen> {
       '圧倒的', // STT誤認識パターン
       '終了',   // 「終了2点」など短い発話にも対応
     ]) {
-      final idx = text.indexOf(w);
+      final idx = normalized.indexOf(w);
       if (idx >= 0) return idx + w.length;
     }
     return -1;
@@ -485,11 +507,19 @@ class _GameScreenState extends State<GameScreen> {
   /// 戻り値: 1〜12=ピン番号、-1=ミス、null=認識失敗
   int? _parseVoiceScore(String text) {
     final wakeEnd = _wakeWordEnd(text);
-    if (wakeEnd < 0) return null;
+    final normalized = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
 
-    final afterWake = text
-        .substring(wakeEnd)
-        .replaceAll(RegExp(r'[、。,.\s　]'), '');
+    String afterWake;
+    if (wakeEnd >= 0) {
+      afterWake = normalized.substring(wakeEnd);
+    } else {
+      // ウェイクワードがない場合でも、特定のキーワード（点、ミス）が含まれていれば解析を試みる
+      if (normalized.contains('点') || normalized.contains('ミス') || normalized.contains('みす')) {
+        afterWake = normalized;
+      } else {
+        return null;
+      }
+    }
 
     if (afterWake.isEmpty) return null;
     if (afterWake.contains('ミス') || afterWake.contains('みす')) return -1;
@@ -820,7 +850,7 @@ class _GameScreenState extends State<GameScreen> {
                 if (_speechAvailable && _speech.isListening && _voiceText.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2.0),
-                    child: Text(_voiceText, style: const TextStyle(fontSize: 11, color: Colors.blue), overflow: TextOverflow.ellipsis),
+                    child: Text(_voiceText, style: const TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
                   ),
               ],
             )),
