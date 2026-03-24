@@ -324,6 +324,9 @@ class _GameScreenState extends State<GameScreen> {
   bool _autoMicActive = false;    // 60s auto mode is active
   Timer? _autoMicTimer;           // countdown for auto mode
 
+  bool _wakeWordDetected = false; // ウェイクワードのみ検出→スコア待ち状態
+  Timer? _wakeWordTimer;          // スコア待ちタイムアウト（5秒）
+
   bool get _voiceActive => _micHeld || _autoMicActive;
 
   // 経過秒タイマー
@@ -341,6 +344,7 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _autoMicTimer?.cancel();
     _elapsedTimer?.cancel();
+    _wakeWordTimer?.cancel();
     _speech.stop();
     super.dispose();
   }
@@ -440,8 +444,36 @@ class _GameScreenState extends State<GameScreen> {
   /// 音声入力を解析してスコアを適用する
   void _processVoiceInput(String text) {
     if (isSetFinished) return;
-    final score = _parseVoiceScore(text);
-    if (score == null) return;
+
+    // 通常パース（ウェイクワード＋点数が1つの認識結果に含まれる場合）
+    var score = _parseVoiceScore(text);
+
+    if (score != null) {
+      // 通常パース成功時もスコア待ち状態をリセット
+      _wakeWordDetected = false;
+      _wakeWordTimer?.cancel();
+    } else {
+      // ウェイクワードのみ検出された場合→スコア待ち状態に移行
+      if (_wakeWordEnd(text) >= 0) {
+        _wakeWordDetected = true;
+        _wakeWordTimer?.cancel();
+        _wakeWordTimer = Timer(const Duration(seconds: 5), () {
+          _wakeWordDetected = false;
+        });
+        return;
+      }
+
+      // スコア待ち状態なら、次の認識結果から点数だけ取り出す
+      if (_wakeWordDetected) {
+        score = _parseScoreOnly(text);
+        if (score != null) {
+          _wakeWordDetected = false;
+          _wakeWordTimer?.cancel();
+        }
+      }
+
+      if (score == null) return;
+    }
 
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -524,10 +556,49 @@ class _GameScreenState extends State<GameScreen> {
     return null;
   }
 
+  /// ウェイクワードなしで点数だけ解析する（スコア待ち状態専用）
+  /// 誤認識を防ぐため、アラビア数字または「点」付きの日本語数字のみ受け付ける
+  int? _parseScoreOnly(String text) {
+    final clean = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
+    if (clean.isEmpty) return null;
+    if (clean.contains('ミス') || clean.contains('みす')) return -1;
+
+    // アラビア数字（最も信頼度が高い）：「10」「10点」など
+    final digitMatch = RegExp(r'^(\d{1,2})点?$').firstMatch(clean);
+    if (digitMatch != null) {
+      final n = int.tryParse(digitMatch.group(1)!);
+      if (n != null && n >= 1 && n <= 12) return n;
+    }
+
+    // 日本語：誤認識リスクの低いパターンのみ（10以上 or 「点」必須）
+    const safeJpMap = <String, int>{
+      'じゅうに': 12, '十二': 12,
+      'じゅういち': 11, '十一': 11,
+      'じゅう': 10, '十': 10,
+      'きゅうてん': 9,  '九点': 9,
+      'はちてん': 8,    '八点': 8,
+      'ななてん': 7, 'しちてん': 7, '七点': 7,
+      'ろくてん': 6,    '六点': 6,
+      'ごてん': 5,      '五点': 5,
+      'よんてん': 4, 'してん': 4, '四点': 4,
+      'さんてん': 3,    '三点': 3,
+      'にてん': 2,      '二点': 2,
+      'いってん': 1, 'いちてん': 1, '一点': 1,
+    };
+    for (final entry in safeJpMap.entries) {
+      if (clean.contains(entry.key)) return entry.value;
+    }
+
+    return null;
+  }
+
   void _onSkitelTap(int num) { if (isSetFinished) return; setState(() { if (selectedSkitels.contains(num)) selectedSkitels.remove(num); else selectedSkitels.add(num); }); }
 
   void _submitThrow() {
     if (isSetFinished) return;
+    // 手動送信時もスコア待ち状態をリセット（二重送信防止）
+    _wakeWordDetected = false;
+    _wakeWordTimer?.cancel();
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
