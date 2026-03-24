@@ -316,6 +316,7 @@ class _GameScreenState extends State<GameScreen> {
   // 音声認識
   final SpeechToText _speech = SpeechToText();
   bool _speechAvailable = false;
+  String? _localeId; // 利用可能な日本語ロケールID
   String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
 
   @override
@@ -349,6 +350,16 @@ class _GameScreenState extends State<GameScreen> {
         if (!isSetFinished) Future.delayed(const Duration(seconds: 2), _startListening);
       },
     );
+    if (_speechAvailable) {
+      // 利用可能なロケールから日本語を探して使用する
+      final locales = await _speech.locales();
+      final jaLocale = locales.firstWhere(
+        (l) => l.localeId.startsWith('ja'),
+        orElse: () => locales.first,
+      );
+      _localeId = jaLocale.localeId;
+      debugPrint('Speech locale: $_localeId');
+    }
     if (mounted) setState(() {});
     // 初期化直後も少し待ってから開始（サービス起動を待つ）
     if (_speechAvailable && mounted) {
@@ -368,9 +379,9 @@ class _GameScreenState extends State<GameScreen> {
           setState(() => _voiceText = '');
         }
       },
-      // localeId を省略してシステムデフォルトを使用（ja_JP 非搭載端末での失敗を防ぐ）
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 5),
+      localeId: _localeId,
+      listenFor: const Duration(seconds: 60),
+      pauseFor: const Duration(seconds: 10),
     );
   }
 
@@ -393,6 +404,9 @@ class _GameScreenState extends State<GameScreen> {
       selectedSkitels = [score];
     }
     _submitThrow();
+    // 入力処理後すぐに次の音声入力を受け付ける
+    _speech.stop();
+    Future.delayed(const Duration(milliseconds: 500), _startListening);
   }
 
   /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
@@ -537,6 +551,9 @@ class _GameScreenState extends State<GameScreen> {
       }
       selectedSkitels.clear();
     });
+    // アンドゥ後すぐに音声入力を再開
+    _speech.stop();
+    Future.delayed(const Duration(milliseconds: 500), _startListening);
   }
 
   Future<void> _uploadMatchData(Player finalWinner) async {
