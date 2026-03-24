@@ -10,6 +10,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
@@ -311,6 +312,119 @@ class _GameScreenState extends State<GameScreen> {
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
 
+  // 音声認識
+  final SpeechToText _speech = SpeechToText();
+  bool _speechAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  @override
+  void dispose() {
+    _speech.stop();
+    super.dispose();
+  }
+
+  Future<void> _initSpeech() async {
+    _speechAvailable = await _speech.initialize(
+      onStatus: (status) {
+        if (!mounted) return;
+        // 認識が止まったら自動再起動（isSetFinished のときは再起動しない）
+        if ((status == 'done' || status == 'notListening') && !isSetFinished) {
+          Future.microtask(_startListening);
+        }
+        setState(() {}); // マイクアイコン更新
+      },
+      onError: (_) {
+        if (!mounted) return;
+        if (!isSetFinished) Future.delayed(const Duration(seconds: 2), _startListening);
+      },
+    );
+    if (_speechAvailable && mounted) _startListening();
+  }
+
+  void _startListening() {
+    if (!_speechAvailable || _speech.isListening || isSetFinished || !mounted) return;
+    _speech.listen(
+      onResult: (result) {
+        if (!mounted || !result.finalResult) return;
+        _processVoiceInput(result.recognizedWords);
+      },
+      localeIdentifier: 'ja_JP',
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+    );
+  }
+
+  /// 音声入力を解析してスコアを適用する
+  void _processVoiceInput(String text) {
+    if (isSetFinished) return;
+    final score = _parseVoiceScore(text);
+    if (score == null) return;
+
+    // 認識結果をSnackBarで表示
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('🎤 $text'),
+      duration: const Duration(milliseconds: 1500),
+      backgroundColor: Colors.blue.shade700,
+    ));
+
+    // score < 0 はミス、0以上はそのpin番号
+    if (score < 0) {
+      selectedSkitels = [];
+    } else {
+      selectedSkitels = [score]; // pin N を1本倒した = N点
+    }
+    _submitThrow();
+  }
+
+  /// ウェイクワード「投擲終了」以降のテキストから点数を解析する。
+  /// 戻り値: 1〜12=ピン番号、-1=ミス、null=認識失敗
+  int? _parseVoiceScore(String text) {
+    final wakeIdx = text.indexOf('投擲終了');
+    if (wakeIdx < 0) return null;
+
+    final afterWake = text
+        .substring(wakeIdx + 4)
+        .replaceAll(RegExp(r'[、。,.\s　]'), '');
+
+    if (afterWake.isEmpty) return null;
+    if (afterWake.contains('ミス') || afterWake.contains('みす')) return -1;
+
+    // アラビア数字を優先して検出
+    final digitMatch = RegExp(r'(\d+)').firstMatch(afterWake);
+    if (digitMatch != null) {
+      final n = int.tryParse(digitMatch.group(1)!);
+      if (n != null && n >= 1 && n <= 12) return n;
+    }
+
+    // 日本語数字（長いパターンを先に照合して部分一致を防ぐ）
+    const jpMap = <String, int>{
+      'じゅうに': 12, '十二': 12,
+      'じゅういち': 11, '十一': 11,
+      'じゅう': 10, '十': 10,
+      'きゅう': 9, '九': 9,
+      'はち': 8, '八': 8,
+      'ななてん': 7, 'しちてん': 7, 'なな': 7, 'しち': 7, '七': 7,
+      'ろくてん': 6, 'ろく': 6, '六': 6,
+      'ごてん': 5, 'ご': 5, '五': 5,
+      'よんてん': 4, 'してん': 4, 'よん': 4, '四': 4,
+      'さんてん': 3, 'さん': 3, '三': 3,
+      'にてん': 2, '二': 2,
+      'いってん': 1, 'いちてん': 1, 'いち': 1, '一': 1,
+    };
+
+    for (final entry in jpMap.entries) {
+      if (afterWake.contains(entry.key)) return entry.value;
+    }
+
+    return null;
+  }
+
   void _onSkitelTap(int num) { if (isSetFinished) return; setState(() { if (selectedSkitels.contains(num)) selectedSkitels.remove(num); else selectedSkitels.add(num); }); }
 
   void _submitThrow() {
@@ -469,6 +583,7 @@ class _GameScreenState extends State<GameScreen> {
               widget.match.applyManualOrder(reorderList);
               currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
             });
+            _startListening(); // 次のセット開始時に音声認識を再開
           }, child: Text(t.get('next_set'))),
         ],
       );
@@ -553,6 +668,14 @@ class _GameScreenState extends State<GameScreen> {
                   TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
                 ])),
                 if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
+                if (_speechAvailable) Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+                    Icon(_speech.isListening ? Icons.mic : Icons.mic_off, size: 13, color: _speech.isListening ? Colors.green : Colors.grey),
+                    const SizedBox(width: 3),
+                    Text(_speech.isListening ? '「投擲終了、N点／ミス」' : '...', style: TextStyle(fontSize: 11, color: _speech.isListening ? Colors.green : Colors.grey)),
+                  ]),
+                ),
               ],
             )),
           Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),

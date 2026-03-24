@@ -19,6 +19,7 @@ dependencies:
   cloud_firestore: ^6.1.2
   firebase_auth: ^6.1.4
   patrol: ^4.2.0
+  speech_to_text: ^7.3.0
 
 dev_dependencies:
   flutter_test:
