@@ -95217,7 +95217,9 @@ s.CW=A.aFQ(B.e7,new A.av4(s))},
 yk(){var s=this,r=!0
 if(s.z)if(!s.y.c)if(!s.r)if(s.c!=null)r=!(s.at||s.ax)
 if(r)return
-s.y.AO(B.la,s.Q,new A.avl(s),B.la)},
+r=s.Q
+if(r==null)r="ja-JP"
+s.y.AO(B.la,r,new A.avl(s),B.la)},
 agz(a){var s,r,q=this,p=null
 if(q.r)return
 s=q.afX(a)
@@ -96317,9 +96319,10 @@ n.interimResults=o
 n=p.e
 n.toString
 n.continuous=o
-if(a!=null){n=p.e
+n=p.e
 n.toString
-n.lang=a}p.f=p.r=!1
+n.lang=a
+p.f=p.r=!1
 p.e.start()
 q=!0
 s=1
@@ -96385,7 +96388,7 @@ var $async$ph=A.O(function(c,d){if(c===1)return A.K(d,r)
 for(;;)switch(s){case 0:p=b.d.a
 o=b.e
 n=A.a6(["partialResults",b.b,"onDevice",!1,"listenMode",p,"sampleRate",o,"enableHaptics",!1,"autoPunctuation",!1],t.N,t.z)
-if(a!=null)n.m(0,"localeId",a)
+n.m(0,"localeId",a)
 s=3
 return A.Q(B.fS.iy("listen",n,!1,t.y),$async$ph)
 case 3:p=d
