@@ -353,7 +353,7 @@ class _GameScreenState extends State<GameScreen> {
         if (!mounted || !result.finalResult) return;
         _processVoiceInput(result.recognizedWords);
       },
-      localeIdentifier: 'ja_JP',
+      localeId: 'ja_JP',
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
     );
