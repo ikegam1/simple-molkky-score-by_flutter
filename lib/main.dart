@@ -368,13 +368,20 @@ class _GameScreenState extends State<GameScreen> {
     );
     if (_speechAvailable) {
       // 利用可能なロケールから日本語を探して使用する
-      final locales = await _speech.locales();
-      final jaLocale = locales.firstWhere(
-        (l) => l.localeId.startsWith('ja'),
-        orElse: () => locales.first,
-      );
-      _localeId = jaLocale.localeId;
-      debugPrint('Speech locale: $_localeId');
+      // Webではlocales()が空リストを返すことがあるため安全に処理する
+      try {
+        final locales = await _speech.locales();
+        if (locales.isNotEmpty) {
+          final jaLocale = locales.firstWhere(
+            (l) => l.localeId.startsWith('ja'),
+            orElse: () => locales.first,
+          );
+          _localeId = jaLocale.localeId;
+        }
+        debugPrint('Speech locale: $_localeId');
+      } catch (e) {
+        debugPrint('locales() failed: $e');
+      }
     }
     if (mounted) setState(() {});
     // 初期化直後は自動60秒モードで開始
@@ -422,7 +429,7 @@ class _GameScreenState extends State<GameScreen> {
       },
       localeId: _localeId,
       listenFor: const Duration(seconds: 60),
-      pauseFor: const Duration(milliseconds: 500),
+      pauseFor: const Duration(seconds: 3),
     );
   }
 
@@ -833,7 +840,7 @@ class _GameScreenState extends State<GameScreen> {
           Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: LayoutBuilder(builder: (_, gc) {
