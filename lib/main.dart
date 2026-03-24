@@ -518,6 +518,12 @@ class _GameScreenState extends State<GameScreen> {
       if (normalized.contains('点') || normalized.contains('ミス') || normalized.contains('みす')) {
         afterWake = normalized;
       } else {
+        // 数字のみの場合も一応チェック
+        final onlyDigit = RegExp(r'^(\d+)$').firstMatch(normalized);
+        if (onlyDigit != null) {
+          final n = int.tryParse(onlyDigit.group(1)!);
+          if (n != null && n >= 1 && n <= 12) return n;
+        }
         return null;
       }
     }
