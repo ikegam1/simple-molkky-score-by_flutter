@@ -432,8 +432,8 @@ class _GameScreenState extends State<GameScreen> {
         }
       },
       localeId: _localeId ?? 'ja-JP',
-      listenFor: const Duration(seconds: 60),
-      pauseFor: const Duration(seconds: 60),
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 2),
     );
   }
 
