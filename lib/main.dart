@@ -260,7 +260,10 @@ class _SetupScreenState extends State<SetupScreen> {
           },
           child: Text(Localizations.localeOf(context).languageCode == 'ja' ? 'EN' : 'JA', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
-        actions: [IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history'))],
+        actions: [
+          IconButton(icon: const Icon(Icons.help_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const HelpPage())), tooltip: '使い方'),
+          IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history')),
+        ],
       ),
       extendBodyBehindAppBar: true,
       body: Padding(
@@ -1171,5 +1174,148 @@ class GlobalHistoryPage extends StatelessWidget {
       }).toList();
       Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start, players: players, winnerName: data['winner'] as String?)));
     } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'})))); }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  HelpPage — 使い方ページ
+// ─────────────────────────────────────────────────────────────────────────────
+
+class HelpPage extends StatelessWidget {
+  const HelpPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('使い方')),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _HelpSection(
+              title: '1. ゲームの準備',
+              items: [
+                'プレイヤー名を入力して「追加」→ 最大8人まで登録できます',
+                'リストのハンドル（☰）をドラッグして投げ順を調整できます',
+                '試合形式を選択します（例：2先 ＝ 2本先取）',
+                '音声でスコアを入力したい場合は「音声入力」をONにしてください（試験中）',
+                '「ゲーム開始」を押してスタート！',
+              ],
+            ),
+            SizedBox(height: 20),
+            _HelpSection(
+              title: '2. スコアの入力',
+              items: [
+                '倒れたピンの番号（1〜12）をタップして選択',
+                '複数のピンが倒れた場合は倒れた本数のボタンを1つタップ',
+                '「決定」ボタンで確定',
+                'ミスの場合は何も選ばずそのまま「0 Pts (ミス)」を押す',
+                '間違えた場合は「戻る」で1つ前に戻れます',
+              ],
+            ),
+            SizedBox(height: 20),
+            _HelpSection(
+              title: '3. 音声でスコアを入力する（音声入力ON時）',
+              body: 'マイクに向かって話しかけるだけで自動的に入力されます。',
+              examples: [
+                '「投てき終了、12点」',
+                '「入力、5点」',
+                '「投てき終了、ミス」',
+              ],
+              note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
+            ),
+            SizedBox(height: 20),
+            _HelpSection(
+              title: '4. 試合の進め方',
+              items: [
+                '誰かがちょうど50点を取るとそのセットが終了',
+                'セット終了後に次のセットの投げ順を変更できます',
+                '設定した試合形式（〇先など）で先に勝ち数に達した人が優勝',
+              ],
+            ),
+            SizedBox(height: 20),
+            _HelpSection(
+              title: '5. 戦績を確認する',
+              items: [
+                '画面右上の「戦績確認」からこれまでの試合結果を見られます',
+              ],
+            ),
+            SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HelpSection extends StatelessWidget {
+  final String title;
+  final List<String> items;
+  final String? body;
+  final List<String> examples;
+  final String? note;
+
+  const _HelpSection({
+    required this.title,
+    this.items = const [],
+    this.body,
+    this.examples = const [],
+    this.note,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.blue)),
+        const SizedBox(height: 8),
+        if (body != null) ...[
+          Text(body!, style: const TextStyle(fontSize: 14)),
+          const SizedBox(height: 8),
+        ],
+        for (final item in items) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(fontSize: 14)),
+                Expanded(child: Text(item, style: const TextStyle(fontSize: 14))),
+              ],
+            ),
+          ),
+        ],
+        if (examples.isNotEmpty) ...[
+          Container(
+            margin: const EdgeInsets.only(top: 4, left: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('話し方の例：', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                for (final ex in examples)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(ex, style: const TextStyle(fontSize: 14)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        if (note != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 8),
+            child: Text(note!, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          ),
+        ],
+      ],
+    );
   }
 }
