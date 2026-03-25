@@ -96239,10 +96239,10 @@ m=A.aFr(A.aX(e.bN("start_game"),g,g,g,B.aaS,g,g),r,m)
 r=j.r.length===0?g:new A.aAp(j,a3)
 l=A.aX(e.bN(f),g,g,g,g,g,g)
 k=A.aLS(g,g,g,g,g,g,g,g,g,g,g,B.a78,g,g,g,g,g,g,g,g)
-c=A.c([B.dN,a1,B.dN,new A.EH(j.e,a0,B.a8p,B.a7h,B.a7i,20,new A.aAq(j),!0,new A.aAr(),g),s,c,B.jN,new A.UI(q,new A.aAj(j),B.acX,o,B.aL,g),B.jN,m,B.jN,new A.Ch(!0,r,g,g,g,k,g,g,!1,g,!0,g,new A.a0j(l,B.OK,k,g,g),g),B.jN],a2)
+c=A.c([B.dN,a1,B.dN,new A.EH(j.e,a0,B.a8p,B.a7h,B.a7i,20,new A.aAq(j),!0,new A.aAr(),g),s,c,B.jN,new A.UI(q,new A.aAj(j),B.acW,o,B.aL,g),B.jN,m,B.jN,new A.Ch(!0,r,g,g,g,k,g,g,!1,g,!0,g,new A.a0j(l,B.OK,k,g,g),g),B.jN],a2)
 a0=j.r
 if(a0.length!==0)c.push(A.aX(e.f9("anonymous_id",A.a7(["id",B.c.ap(a0,0,8)],d,d)),g,g,g,B.HL,g,g))
-c.push(B.acW)
+c.push(B.acX)
 return A.Dp(a,new A.bV(B.O_,A.hu(c,B.ac,B.a8,B.aC),g),!0)}}
 A.aA3.prototype={
 $0(){this.a.r=this.b.ga_A().a.c.a.a},
@@ -104927,9 +104927,9 @@ B.abP=new A.m(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,nul
 B.a8M=new A.m(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelSmall",null,null,null,null)
 B.acU=new A.e1(B.aaE,B.a9v,B.aaF,B.ab8,B.a9c,B.a9k,B.a9T,B.ab3,B.aa5,B.abw,B.a8F,B.a8Z,B.abt,B.abP,B.a8M)
 B.acV=new A.ju("\u2022 ",null,B.jV,null,null,null,null,null,null)
-B.acW=new A.ju("v1.8.2",null,B.HJ,null,null,null,null,null,null)
 B.aaI=new A.m(!0,null,null,null,null,null,16,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.acX=new A.ju("\u97f3\u58f0\u5165\u529b (\u8a66\u9a13\u4e2d)",null,B.aaI,null,null,null,null,null,null)
+B.acW=new A.ju("\u97f3\u58f0\u5165\u529b (\u8a66\u9a13\u4e2d)",null,B.aaI,null,null,null,null,null,null)
+B.acX=new A.ju("v1.9.0",null,B.HJ,null,null,null,null,null,null)
 B.acY=new A.ju("sec",null,B.HL,null,null,null,null,null,null)
 B.acZ=new A.ju("\u4f7f\u3044\u65b9",null,null,null,null,null,null,null,null)
 B.a9x=new A.m(!0,null,null,null,null,null,13,B.aP,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
