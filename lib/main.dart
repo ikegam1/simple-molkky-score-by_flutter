@@ -428,6 +428,7 @@ class _GameScreenState extends State<GameScreen> {
     _elapsedTimer?.cancel();
     setState(() => _elapsedSeconds = 0);
     if (isSetFinished) return;
+    if (_autoMicActive) _startAutoMic();
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) { _elapsedTimer?.cancel(); return; }
       setState(() => _elapsedSeconds++);
@@ -902,14 +903,18 @@ class _GameScreenState extends State<GameScreen> {
                 columns: [DataColumn(label: SizedBox(width: 40, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) => [DataColumn(label: Container(width: 80, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: TextStyle(fontSize: 12, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold)), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(t.get('points'), style: const TextStyle(fontSize: 9)), Text(t.get('total'), style: const TextStyle(fontSize: 9))])])))])],
                 rows: List.generate(currentTurnInSet, (i) {
                   int turn = currentTurnInSet - i;
-                  return DataRow(cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
-                    int score = 0, total = 0;
-                    bool hasScore = p.scoreHistory.length >= turn;
-                    if (hasScore) { score = p.scoreHistory[turn - 1]; int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; } total = tmp; }
-                    return [DataCell(Row(children: [
-                      Container(width: 40, alignment: Alignment.center, child: Text(hasScore ? '$score' : '', style: const TextStyle(fontSize: 15))), // 修正：空白化 & 1ptアップ
-                      Container(width: 40, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))]))]; // 修正：1ptアップ
-                  })]);
+                  final isCurrent = i == 0;
+                  return DataRow(
+                    color: isCurrent ? WidgetStateProperty.all(const Color(0xFFFFF9C4)) : null,
+                    cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
+                      int score = 0, total = 0;
+                      bool hasScore = p.scoreHistory.length >= turn;
+                      if (hasScore) { score = p.scoreHistory[turn - 1]; int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; } total = tmp; }
+                      final fontSize = isCurrent ? 17.0 : 15.0;
+                      return [DataCell(Row(children: [
+                        Container(width: 40, alignment: Alignment.center, child: Text(hasScore ? '$score' : '', style: TextStyle(fontSize: fontSize))),
+                        Container(width: 40, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize)))]))];
+                    })]);
                 }),
               ),
             ))),
@@ -940,12 +945,15 @@ class _GameScreenState extends State<GameScreen> {
                 const SizedBox(width: 8),
                 Expanded(flex: 2, child: ElevatedButton(onPressed: _submitThrow, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline), Text(selectedSkitels.isEmpty ? ' 0 ${t.get('pts')} (${t.get('miss')})' : ' ${t.get('confirm')} (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length} ${t.get('pts')})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]))),
                 const SizedBox(width: 8),
-                SizedBox(
-                  width: 52,
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text('$_elapsedSeconds', style: TextStyle(fontSize: 26, fontFamily: 'Courier', fontWeight: FontWeight.bold, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
-                    const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                  ]),
+                GestureDetector(
+                  onTap: _resetElapsedTimer,
+                  child: SizedBox(
+                    width: 52,
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text('$_elapsedSeconds', style: TextStyle(fontSize: 28, fontFamily: 'Courier', fontWeight: FontWeight.bold, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
+                      const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    ]),
+                  ),
                 ),
               ]),
               const SizedBox(height: 12),
