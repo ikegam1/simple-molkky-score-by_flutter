@@ -63,6 +63,7 @@ class L10n {
       'reorder_hint': 'Adjust throw order for next set',
       'switch_lang': 'Language: English',
       'reach_msg': '{name}, {n} to win! 🎯',
+      'self5turn_solo_only': 'Self 5-Turn is solo only (1 player)',
       'self5turn_mode': 'Self 5-Turn (solo)',
       'self5turn_challenge_n': 'Challenge {n}',
       'self5turn_success': 'Success! 🎉',
@@ -104,6 +105,7 @@ class L10n {
       'reorder_hint': '次セットの投げ順を調整できます',
       'switch_lang': '言語: 日本語',
       'reach_msg': '{name} さん、{n}でアガリです🎯',
+      'self5turn_solo_only': 'セルフ5ターンは1名専用です',
       'self5turn_mode': 'セルフ5ターン（1人用）',
       'self5turn_challenge_n': 'チャレンジ {n}',
       'self5turn_success': '成功！🎉',
@@ -244,8 +246,6 @@ class _SetupScreenState extends State<SetupScreen> {
     setState(() {
       _registeredPlayers.add(Player(id: _uuid.v4(), name: name, initialOrder: _registeredPlayers.length));
       _nameController.clear();
-      // self5Turn is only valid for 1 player; reset mode if now 2+ players
-      if (_registeredPlayers.length > 1 && _selectedModeKey == -1) _selectedModeKey = 3;
     });
     _savePlayers();
   }
@@ -257,15 +257,19 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
+    // key=-1: self5Turn, key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
     final Map<int, String> options = {
       1: t.get('sets_count', args: {'n': '1'}),
       2: t.get('sets_count', args: {'n': '2'}),
       3: t.get('race_to', args: {'n': '2'}),
       5: t.get('race_to', args: {'n': '3'}),
+      7: t.get('race_to', args: {'n': '4'}),
+      9: t.get('race_to', args: {'n': '5'}),
       10: t.get('sets_count', args: {'n': '10'}),
       11: t.get('race_to', args: {'n': '11'}),
-      if (_registeredPlayers.length == 1) -1: t.get('self5turn_mode'),
+      -1: t.get('self5turn_mode'),
     };
+    final bool self5TurnEnabled = _registeredPlayers.length <= 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -293,9 +297,22 @@ class _SetupScreenState extends State<SetupScreen> {
             TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add(), maxLength: 20, buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
-              children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() { _registeredPlayers.removeAt(i); if (_registeredPlayers.length != 1 && _selectedModeKey == -1) _selectedModeKey = 3; }); _savePlayers(); })) ]
+              children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() { _registeredPlayers.removeAt(i); }); _savePlayers(); })) ]
             )),
-            DropdownButtonFormField<int>(value: _selectedModeKey, items: options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: InputDecoration(labelText: t.get('game_mode'))),
+            DropdownButtonFormField<int>(
+              value: _selectedModeKey,
+              items: options.entries.map((e) {
+                final isSelf5Turn = e.key == -1;
+                final enabled = !isSelf5Turn || self5TurnEnabled;
+                return DropdownMenuItem<int>(
+                  value: e.key,
+                  enabled: enabled,
+                  child: Text(e.value, style: TextStyle(color: enabled ? null : Colors.grey)),
+                );
+              }).toList(),
+              onChanged: (v) { if (v != null) setState(() => _selectedModeKey = v); },
+              decoration: InputDecoration(labelText: t.get('game_mode')),
+            ),
             const SizedBox(height: 10),
             // 音声入力設定スイッチの追加
             SwitchListTile(
@@ -308,6 +325,11 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
+                // セルフ5ターンは1名専用。2名以上ではエラー
+                if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
+                  _showError(t.get('self5turn_solo_only'));
+                  return;
+                }
                 final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
                 MolkkyMatch match;
                 if (_selectedModeKey == -1) {
@@ -326,7 +348,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.9.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.9.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
