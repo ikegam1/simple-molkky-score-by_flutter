@@ -63,6 +63,13 @@ class L10n {
       'reorder_hint': 'Adjust throw order for next set',
       'switch_lang': 'Language: English',
       'reach_msg': '{name}, {n} to win! 🎯',
+      'self5turn_mode': 'Self 5-Turn (solo)',
+      'self5turn_challenge_n': 'Challenge {n}',
+      'self5turn_success': 'Success! 🎉',
+      'self5turn_failure': 'Failed...',
+      'consecutive_success': 'Streak: {n}',
+      'next_challenge': 'Next Challenge',
+      'back_to_top': 'Back to Top',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -97,6 +104,13 @@ class L10n {
       'reorder_hint': '次セットの投げ順を調整できます',
       'switch_lang': '言語: 日本語',
       'reach_msg': '{name} さん、{n}でアガリです🎯',
+      'self5turn_mode': 'セルフ5ターン（1人用）',
+      'self5turn_challenge_n': 'チャレンジ {n}',
+      'self5turn_success': '成功！🎉',
+      'self5turn_failure': '失敗...',
+      'consecutive_success': '連続成功: {n}回',
+      'next_challenge': '次のチャレンジへ',
+      'back_to_top': 'トップへ',
     }
   };
 
@@ -227,9 +241,11 @@ class _SetupScreenState extends State<SetupScreen> {
     if (name.length > 20) { _showError(t.get('name_too_long')); return; }
     if (_registeredPlayers.any((p) => p.name.toLowerCase() == name.toLowerCase())) { _showError(t.get('duplicate_name')); return; }
 
-    setState(() { 
-      _registeredPlayers.add(Player(id: _uuid.v4(), name: name, initialOrder: _registeredPlayers.length)); 
-      _nameController.clear(); 
+    setState(() {
+      _registeredPlayers.add(Player(id: _uuid.v4(), name: name, initialOrder: _registeredPlayers.length));
+      _nameController.clear();
+      // self5Turn is only valid for 1 player; reset mode if now 2+ players
+      if (_registeredPlayers.length > 1 && _selectedModeKey == -1) _selectedModeKey = 3;
     });
     _savePlayers();
   }
@@ -247,7 +263,8 @@ class _SetupScreenState extends State<SetupScreen> {
       3: t.get('race_to', args: {'n': '2'}),
       5: t.get('race_to', args: {'n': '3'}),
       10: t.get('sets_count', args: {'n': '10'}),
-      11: t.get('race_to', args: {'n': '11'})
+      11: t.get('race_to', args: {'n': '11'}),
+      if (_registeredPlayers.length == 1) -1: t.get('self5turn_mode'),
     };
 
     return Scaffold(
@@ -276,7 +293,7 @@ class _SetupScreenState extends State<SetupScreen> {
             TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add(), maxLength: 20, buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null),
             Expanded(child: ReorderableListView(
               onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
-              children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() => _registeredPlayers.removeAt(i)); _savePlayers(); })) ]
+              children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() { _registeredPlayers.removeAt(i); if (_registeredPlayers.length != 1 && _selectedModeKey == -1) _selectedModeKey = 3; }); _savePlayers(); })) ]
             )),
             DropdownButtonFormField<int>(value: _selectedModeKey, items: options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(), onChanged: (v) => setState(() => _selectedModeKey = v!), decoration: InputDecoration(labelText: t.get('game_mode'))),
             const SizedBox(height: 10),
@@ -292,9 +309,15 @@ class _SetupScreenState extends State<SetupScreen> {
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
                 final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
-                MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
-                int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: MolkkyMatch(players: playersForMatch, limit: limit, type: type), voiceEnabled: _voiceInputEnabled)));
+                MolkkyMatch match;
+                if (_selectedModeKey == -1) {
+                  match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+                } else {
+                  MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
+                  int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+                  match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
+                }
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: _voiceInputEnabled)));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
@@ -601,14 +624,40 @@ class _GameScreenState extends State<GameScreen> {
 
   void _submitThrow() {
     if (isSetFinished) return;
+    bool self5TurnSucceeded = false;
+    bool self5TurnFailed = false;
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
       GameLogic.processThrow(player, selectedSkitels, widget.match);
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
+
+      // === Self5Turn mode: 5投制チャレンジ判定 ===
+      if (widget.match.type == MatchType.self5Turn) {
+        widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
+        turnInProgressScores.clear(); systemCalculatedIds.clear();
+        bool succeeded = player.currentScore == widget.match.targetScore;
+        bool failed = player.isDisqualified || (!succeeded && currentTurnInSet >= 5);
+        if (succeeded) {
+          self5TurnSucceeded = true;
+          isSetFinished = true;
+          widget.match.consecutiveSuccesses++;
+          widget.match.finalizeCurrentSetIfNeeded();
+        } else if (failed) {
+          self5TurnFailed = true;
+          isSetFinished = true;
+          widget.match.finalizeCurrentSetIfNeeded();
+        } else {
+          selectedSkitels.clear();
+          currentTurnInSet++;
+        }
+        return; // 通常ロジックをスキップ
+      }
+      // === End Self5Turn mode ===
+
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
-      
+
       if (widget.match.players.length >= 2 && survivors.length == 1) {
         final s = survivors.first;
         int needed = widget.match.targetScore - s.currentScore;
@@ -652,6 +701,17 @@ class _GameScreenState extends State<GameScreen> {
         selectedSkitels.clear(); _nextPlayer();
       }
     });
+    // タイマーと音声の管理
+    if (widget.match.type == MatchType.self5Turn) {
+      if (isSetFinished) {
+        _elapsedTimer?.cancel(); _autoMicTimer?.cancel(); _speech.stop();
+        if (self5TurnSucceeded) _showSelf5TurnSuccessDialog();
+        else if (self5TurnFailed) { _uploadSelf5TurnData(); _showSelf5TurnFailureDialog(); }
+      } else {
+        _resetElapsedTimer(); _startAutoMic();
+      }
+      return;
+    }
     // セット終了時はタイマーと音声を停止
     if (isSetFinished) {
       _elapsedTimer?.cancel();
@@ -683,11 +743,94 @@ class _GameScreenState extends State<GameScreen> {
         turnInProgressScores.remove(p.id); systemCalculatedIds.remove(p.id);
         if (last == 0 && p.consecutiveMisses > 0) { p.consecutiveMisses--; p.isDisqualified = false; }
       }
+      // self5Turn: TurnRecordも直前分を削除する（各投で即追加しているため）
+      if (widget.match.type == MatchType.self5Turn && widget.match.currentSetRecord.turns.isNotEmpty) {
+        widget.match.currentSetRecord.turns.removeLast();
+      }
       selectedSkitels.clear();
     });
     // アンドゥ後に確実に入力待ち再開
     _resetElapsedTimer();
     _startAutoMic();
+  }
+
+  void _showSelf5TurnSuccessDialog() {
+    final t = L10n.of(context);
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text('${t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})} ${t.get('self5turn_success')}'),
+      content: Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+      actions: [
+        ElevatedButton(
+          onPressed: () { Navigator.pop(ctx); _startNextChallenge(); },
+          child: Text(t.get('next_challenge')),
+        ),
+      ],
+    ));
+  }
+
+  void _showSelf5TurnFailureDialog() {
+    final t = L10n.of(context);
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text(t.get('self5turn_failure'), style: const TextStyle(fontSize: 20)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+      ]),
+      actions: [
+        TextButton(
+          onPressed: () { Navigator.pop(ctx); Navigator.popUntil(context, (r) => r.isFirst); },
+          child: Text(t.get('back_to_top')),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            final newPlayers = widget.match.players.map((p) => Player(id: p.id, name: p.name, initialOrder: p.initialOrder)).toList();
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => GameScreen(
+              appUserId: widget.appUserId,
+              match: MolkkyMatch(players: newPlayers, limit: 99, type: MatchType.self5Turn),
+              voiceEnabled: widget.voiceEnabled,
+            )));
+          },
+          child: Text(t.get('next_challenge')),
+        ),
+      ],
+    ));
+  }
+
+  void _startNextChallenge() {
+    widget.match.prepareNextSet();
+    setState(() {
+      currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false;
+      turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
+    });
+    _resetElapsedTimer();
+    _startAutoMic();
+  }
+
+  Future<void> _uploadSelf5TurnData() async {
+    try {
+      final match = widget.match;
+      List<SetRecord> setsToUpload = List.from(match.completedSets);
+      if (!setsToUpload.any((s) => s.setNumber == match.currentSetRecord.setNumber)) {
+        for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+        setsToUpload.add(match.currentSetRecord);
+      }
+      final data = {
+        'appUserId': widget.appUserId,
+        'startTime': match.startTime,
+        'endTime': FieldValue.serverTimestamp(),
+        'matchType': 'MatchType.self5Turn',
+        'consecutiveSuccesses': match.consecutiveSuccesses,
+        'players': match.players.map((p) => {'id': p.id, 'name': p.name}).toList(),
+        'history': setsToUpload.map((s) => {
+          'setNumber': s.setNumber,
+          'turns': s.turns.map((t) => {'turnNumber': t.turnNumber, 'scores': t.scores}).toList(),
+          'finalScores': s.finalCumulativeScores,
+        }).toList(),
+      };
+      await FirebaseFirestore.instance.collection('scores').add(data);
+    } catch (e) { debugPrint("Self5Turn Upload Error: $e"); }
   }
 
   Future<void> _uploadMatchData(Player finalWinner) async {
@@ -728,7 +871,12 @@ class _GameScreenState extends State<GameScreen> {
         allSets.add(widget.match.currentSetRecord);
       }
     }
-    Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(match: widget.match, sets: allSets)));
+    Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
+      match: widget.match,
+      sets: allSets,
+      isSelf5Turn: widget.match.type == MatchType.self5Turn,
+      consecutiveSuccesses: widget.match.consecutiveSuccesses,
+    )));
   }
 
   void _showSetWinnerDialog(Player winner) {
@@ -869,10 +1017,13 @@ class _GameScreenState extends State<GameScreen> {
       reachMsg = t.get('reach_msg', args: {'name': currentPlayer.name, 'n': '${50 - currentPlayer.currentScore}'});
     }
 
+    final isSelf5Turn = widget.match.type == MatchType.self5Turn;
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
-          Text(t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
+          Text(isSelf5Turn
+            ? t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})
+            : t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
           const SizedBox(width: 8),
           if (_speechAvailable) _buildMicButton(),
         ]),
@@ -882,7 +1033,11 @@ class _GameScreenState extends State<GameScreen> {
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
             child: Column(
               children: [
-                _buildScoreSummaryRow(),
+                if (isSelf5Turn)
+                  Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))
+                else
+                  _buildScoreSummaryRow(),
                 const SizedBox(height: 6),
                 RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
                   TextSpan(text: '${currentPlayer.name} '),
@@ -973,7 +1128,9 @@ class HistoryPage extends StatelessWidget {
   final DateTime? startTime;
   final List<Player>? players;
   final String? winnerName;
-  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName});
+  final bool isSelf5Turn;
+  final int consecutiveSuccesses;
+  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName, this.isSelf5Turn = false, this.consecutiveSuccesses = 0});
 
   Map<String, int> _finalSetWins(List<Player> allPlayers) {
     final wins = <String, int>{for (var p in allPlayers) p.id: 0};
@@ -1084,31 +1241,48 @@ class HistoryPage extends StatelessWidget {
         Text('${t.get('app_title')} Result', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
         Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
         const Divider(height: 30),
-        Builder(builder: (context) {
-          final wins = _finalSetWins(allPlayers);
-          final totals = _finalTotals(allPlayers);
-          final winner = _resolveWinnerName(allPlayers, totals, wins);
-          return Container(
+        if (isSelf5Turn)
+          Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             color: const Color(0xFFE3F2FD),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Winner : $winner', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                _buildHistoryTotalScore(allPlayers, totals, wins),
-              ],
-            ),
-          );
-        }),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t.get('self5turn_mode'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(t.get('consecutive_success', args: {'n': '$consecutiveSuccesses'}),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
+            ]),
+          )
+        else
+          Builder(builder: (context) {
+            final wins = _finalSetWins(allPlayers);
+            final totals = _finalTotals(allPlayers);
+            final winner = _resolveWinnerName(allPlayers, totals, wins);
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              color: const Color(0xFFE3F2FD),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Winner : $winner', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  _buildHistoryTotalScore(allPlayers, totals, wins),
+                ],
+              ),
+            );
+          }),
         const SizedBox(height: 12),
         for (var set in sets) ...[
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             color: const Color(0xFFE3F2FD),
-            child: Text(t.get('set_n', args: {'n': '${set.setNumber}'}), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text(
+              isSelf5Turn
+                ? t.get('self5turn_challenge_n', args: {'n': '${set.setNumber}'})
+                : t.get('set_n', args: {'n': '${set.setNumber}'}),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
           _buildSetTable(context, set, allPlayers),
           const SizedBox(height: 20),
@@ -1139,16 +1313,26 @@ class HistoryPage extends StatelessWidget {
   }
 }
 
-class GlobalHistoryPage extends StatelessWidget {
+class GlobalHistoryPage extends StatefulWidget {
   final String uid;
   const GlobalHistoryPage({super.key, required this.uid});
+  @override
+  State<GlobalHistoryPage> createState() => _GlobalHistoryPageState();
+}
+
+class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
+  String _filter = 'all'; // 'all', 'normal', 'self5Turn'
+
+  static bool _isSelf5TurnRecord(Map<String, dynamic> data) =>
+      data['matchType'] == 'MatchType.self5Turn';
+
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(t.get('match_history'))),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('scores').where('appUserId', isEqualTo: uid).orderBy('startTime', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance.collection('scores').where('appUserId', isEqualTo: widget.uid).orderBy('startTime', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             final error = snapshot.error.toString();
@@ -1156,15 +1340,52 @@ class GlobalHistoryPage extends StatelessWidget {
             return Center(child: Text(t.get('error', args: {'msg': error})));
           }
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return Center(child: Text(t.get('no_history')));
-          return ListView.builder(itemCount: docs.length, itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
-            final start = (data['startTime'] as Timestamp).toDate();
-            final winner = data['winner'] ?? "???";
-            final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
-            return ListTile(leading: const Icon(Icons.cloud_done, color: Colors.blue), title: Text("${DateFormat('MM/dd HH:mm').format(start)} Win: $winner"), subtitle: Text("Players: $playerNames"), onTap: () => _viewDetail(context, data, start));
-          });
+          final allDocs = snapshot.data!.docs;
+          if (allDocs.isEmpty) return Center(child: Text(t.get('no_history')));
+
+          final hasSelf5Turn = allDocs.any((d) => _isSelf5TurnRecord(d.data() as Map<String, dynamic>));
+          final hasNormal = allDocs.any((d) => !_isSelf5TurnRecord(d.data() as Map<String, dynamic>));
+          final showFilter = hasSelf5Turn && hasNormal;
+
+          final docs = showFilter && _filter != 'all'
+              ? allDocs.where((d) {
+                  final isSelf = _isSelf5TurnRecord(d.data() as Map<String, dynamic>);
+                  return _filter == 'self5Turn' ? isSelf : !isSelf;
+                }).toList()
+              : allDocs;
+
+          return Column(children: [
+            if (showFilter)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: DropdownButtonFormField<String>(
+                  value: _filter,
+                  decoration: const InputDecoration(labelText: 'フィルター', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('すべて')),
+                    DropdownMenuItem(value: 'normal', child: Text('通常試合')),
+                    DropdownMenuItem(value: 'self5Turn', child: Text('セルフ5ターン')),
+                  ],
+                  onChanged: (v) => setState(() => _filter = v!),
+                ),
+              ),
+            Expanded(child: ListView.builder(itemCount: docs.length, itemBuilder: (context, index) {
+              final data = docs[index].data() as Map<String, dynamic>;
+              final start = (data['startTime'] as Timestamp).toDate();
+              final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
+              if (_isSelf5TurnRecord(data)) {
+                final streak = data['consecutiveSuccesses'] ?? 0;
+                return ListTile(
+                  leading: const Icon(Icons.flag, color: Colors.green),
+                  title: Text("${DateFormat('MM/dd HH:mm').format(start)} ${t.get('self5turn_mode')}"),
+                  subtitle: Text("${t.get('consecutive_success', args: {'n': '$streak'})} / $playerNames"),
+                  onTap: () => _viewDetail(context, data, start),
+                );
+              }
+              final winner = data['winner'] ?? "???";
+              return ListTile(leading: const Icon(Icons.cloud_done, color: Colors.blue), title: Text("${DateFormat('MM/dd HH:mm').format(start)} Win: $winner"), subtitle: Text("Players: $playerNames"), onTap: () => _viewDetail(context, data, start));
+            })),
+          ]);
         },
       ),
     );
@@ -1174,13 +1395,22 @@ class GlobalHistoryPage extends StatelessWidget {
     final t = L10n.of(context);
     try {
       final List<Player> players = (data['players'] as List).map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0)).toList();
+      final isSelf5Turn = _isSelf5TurnRecord(data);
+      final consecutiveSuccesses = data['consecutiveSuccesses'] as int? ?? 0;
       final List<SetRecord> sets = (data['history'] as List).map((s) {
-        final set = SetRecord(s['setNumber'], s['starterId'], List<String>.from(s['playerOrder'] ?? []));
+        final playerOrder = isSelf5Turn ? players.map((p) => p.id).toList() : List<String>.from(s['playerOrder'] ?? []);
+        final starterId = isSelf5Turn ? players.first.id : (s['starterId'] ?? '');
+        final set = SetRecord(s['setNumber'], starterId, playerOrder);
         (s['turns'] as List).forEach((t) => set.turns.add(TurnRecord(t['turnNumber'], Map<String, int>.from(t['scores']), systemCalculated: Set<String>.from(t['systemCalculated'] ?? []))));
-        s['finalScores'].forEach((k, v) => set.finalCumulativeScores[k] = v);
+        (s['finalScores'] as Map).forEach((k, v) => set.finalCumulativeScores[k] = v as int);
         return set;
       }).toList();
-      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(sets: sets, startTime: start, players: players, winnerName: data['winner'] as String?)));
+      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
+        sets: sets, startTime: start, players: players,
+        winnerName: isSelf5Turn ? null : data['winner'] as String?,
+        isSelf5Turn: isSelf5Turn,
+        consecutiveSuccesses: consecutiveSuccesses,
+      )));
     } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'})))); }
   }
 }
@@ -1247,6 +1477,17 @@ class HelpPage extends StatelessWidget {
               title: '5. 戦績を確認する',
               items: [
                 '画面右上の「戦績確認」からこれまでの試合結果を見られます',
+              ],
+            ),
+            SizedBox(height: 20),
+            _HelpSection(
+              title: '6. セルフ5ターン（1人用練習モード）',
+              items: [
+                'プレイヤーが1名の場合のみ「セルフ5ターン」モードが選べます',
+                '5投で50点ちょうどに到達できれば「成功」',
+                '6投以上になるか、5投で50点に届かない場合は「失敗」でゲーム終了',
+                '何回連続で成功できるかを競います（連続成功記録を更新しましょう！）',
+                '失敗後は「トップへ」でタイトル画面に戻るか「次のチャレンジへ」で新記録に挑戦',
               ],
             ),
             SizedBox(height: 32),

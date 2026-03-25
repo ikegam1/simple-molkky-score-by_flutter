@@ -42,7 +42,7 @@ class SetRecord {
   SetRecord(this.setNumber, this.starterPlayerId, this.playerOrder);
 }
 
-enum MatchType { raceTo, fixedSets }
+enum MatchType { raceTo, fixedSets, self5Turn }
 
 class MolkkyMatch {
   List<Player> players;
@@ -56,6 +56,7 @@ class MolkkyMatch {
 
   List<SetRecord> completedSets = [];
   SetRecord currentSetRecord;
+  int consecutiveSuccesses = 0; // for self5Turn mode
 
   MolkkyMatch({
     required this.players,
@@ -78,6 +79,7 @@ class MolkkyMatch {
   }
 
   bool get isMatchOver {
+    if (type == MatchType.self5Turn) return false; // managed explicitly in GameScreen
     // 修正: completedSets.length で判定することで、指定セット数が「完了」するまで終わらないようにする
     if (type == MatchType.fixedSets) return completedSets.length >= limit;
     for (var p in players) {
