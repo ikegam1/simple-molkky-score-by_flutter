@@ -571,6 +571,7 @@ class _GameScreenState extends State<GameScreen> {
     for (final w in [
       'てきしゅ', '敵襲', 'てき終', 'てき修', 'テキ終', 'テキ修',
       '圧倒的', // STT誤認識パターン
+      'スコア',   // ウェイクワード追加
       '入力',   // 「入力10点」など
       '終了',   // 「終了2点」など短い発話にも対応
     ]) {
@@ -617,7 +618,10 @@ class _GameScreenState extends State<GameScreen> {
     final wakeEnd = _wakeWordEnd(text);
     String afterWake;
     if (wakeEnd >= 0) {
-      afterWake = normalized.substring(wakeEnd);
+      afterWake = normalized
+          .substring(wakeEnd)
+          .replaceAll('ポイント', '点') // 「ポイント」を「点」に置換
+          .replaceAll('ポイン', '点');  // 「ポイン」まででも「点」に置換
     } else {
       // ウェイクワードが必須なため、それ以外は無視する
       return null;
@@ -1522,6 +1526,7 @@ class HelpPage extends StatelessWidget {
       examplesLabel: '話し方の例：',
       examples: [
         '「投てき終了、12点」',
+        '「スコア、10ポイント」',
         '「入力、5点」',
         '「投てき終了、ミス」',
       ],
