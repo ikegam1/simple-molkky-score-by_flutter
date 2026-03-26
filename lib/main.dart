@@ -71,6 +71,9 @@ class L10n {
       'consecutive_success': 'Streak: {n}',
       'next_challenge': 'Next Challenge',
       'back_to_top': 'Back to Top',
+      'voice_input': 'Voice Input (Beta)',
+      'help_title': 'How to Play',
+      'pts': 'pts',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -113,6 +116,9 @@ class L10n {
       'consecutive_success': '連続成功: {n}回',
       'next_challenge': '次のチャレンジへ',
       'back_to_top': 'トップへ',
+      'voice_input': '音声入力（試験中）',
+      'help_title': '使い方',
+      'pts': '点',
     }
   };
 
@@ -282,7 +288,7 @@ class _SetupScreenState extends State<SetupScreen> {
           child: Text(Localizations.localeOf(context).languageCode == 'ja' ? 'EN' : 'JA', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.help_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const HelpPage())), tooltip: '使い方'),
+          IconButton(icon: const Icon(Icons.help_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const HelpPage())), tooltip: t.get('help_title')),
           IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history')),
         ],
       ),
@@ -316,7 +322,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             // 音声入力設定スイッチの追加
             SwitchListTile(
-              title: const Text('音声入力 (試験中)', style: TextStyle(fontSize: 16)),
+              title: Text(t.get('voice_input'), style: const TextStyle(fontSize: 16)),
               value: _voiceInputEnabled,
               onChanged: (bool value) => setState(() => _voiceInputEnabled = value),
               secondary: Icon(Icons.mic, color: _voiceInputEnabled ? Colors.blue : Colors.grey),
@@ -339,7 +345,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
                   match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
                 }
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: _voiceInputEnabled)));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: _voiceInputEnabled, appLocale: Localizations.localeOf(context))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
@@ -360,7 +366,8 @@ class GameScreen extends StatefulWidget {
   final MolkkyMatch match;
   final String appUserId;
   final bool voiceEnabled;
-  const GameScreen({super.key, required this.match, required this.appUserId, this.voiceEnabled = false});
+  final Locale? appLocale;
+  const GameScreen({super.key, required this.match, required this.appUserId, this.voiceEnabled = false, this.appLocale});
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -376,7 +383,7 @@ class _GameScreenState extends State<GameScreen> {
   // 音声認識
   final SpeechToText _speech = SpeechToText();
   bool _speechAvailable = false;
-  String? _localeId; // 利用可能な日本語ロケールID
+  String? _localeId; // 利用可能なSTTロケールID
   String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
 
   bool _micHeld = false;          // user is holding mic button
@@ -430,16 +437,17 @@ class _GameScreenState extends State<GameScreen> {
       },
     );
     if (_speechAvailable) {
-      // 利用可能なロケールから日本語を探して使用する
+      // 利用可能なロケールからアプリ言語に合うものを探す
       // Webではlocales()が空リストを返すことがあるため安全に処理する
       try {
         final locales = await _speech.locales();
         if (locales.isNotEmpty) {
-          final jaLocale = locales.firstWhere(
-            (l) => l.localeId.startsWith('ja'),
+          final langCode = widget.appLocale?.languageCode ?? 'ja';
+          final matched = locales.firstWhere(
+            (l) => l.localeId.startsWith(langCode),
             orElse: () => locales.first,
           );
-          _localeId = jaLocale.localeId;
+          _localeId = matched.localeId;
         }
         debugPrint('Speech locale: $_localeId');
       } catch (e) {
@@ -513,7 +521,7 @@ class _GameScreenState extends State<GameScreen> {
           setState(() => _voiceText = '');
         }
       },
-      localeId: _localeId ?? 'ja-JP',
+      localeId: _localeId ?? (widget.appLocale?.languageCode == 'en' ? 'en-US' : 'ja-JP'),
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 2),
     );
@@ -569,6 +577,12 @@ class _GameScreenState extends State<GameScreen> {
       final idx = normalized.indexOf(w);
       if (idx >= 0) return idx + w.length;
     }
+    // English wake words (case-insensitive, spaces already removed)
+    final normalizedLower = normalized.toLowerCase();
+    for (final w in ['done', 'score', 'enter', 'input', 'finish']) {
+      final idx = normalizedLower.indexOf(w);
+      if (idx >= 0) return idx + w.length;
+    }
     return -1;
   }
 
@@ -611,6 +625,7 @@ class _GameScreenState extends State<GameScreen> {
 
     if (afterWake.isEmpty) return null;
     if (afterWake.contains('ミス') || afterWake.contains('みす')) return -1;
+    if (afterWake.toLowerCase().contains('miss')) return -1;
 
     // アラビア数字を優先して検出
     final digitMatch = RegExp(r'(\d+)').firstMatch(afterWake);
@@ -637,6 +652,17 @@ class _GameScreenState extends State<GameScreen> {
 
     for (final entry in jpMap.entries) {
       if (afterWake.contains(entry.key)) return entry.value;
+    }
+
+    // English number words (longest first to avoid 'one' matching inside 'eleven')
+    const enMap = <String, int>{
+      'twelve': 12, 'eleven': 11, 'ten': 10,
+      'nine': 9, 'eight': 8, 'seven': 7, 'six': 6, 'five': 5,
+      'four': 4, 'three': 3, 'two': 2, 'one': 1,
+    };
+    final afterWakeLower = afterWake.toLowerCase();
+    for (final entry in enMap.entries) {
+      if (RegExp(r'\b' + entry.key + r'\b').hasMatch(afterWakeLower)) return entry.value;
     }
 
     return null;
@@ -1446,78 +1472,144 @@ class HelpPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = L10n.of(context);
+    final isJa = Localizations.localeOf(context).languageCode == 'ja';
+
+    final sections = isJa ? _jaSections(t) : _enSections(t);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('使い方')),
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+      appBar: AppBar(title: Text(t.get('help_title'))),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _HelpSection(
-              title: '1. ゲームの準備',
-              items: [
-                'プレイヤー名を入力して「追加」→ 最大8人まで登録できます',
-                'リストのハンドル（☰）をドラッグして投げ順を調整できます',
-                '試合形式を選択します（例：2先 ＝ 2本先取）',
-                '音声でスコアを入力したい場合は「音声入力」をONにしてください（試験中）',
-                '「ゲーム開始」を押してスタート！',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '2. スコアの入力',
-              items: [
-                '倒れたピンの番号（1〜12）をタップして選択',
-                '複数のピンが倒れた場合は倒れた本数のボタンを1つタップ',
-                '「決定」ボタンで確定',
-                'ミスの場合は何も選ばずそのまま「0 Pts (ミス)」を押す',
-                '間違えた場合は「戻る」で1つ前に戻れます',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '3. 音声でスコアを入力する（音声入力ON時）',
-              body: 'マイクに向かって話しかけるだけで自動的に入力されます。',
-              examples: [
-                '「投てき終了、12点」',
-                '「入力、5点」',
-                '「投てき終了、ミス」',
-              ],
-              note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '4. 試合の進め方',
-              items: [
-                '誰かがちょうど50点を取るとそのセットが終了',
-                'セット終了後に次のセットの投げ順を変更できます',
-                '設定した試合形式（〇先など）で先に勝ち数に達した人が優勝',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '5. 戦績を確認する',
-              items: [
-                '画面右上の「戦績確認」からこれまでの試合結果を見られます',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '6. セルフ5ターン（1人用練習モード）',
-              items: [
-                'プレイヤーが1名の場合のみ「セルフ5ターン」モードが選べます',
-                '5投で50点ちょうどに到達できれば「成功」',
-                '6投以上になるか、5投で50点に届かない場合は「失敗」でゲーム終了',
-                '何回連続で成功できるかを競います（連続成功記録を更新しましょう！）',
-                '失敗後は「トップへ」でタイトル画面に戻るか「次のチャレンジへ」で新記録に挑戦',
-              ],
-            ),
-            SizedBox(height: 32),
+            for (int i = 0; i < sections.length; i++) ...[
+              if (i > 0) const SizedBox(height: 20),
+              sections[i],
+            ],
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
+
+  List<Widget> _jaSections(L10n t) => [
+    const _HelpSection(
+      title: '1. ゲームの準備',
+      items: [
+        'プレイヤー名を入力して「追加」→ 最大8人まで登録できます',
+        'リストのハンドル（☰）をドラッグして投げ順を調整できます',
+        '試合形式を選択します（例：2先 ＝ 2本先取）',
+        '音声でスコアを入力したい場合は「音声入力」をONにしてください（試験中）',
+        '「ゲーム開始」を押してスタート！',
+      ],
+    ),
+    const _HelpSection(
+      title: '2. スコアの入力',
+      items: [
+        '倒れたピンの番号（1〜12）をタップして選択',
+        '複数のピンが倒れた場合は倒れた本数のボタンを1つタップ',
+        '「決定」ボタンで確定',
+        'ミスの場合は何も選ばずそのまま「0 Pts (ミス)」を押す',
+        '間違えた場合は「戻る」で1つ前に戻れます',
+      ],
+    ),
+    const _HelpSection(
+      title: '3. 音声でスコアを入力する（音声入力ON時）',
+      body: 'マイクに向かって話しかけるだけで自動的に入力されます。',
+      examplesLabel: '話し方の例：',
+      examples: [
+        '「投てき終了、12点」',
+        '「入力、5点」',
+        '「投てき終了、ミス」',
+      ],
+      note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
+    ),
+    const _HelpSection(
+      title: '4. 試合の進め方',
+      items: [
+        '誰かがちょうど50点を取るとそのセットが終了',
+        'セット終了後に次のセットの投げ順を変更できます',
+        '設定した試合形式（〇先など）で先に勝ち数に達した人が優勝',
+      ],
+    ),
+    const _HelpSection(
+      title: '5. 戦績を確認する',
+      items: [
+        '画面右上の「戦績確認」からこれまでの試合結果を見られます',
+      ],
+    ),
+    const _HelpSection(
+      title: '6. セルフ5ターン（1人用練習モード）',
+      items: [
+        'プレイヤーが1名の場合のみ「セルフ5ターン」モードが選べます',
+        '5投で50点ちょうどに到達できれば「成功」',
+        '6投以上になるか、5投で50点に届かない場合は「失敗」でゲーム終了',
+        '何回連続で成功できるかを競います（連続成功記録を更新しましょう！）',
+        '失敗後は「トップへ」でタイトル画面に戻るか「次のチャレンジへ」で新記録に挑戦',
+      ],
+    ),
+  ];
+
+  List<Widget> _enSections(L10n t) => [
+    const _HelpSection(
+      title: '1. Setup',
+      items: [
+        'Enter a player name and tap "Add" — up to 8 players',
+        'Drag the handle (☰) to reorder the throwing order',
+        'Select a game mode (e.g. "First to 2 sets")',
+        'Turn on "Voice Input (Beta)" to enter scores by voice',
+        'Tap "Start Game" to begin!',
+      ],
+    ),
+    const _HelpSection(
+      title: '2. Entering Scores',
+      items: [
+        'Tap the pin number (1–12) that was knocked down',
+        'If multiple pins fell, tap the count button once',
+        'Tap "Confirm" to submit the score',
+        'For a miss, tap "0 pts (Miss)" without selecting any pin',
+        'Tap "Undo" to go back one step',
+      ],
+    ),
+    const _HelpSection(
+      title: '3. Voice Input (when enabled)',
+      body: 'Just speak toward the microphone — scores are entered automatically.',
+      examplesLabel: 'Example phrases:',
+      examples: [
+        '"Done, 12 points"',
+        '"Score five"',
+        '"Done, miss"',
+      ],
+      note: '* If voice input fails to recognize, use the buttons to enter manually.',
+    ),
+    const _HelpSection(
+      title: '4. How the Game Progresses',
+      items: [
+        'A set ends when someone reaches exactly 50 points',
+        'After each set you can reorder players for the next set',
+        'The first player to reach the target wins the match',
+      ],
+    ),
+    const _HelpSection(
+      title: '5. Viewing Match History',
+      items: [
+        'Tap the history icon in the top-right corner to view past results',
+      ],
+    ),
+    const _HelpSection(
+      title: '6. Self 5-Turn (Solo Practice Mode)',
+      items: [
+        'Available only when 1 player is registered',
+        'Reach exactly 50 points in 5 throws to succeed',
+        'Fail if you exceed 5 throws or cannot reach 50',
+        'Challenge yourself to build the longest success streak!',
+        'After failing, return to the top or start the next challenge',
+      ],
+    ),
+  ];
 }
 
 class _HelpSection extends StatelessWidget {
@@ -1525,6 +1617,7 @@ class _HelpSection extends StatelessWidget {
   final List<String> items;
   final String? body;
   final List<String> examples;
+  final String examplesLabel;
   final String? note;
 
   const _HelpSection({
@@ -1532,6 +1625,7 @@ class _HelpSection extends StatelessWidget {
     this.items = const [],
     this.body,
     this.examples = const [],
+    this.examplesLabel = '話し方の例：',
     this.note,
   });
 
@@ -1569,7 +1663,7 @@ class _HelpSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('話し方の例：', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(examplesLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 for (final ex in examples)
                   Padding(
