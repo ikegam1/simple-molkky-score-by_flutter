@@ -28720,7 +28720,8 @@ av6:function av6(a){this.a=a},
 av9:function av9(a){this.a=a},
 av8:function av8(a){this.a=a},
 avc:function avc(a){this.a=a},
-avd:function avd(a){this.a=a},
+avd:function avd(a,b){this.a=a
+this.b=b},
 awf:function awf(a,b){this.a=a
 this.b=b},
 awg:function awg(a){this.a=a},
@@ -96763,30 +96764,31 @@ return s?r:r+a.d},
 a6O(){var s=this,r=null,q=s.at||s.ax,p=q?B.jm:B.e9,o=q?B.qo:B.OU
 o=A.P7(o,q?B.l:B.dr,r,20)
 return A.kb(r,new A.ym(o,B.pM,new A.dC(p,r,r,r,r,r,B.kL),r,B.a0,B.V,r,r),B.ai,!1,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,new A.av9(s),new A.ava(s),new A.avb(s),r,r,r)},
-a6V(){var s,r,q,p,o,n,m,l,k,j=this,i=null,h=j.a.c,g=h.a
-if(h.f===B.cD&&h.r===2){if(g.length===2){s=g[0]
-r=g[1]
-h=s.z
-q=h.length!==0?h[0]:0
-h=r.z
-p=h.length!==0?h[0]:0
-h=s.d
+a6V(){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g=i.a.c,f=g.a
+if(g.f===B.cD&&g.r===2){if(f.length===2){s=f[0]
+r=f[1]
+g=s.z
+q=g.length!==0?g[0]:0
+g=r.z
+p=g.length!==0?g[0]:0
+g=s.d
 o=s.r
 o=o<=0?"":B.c.ac("\u2b50",o)
 n=r.d
 m=r.r
 m=m<=0?"":B.c.ac("\u2b50",m)
-return A.as(""+(q+h)+o+" - "+(p+n)+m,i,i,i,B.eY,i,i)}return A.as(new A.T(g,new A.avc(j),A.S(g).i("T<1,n>")).bp(0,"  -  "),i,i,i,B.eY,i,i)}if(g.length===2){s=g[0]
-r=g[1]
-h=s.d
-o=j.Gy(s)
-n=s.r
-n=n<=0?"":B.c.ac("\u2b50",n)
-m=r.d
-l=j.Gy(r)
-k=r.r
-k=k<=0?"":B.c.ac("\u2b50",k)
-return A.as(""+h+"("+o+")"+n+" - "+m+"("+l+")"+k,i,i,i,B.eY,i,i)}return A.as(new A.T(g,new A.avd(j),A.S(g).i("T<1,n>")).bp(0,"  -  "),i,i,i,B.eY,i,i)},
+return A.as(""+(q+g)+o+" - "+(p+n)+m,h,h,h,B.eY,h,h)}return A.as(new A.T(f,new A.avc(i),A.S(f).i("T<1,n>")).bp(0,"  -  "),h,h,h,B.eY,h,h)}l=g.r>1
+if(f.length===2){s=f[0]
+r=f[1]
+k=""+s.d
+if(l)k=k+"("+i.Gy(s)+")"
+j=""+r.d
+if(l)j=j+"("+i.Gy(r)+")"
+g=s.r
+g=g<=0?"":B.c.ac("\u2b50",g)
+o=r.r
+o=o<=0?"":B.c.ac("\u2b50",o)
+return A.as(k+g+" - "+j+o,h,h,h,B.eY,h,h)}return A.as(new A.T(f,new A.avd(i,l),A.S(f).i("T<1,n>")).bp(0,"  -  "),h,h,h,B.eY,h,h)},
 P(a3){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c=this,b=null,a="reach_msg",a0=A.hN(a3),a1=c.a.c,a2=a1.a
 if(a2.length===0){a1=t.N
 return A.Dr(b,A.hB(A.as(a0.d6("error",A.a_(["msg","No players"],a1,a1)),b,b,b,b,b,b),b,b),!1)}s=a2[c.d]
@@ -97311,9 +97313,11 @@ s=s<=0?"":B.c.ac("\u2b50",s)
 return a.b+" "+(q+r)+s},
 $S:36}
 A.avd.prototype={
-$1(a){var s=a.d,r=this.a.Gy(a),q=a.r
-q=q<=0?"":B.c.ac("\u2b50",q)
-return a.b+" "+s+"("+r+")"+q},
+$1(a){var s,r=""+a.d
+if(this.b)r=r+"("+this.a.Gy(a)+")"
+s=a.r
+s=s<=0?"":B.c.ac("\u2b50",s)
+return a.b+" "+r+s},
 $S:36}
 A.awf.prototype={
 $1(a){var s=null,r=this.b,q=t.p
