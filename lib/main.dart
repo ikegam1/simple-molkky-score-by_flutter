@@ -207,8 +207,8 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
       supportedLocales: const [Locale('ja'), Locale('en')],
       localeResolutionCallback: (locale, supportedLocales) {
         if (_locale != null) return _locale;
-        if (locale != null && locale.languageCode.startsWith('ja')) return const Locale('ja');
-        return const Locale('en');
+        if (locale != null && locale.languageCode.startsWith('en')) return const Locale('en');
+        return const Locale('ja');
       },
       home: const SetupScreen(),
     );
@@ -373,7 +373,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.10.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.10.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),

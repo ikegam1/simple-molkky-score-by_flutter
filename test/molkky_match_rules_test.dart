@@ -25,7 +25,7 @@ void main() {
       expect(match.matchWinner?.id, 'A');
     });
 
-    test('fixedSets tie-break by totalMatchThrows after score tie', () {
+    test('fixedSets (limit=2) is a draw when sets and total scores are tied', () {
       final a = p('A', 0);
       final b = p('B', 1);
       final match = MolkkyMatch(players: [a, b], limit: 2, type: MatchType.fixedSets);
@@ -34,8 +34,8 @@ void main() {
       b.setsWon = 1;
       a.setFinalScores.add(50);
       b.setFinalScores.add(50);
-      a.matchScoreHistory = List.filled(8, 1);
-      b.matchScoreHistory = List.filled(10, 1);
+      // a.matchScoreHistory = List.filled(8, 1);
+      // b.matchScoreHistory = List.filled(10, 1);
 
       match.completedSets.add(SetRecord(1, a.id, [a.id, b.id]));
       match.currentSetIndex = 2;
@@ -44,6 +44,33 @@ void main() {
       b.currentScore = 30;
       match.finalizeCurrentSetIfNeeded();
 
+      expect(match.isMatchDraw, isTrue);
+      expect(match.matchWinner, isNull);
+    });
+
+    test('fixedSets (limit=3) tie-break by totalMatchThrows after score tie', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final match = MolkkyMatch(players: [a, b], limit: 3, type: MatchType.fixedSets);
+
+      // 1-1-1 or whatever that leads to tied sets won
+      a.setsWon = 1;
+      b.setsWon = 1;
+      a.setFinalScores = [50, 40];
+      b.setFinalScores = [40, 50];
+      a.matchScoreHistory = List.filled(20, 1);
+      b.matchScoreHistory = List.filled(25, 1);
+
+      match.completedSets.add(SetRecord(1, a.id, [a.id, b.id]));
+      match.completedSets.add(SetRecord(2, a.id, [a.id, b.id]));
+      match.currentSetIndex = 3;
+      match.currentSetRecord = SetRecord(3, a.id, [a.id, b.id]);
+      a.currentScore = 50;
+      b.currentScore = 50;
+      match.finalizeCurrentSetIfNeeded();
+
+      expect(match.isMatchOver, isTrue);
+      expect(match.isMatchDraw, isFalse); // Only 2/10 sets support draw
       expect(match.matchWinner?.id, 'A'); // fewer throws wins
     });
 
