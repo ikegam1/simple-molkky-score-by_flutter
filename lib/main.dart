@@ -75,6 +75,11 @@ class L10n {
       'help_title': 'How to Play',
       'pts': 'pts',
       'hyakin_mode': 'Hyakin (表裏 2 sets)',
+      'self5turn_fail_1': 'So close! Keep it up! 😤',
+      'self5turn_fail_2_3': 'Not bad at all! 👍',
+      'self5turn_fail_4_5': 'Seriously!? That\'s amazing! 🤩',
+      'self5turn_fail_6_8': 'Incredible! I can\'t believe it! 😱',
+      'self5turn_fail_9plus': 'Are you a pro?! The legendary {name}!! 🏆',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -121,6 +126,11 @@ class L10n {
       'help_title': '使い方',
       'pts': '点',
       'hyakin_mode': '100均（表裏2セット）',
+      'self5turn_fail_1': '惜しい！まだまだこれから！😤',
+      'self5turn_fail_2_3': 'なかなかやりますね！👍',
+      'self5turn_fail_4_5': 'マジで！？凄いです！🤩',
+      'self5turn_fail_6_8': '凄いです！信じられません！😱',
+      'self5turn_fail_9plus': 'プロですか？世界の{name}！！🏆',
     }
   };
 
@@ -877,10 +887,26 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showSelf5TurnFailureDialog() {
     final t = L10n.of(context);
+    final n = widget.match.consecutiveSuccesses;
+    final playerName = widget.match.players.isNotEmpty ? widget.match.players.first.name : '';
+    String resultMsg;
+    if (n == 0) {
+      resultMsg = t.get('self5turn_failure');
+    } else if (n == 1) {
+      resultMsg = t.get('self5turn_fail_1');
+    } else if (n <= 3) {
+      resultMsg = t.get('self5turn_fail_2_3');
+    } else if (n <= 5) {
+      resultMsg = t.get('self5turn_fail_4_5');
+    } else if (n <= 8) {
+      resultMsg = t.get('self5turn_fail_6_8');
+    } else {
+      resultMsg = t.get('self5turn_fail_9plus', args: {'name': playerName});
+    }
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text(t.get('self5turn_failure'), style: const TextStyle(fontSize: 20)),
+      title: Text(resultMsg, style: const TextStyle(fontSize: 20)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
+        Text(t.get('consecutive_success', args: {'n': '$n'}),
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
       ]),
       actions: [
