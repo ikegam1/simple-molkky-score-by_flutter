@@ -80,6 +80,8 @@ class L10n {
       'self5turn_fail_4_5': 'Seriously!? That\'s amazing! 🤩',
       'self5turn_fail_6_8': 'Incredible! I can\'t believe it! 😱',
       'self5turn_fail_9plus': 'Are you a pro?! The legendary {name}!! 🏆',
+      'match_draw': '🤝 Draw!',
+      'match_draw_detail': 'Same sets won and total score — it\'s a draw!',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -131,6 +133,8 @@ class L10n {
       'self5turn_fail_4_5': 'マジで！？凄いです！🤩',
       'self5turn_fail_6_8': '凄いです！信じられません！😱',
       'self5turn_fail_9plus': 'プロですか？世界の{name}！！🏆',
+      'match_draw': '🤝 引き分け！',
+      'match_draw_detail': 'セット数・合計点数が同じため引き分けです！',
     }
   };
 
@@ -369,7 +373,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.10.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.10.1', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -803,9 +807,14 @@ class _GameScreenState extends State<GameScreen> {
 
         if (matchTrulyOver) {
            widget.match.finalizeCurrentSetIfNeeded();
-           final finalWinner = widget.match.matchWinner ?? winner;
-           _uploadMatchData(finalWinner);
-           _showMatchWinnerDialog(finalWinner);
+           if (widget.match.isMatchDraw) {
+             _uploadMatchData(null);
+             _showMatchDrawDialog();
+           } else {
+             final finalWinner = widget.match.matchWinner ?? winner;
+             _uploadMatchData(finalWinner);
+             _showMatchWinnerDialog(finalWinner);
+           }
         } else {
            _showSetWinnerDialog(winner);
         }
@@ -965,7 +974,7 @@ class _GameScreenState extends State<GameScreen> {
     } catch (e) { debugPrint("Self5Turn Upload Error: $e"); }
   }
 
-  Future<void> _uploadMatchData(Player finalWinner) async {
+  Future<void> _uploadMatchData(Player? finalWinner) async {
     try {
       final match = widget.match;
       List<SetRecord> setsToUpload = List.from(match.completedSets);
@@ -980,7 +989,7 @@ class _GameScreenState extends State<GameScreen> {
         'endTime': FieldValue.serverTimestamp(),
         'matchType': match.type.toString(),
         'limit': match.limit,
-        'winner': finalWinner.name,
+        'winner': finalWinner?.name ?? 'DRAW',
         'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber, 'starterId': s.starterPlayerId, 'playerOrder': s.playerOrder, 'finalScores': s.finalCumulativeScores,
@@ -1062,6 +1071,19 @@ class _GameScreenState extends State<GameScreen> {
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
       title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'),
       content: Text(t.get('winner_crown', args: {'name': winner.name})),
+      actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
+  }
+
+  void _showMatchDrawDialog() {
+    final t = L10n.of(context);
+    final int finishedSetNum = widget.match.currentSetIndex;
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(t.get('match_draw'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(t.get('match_draw_detail'), style: const TextStyle(fontSize: 14, color: Colors.grey)),
+      ]),
       actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
   }
 
@@ -1383,7 +1405,8 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
-  String _resolveWinnerName(List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+  String _resolveWinnerName(BuildContext context, List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+    if (winnerName == 'DRAW') return L10n.of(context).get('match_draw');
     if (winnerName != null && winnerName!.trim().isNotEmpty && winnerName != 'None') return winnerName!;
     if (match?.matchWinner != null) return match!.matchWinner!.name;
 
@@ -1443,7 +1466,7 @@ class HistoryPage extends StatelessWidget {
           Builder(builder: (context) {
             final wins = _finalSetWins(allPlayers);
             final totals = _finalTotals(allPlayers);
-            final winner = _resolveWinnerName(allPlayers, totals, wins);
+            final winner = _resolveWinnerName(context, allPlayers, totals, wins);
             return Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -1618,7 +1641,13 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                 );
               }
               final winner = data['winner'] ?? "???";
-              return ListTile(leading: const Icon(Icons.cloud_done, color: Colors.blue), title: Text("${DateFormat('MM/dd HH:mm').format(start)} Win: $winner"), subtitle: Text("Players: $playerNames"), onTap: () => _viewDetail(context, data, start));
+              final isDraw = winner == 'DRAW';
+              return ListTile(
+                leading: Icon(isDraw ? Icons.handshake : Icons.cloud_done, color: isDraw ? Colors.orange : Colors.blue),
+                title: Text("${DateFormat('MM/dd HH:mm').format(start)} ${isDraw ? t.get('match_draw') : 'Win: $winner'}"),
+                subtitle: Text("Players: $playerNames"),
+                onTap: () => _viewDetail(context, data, start),
+              );
             })),
             if (totalPages > 1)
               Padding(

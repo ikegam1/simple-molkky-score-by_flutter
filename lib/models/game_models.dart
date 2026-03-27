@@ -92,6 +92,22 @@ class MolkkyMatch {
     return false;
   }
 
+  /// 2番・10番の fixedSets で、全セット完了後にセット数・合計点数が同じ場合は引き分け
+  bool get isMatchDraw {
+    if (type != MatchType.fixedSets) return false;
+    if (limit != 2 && limit != 10) return false;
+    if (completedSets.length < limit) return false;
+    if (players.length < 2) return false;
+    final sorted = List<Player>.from(players)
+      ..sort((a, b) {
+        final sc = b.setsWon.compareTo(a.setsWon);
+        if (sc != 0) return sc;
+        return b.totalMatchScore.compareTo(a.totalMatchScore);
+      });
+    return sorted[0].setsWon == sorted[1].setsWon &&
+        sorted[0].totalMatchScore == sorted[1].totalMatchScore;
+  }
+
   Player? get matchWinner {
     if (type == MatchType.hyakin) {
       if (completedSets.length < 2) return null;
@@ -105,6 +121,8 @@ class MolkkyMatch {
     if (type == MatchType.fixedSets) {
       // マッチが終わっていない（全セット完了していない）場合は勝者を決めない
       if (completedSets.length < limit) return null;
+      // 引き分け判定（2番・10番のみ）
+      if (isMatchDraw) return null;
       final sorted = List<Player>.from(players);
       sorted.sort((a, b) {
         if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
