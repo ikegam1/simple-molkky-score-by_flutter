@@ -1165,17 +1165,24 @@ class _GameScreenState extends State<GameScreen> {
       return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
     }
 
+    final showTotal = widget.match.currentSetIndex > 1;
+
     if (players.length == 2) {
       final a = players[0];
       final b = players[1];
+      final aScore = showTotal ? '${a.currentScore}(${_runningTotal(a)})' : '${a.currentScore}';
+      final bScore = showTotal ? '${b.currentScore}(${_runningTotal(b)})' : '${b.currentScore}';
       return Text(
-        '${a.currentScore}(${_runningTotal(a)})${_stars(a.setsWon)} - ${b.currentScore}(${_runningTotal(b)})${_stars(b.setsWon)}',
+        '$aScore${_stars(a.setsWon)} - $bScore${_stars(b.setsWon)}',
         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
       );
     }
 
     final text = players
-        .map((p) => '${p.name} ${p.currentScore}(${_runningTotal(p)})${_stars(p.setsWon)}')
+        .map((p) {
+          final score = showTotal ? '${p.currentScore}(${_runningTotal(p)})' : '${p.currentScore}';
+          return '${p.name} $score${_stars(p.setsWon)}';
+        })
         .join('  -  ');
     return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
   }
