@@ -96234,8 +96234,8 @@ $S:0}
 A.auk.prototype={
 $2(a,b){var s=this.a.d
 if(s!=null)return s
-if(a!=null&&B.c.cJ(a.gd5(),"ja"))return B.fL
-return B.mp},
+if(a!=null&&B.c.cJ(a.gd5(),"en"))return B.mp
+return B.fL},
 $S:588}
 A.DX.prototype={
 aB(){var s=A.b([],t.zU)
@@ -96327,7 +96327,7 @@ l=A.aMu(h,h,h,h,h,h,h,h,h,h,h,B.a7D,h,h,h,h,h,h,h,h)
 d=A.b([B.jX,a2,B.jX,new A.EI(k.e,a1,B.a8U,B.a7M,B.a7N,20,new A.aB0(k),!0,new A.aB1(),h),s,d,B.jV,new A.UN(r,new A.aAU(k),a,p,B.aN,h),B.jV,n,B.jV,new A.Ci(!0,b,h,h,h,l,h,h,!1,h,!0,h,new A.a0p(m,B.P_,l,h,h),h),B.jV],a3)
 b=k.r
 if(b.length!==0)d.push(A.as(f.d6("anonymous_id",A.a_(["id",B.c.ap(b,0,8)],e,e)),h,h,h,B.HR,h,h))
-d.push(B.adv)
+d.push(B.adz)
 return A.Dr(a0,new A.bR(B.Oa,A.eF(d,B.a2,B.a_,B.af),h),!0)}}
 A.aAE.prototype={
 $0(){this.a.r=this.b.ga_K().a.c.a.a},
@@ -96841,7 +96841,7 @@ e=d===1?B.b.ga0(e):d
 e=" "+f+" ("+e+" "+a0.bg("pts")+")"
 f=e}h=A.pA(A.O5(A.fJ(A.b([B.P1,A.as(f,b,b,b,B.ho,b,b)],l),B.a2,B.dJ,B.af,0,b),c.gajV(),h),2)
 f=c.ch
-return A.Dr(a1,A.eF(A.b([a2,k,A.eG(b,A.eF(A.b([j,B.jW,A.fJ(A.b([i,B.jU,h,B.jU,A.kb(b,A.et(A.eF(A.b([A.as(""+f,b,b,b,A.ew(b,b,f>=60?B.jl:B.W,b,b,b,b,b,"Courier",b,b,28,b,b,B.ar,b,b,!0,b,1,b,b,b,b,b,b),b,b),B.adz],l),B.a2,B.dJ,B.af),b,52),B.ai,!1,b,b,b,b,b,b,b,b,b,b,b,b,b,b,c.gai4(),b,b,b,b,b,b)],l),B.a2,B.a_,B.af,0,b),B.jW,A.as(a0.bg("app_title"),b,b,b,B.abK,b,b),B.jW],l),B.a2,B.a_,B.af),B.C,b,b,B.Jh,b,b,b,B.O6,b,b,b)],l),B.a2,B.a_,B.af),!1)}}
+return A.Dr(a1,A.eF(A.b([a2,k,A.eG(b,A.eF(A.b([j,B.jW,A.fJ(A.b([i,B.jU,h,B.jU,A.kb(b,A.et(A.eF(A.b([A.as(""+f,b,b,b,A.ew(b,b,f>=60?B.jl:B.W,b,b,b,b,b,"Courier",b,b,28,b,b,B.ar,b,b,!0,b,1,b,b,b,b,b,b),b,b),B.ady],l),B.a2,B.dJ,B.af),b,52),B.ai,!1,b,b,b,b,b,b,b,b,b,b,b,b,b,b,c.gai4(),b,b,b,b,b,b)],l),B.a2,B.a_,B.af,0,b),B.jW,A.as(a0.bg("app_title"),b,b,b,B.abK,b,b),B.jW],l),B.a2,B.a_,B.af),B.C,b,b,B.Jh,b,b,b,B.O6,b,b,b)],l),B.a2,B.a_,B.af),!1)}}
 A.avl.prototype={
 $1(a){var s,r=this.a
 if(r.c==null)return
@@ -103416,8 +103416,8 @@ B.adA=new A.hg("\u65e5\u4ed8\u2193",null,null,null,null,null,null,null,null)
 B.NC=new A.fa("date_desc",!0,B.adA,B.bE,null,t.b7)
 B.ads=new A.hg("\u65e5\u4ed8\u2191",null,null,null,null,null,null,null,null)
 B.NB=new A.fa("date_asc",!0,B.ads,B.bE,null,t.b7)
-B.adw=new A.hg("\u9023\u7d9a\u2193",null,null,null,null,null,null,null,null)
-B.NA=new A.fa("streak_desc",!0,B.adw,B.bE,null,t.b7)
+B.adv=new A.hg("\u9023\u7d9a\u2193",null,null,null,null,null,null,null,null)
+B.NA=new A.fa("streak_desc",!0,B.adv,B.bE,null,t.b7)
 B.YJ=s([B.NC,B.NB,B.NA],t.FG)
 B.YK=s(["domingo","luns","martes","m\xe9rcores","xoves","venres","s\xe1bado"],t.s)
 B.wB=s(["\u0d1c\u0d28\u0d41\u0d35\u0d30\u0d3f","\u0d2b\u0d46\u0d2c\u0d4d\u0d30\u0d41\u0d35\u0d30\u0d3f","\u0d2e\u0d3e\u0d7c\u0d1a\u0d4d\u0d1a\u0d4d","\u0d0f\u0d2a\u0d4d\u0d30\u0d3f\u0d7d","\u0d2e\u0d47\u0d2f\u0d4d","\u0d1c\u0d42\u0d7a","\u0d1c\u0d42\u0d32\u0d48","\u0d13\u0d17\u0d38\u0d4d\u0d31\u0d4d\u0d31\u0d4d","\u0d38\u0d46\u0d2a\u0d4d\u0d31\u0d4d\u0d31\u0d02\u0d2c\u0d7c","\u0d12\u0d15\u0d4d\u200c\u0d1f\u0d4b\u0d2c\u0d7c","\u0d28\u0d35\u0d02\u0d2c\u0d7c","\u0d21\u0d3f\u0d38\u0d02\u0d2c\u0d7c"],t.s)
@@ -103484,12 +103484,12 @@ B.wS=s(["P\xfchap\xe4ev","Esmasp\xe4ev","Teisip\xe4ev","Kolmap\xe4ev","Neljap\xe
 B.wT=s(["\u043d\u0435\u0434","\u043f\u043e\u043d","\u0443\u0442\u043e","\u0441\u0440\u0435","\u0447\u0435\u0442","\u043f\u0435\u0442","\u0441\u0443\u0431"],t.s)
 B.Za=s(["d.","l.","m.","m.","x.","v.","s."],t.s)
 B.Zb=s(["1. \u0161tvr\u0165rok","2. \u0161tvr\u0165rok","3. \u0161tvr\u0165rok","4. \u0161tvr\u0165rok"],t.s)
-B.adx=new A.hg("\u3059\u3079\u3066",null,null,null,null,null,null,null,null)
-B.Nx=new A.fa("all",!0,B.adx,B.bE,null,t.b7)
+B.adw=new A.hg("\u3059\u3079\u3066",null,null,null,null,null,null,null,null)
+B.Nx=new A.fa("all",!0,B.adw,B.bE,null,t.b7)
 B.adt=new A.hg("\u901a\u5e38\u8a66\u5408",null,null,null,null,null,null,null,null)
 B.Nz=new A.fa("normal",!0,B.adt,B.bE,null,t.b7)
-B.ady=new A.hg("\u30bb\u30eb\u30d55\u30bf\u30fc\u30f3",null,null,null,null,null,null,null,null)
-B.Ny=new A.fa("self5Turn",!0,B.ady,B.bE,null,t.b7)
+B.adx=new A.hg("\u30bb\u30eb\u30d55\u30bf\u30fc\u30f3",null,null,null,null,null,null,null,null)
+B.Ny=new A.fa("self5Turn",!0,B.adx,B.bE,null,t.b7)
 B.Zc=s([B.Nx,B.Nz,B.Ny],t.FG)
 B.Zd=s(["EEEE, d MMMM y '\u0433'.","d MMMM y '\u0433'.","d.MM.y '\u0433'.","d.MM.yy '\u0433'."],t.s)
 B.Ze=s(["1kv","2kv","3kv","4kv"],t.s)
@@ -105505,8 +105505,8 @@ B.acl=new A.m(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,nul
 B.a9g=new A.m(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelSmall",null,null,null,null)
 B.adr=new A.e2(B.ab9,B.aa0,B.aba,B.abF,B.a9H,B.a9P,B.aan,B.abA,B.aaB,B.ac1,B.a99,B.a9t,B.abZ,B.acl,B.a9g)
 B.adu=new A.hg("\u2022 ",null,B.hn,null,null,null,null,null,null)
-B.adv=new A.hg("v1.10.4",null,B.HO,null,null,null,null,null,null)
-B.adz=new A.hg("sec",null,B.HR,null,null,null,null,null,null)
+B.ady=new A.hg("sec",null,B.HR,null,null,null,null,null,null)
+B.adz=new A.hg("v1.10.5",null,B.HO,null,null,null,null,null,null)
 B.aj4=new A.aqq(0,"system")
 B.a3f=new A.f(0.056,0.024)
 B.a3v=new A.f(0.108,0.3085)
