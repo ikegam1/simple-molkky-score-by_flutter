@@ -1012,12 +1012,17 @@ class _GameScreenState extends State<GameScreen> {
         allSets.add(widget.match.currentSetRecord);
       }
     }
+    String? resolvedWinnerName;
+    if (widget.match.isMatchOver) {
+      resolvedWinnerName = widget.match.isMatchDraw ? 'DRAW' : widget.match.matchWinner?.name;
+    }
     Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
       match: widget.match,
       sets: allSets,
       isSelf5Turn: widget.match.type == MatchType.self5Turn,
       isHyakin: widget.match.type == MatchType.hyakin,
       consecutiveSuccesses: widget.match.consecutiveSuccesses,
+      winnerName: resolvedWinnerName,
     )));
   }
 
