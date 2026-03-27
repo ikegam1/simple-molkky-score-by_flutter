@@ -1795,6 +1795,13 @@ class HelpPage extends StatelessWidget {
         '上部のスコア表示は合計得点のみ表示されます（カッコ表記なし）',
       ],
     ),
+    const _HelpSection(
+      title: '8. 小ネタ',
+      items: [
+        '秒数の上をタップすると0にリセットできるよ',
+        'スコアの入力は数字のダブルタップでもできるよ',
+      ],
+    ),
   ];
 
   List<Widget> _enSections(L10n t) => [
@@ -1862,6 +1869,13 @@ class HelpPage extends StatelessWidget {
         'Going over 100 in Set 2 (burst) resets the combined total back to 75',
         '3 consecutive misses in Set 2 resets Set 2 score to 0',
         'The score display shows the combined total only (no parentheses)',
+      ],
+    ),
+    const _HelpSection(
+      title: '8. Tips',
+      items: [
+        'Tap on the timer to reset it to 0',
+        'Double-tap a number to enter that score directly',
       ],
     ),
   ];
