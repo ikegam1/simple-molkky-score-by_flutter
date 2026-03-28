@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'models/game_models.dart';
@@ -228,6 +229,7 @@ class _SetupScreenState extends State<SetupScreen> {
   String _firebaseUid = "";
   final _uuid = const Uuid();
   bool _voiceInputEnabled = false; // 音声入力設定の追加
+  bool _isGoogleLinked = false;
 
   @override
   void initState() {
@@ -237,8 +239,17 @@ class _SetupScreenState extends State<SetupScreen> {
 
   Future<void> _initApp() async {
     try {
-      final userCredential = await FirebaseAuth.instance.signInAnonymously();
-      setState(() { _firebaseUid = userCredential.user!.uid; });
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        final isGoogle = currentUser.providerData.any((p) => p.providerId == 'google.com');
+        setState(() {
+          _firebaseUid = currentUser.uid;
+          _isGoogleLinked = isGoogle;
+        });
+      } else {
+        final userCredential = await FirebaseAuth.instance.signInAnonymously();
+        setState(() { _firebaseUid = userCredential.user!.uid; });
+      }
     } catch (e) { debugPrint("Auth Error: $e"); }
     final prefs = await SharedPreferences.getInstance();
     final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
@@ -255,6 +266,142 @@ class _SetupScreenState extends State<SetupScreen> {
     final prefs = await SharedPreferences.getInstance();
     final List<String> jsonList = _registeredPlayers.map((p) => jsonEncode({'id': p.id, 'name': p.name})).toList();
     await prefs.setStringList('saved_players_v2', jsonList);
+  }
+
+  Future<void> _showGoogleSignInDialog() async {
+    if (_isGoogleLinked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Googleアカウントと連携済みです')),
+      );
+      return;
+    }
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Text('G', style: TextStyle(color: Color(0xFF4285F4), fontWeight: FontWeight.bold, fontSize: 22)),
+            SizedBox(width: 8),
+            Text('Googleアカウント連携'),
+          ],
+        ),
+        content: const Text(
+          'Googleアカウントでログインすると、これまでの戦歴がアカウントに紐づき、別端末や環境でログインした場合も保持されるようになります。\nログインされますか？',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Googleでログイン')),
+        ],
+      ),
+    );
+    if (result == true) {
+      await _signInWithGoogle();
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      // 匿名ログインが未完了の場合は先に完了させる
+      var currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        final cred = await FirebaseAuth.instance.signInAnonymously();
+        currentUser = cred.user!;
+        setState(() => _firebaseUid = cred.user!.uid);
+      }
+      final oldUid = currentUser.uid;
+
+      if (kIsWeb) {
+        await _signInWithGoogleWeb(currentUser, oldUid);
+      } else {
+        await _signInWithGoogleMobile(currentUser, oldUid);
+      }
+    } catch (e) {
+      debugPrint('Google Sign-In Error: $e');
+      if (mounted) _showError('Googleログインに失敗しました');
+    }
+  }
+
+  Future<void> _signInWithGoogleWeb(User currentUser, String oldUid) async {
+    final provider = GoogleAuthProvider();
+    try {
+      await currentUser.linkWithPopup(provider);
+      setState(() => _isGoogleLinked = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Googleアカウントと連携しました！'), backgroundColor: Colors.green),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'credential-already-in-use') {
+        final result = await FirebaseAuth.instance.signInWithPopup(provider);
+        final newUid = result.user!.uid;
+        if (oldUid != newUid) await _migrateScores(oldUid, newUid);
+        setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Googleアカウントでログインし、戦歴をマージしました！'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _signInWithGoogleMobile(User currentUser, String oldUid) async {
+    // Webでは使用しないためmobile専用としてここでインスタンス化
+    final googleSignIn = GoogleSignIn(
+      serverClientId: '52196197674-342o533f0npiujhr6u61nlkplko95laa.apps.googleusercontent.com',
+    );
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) return;
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    try {
+      await currentUser.linkWithCredential(credential);
+      setState(() => _isGoogleLinked = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Googleアカウントと連携しました！'), backgroundColor: Colors.green),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'credential-already-in-use') {
+        final result = await FirebaseAuth.instance.signInWithCredential(credential);
+        final newUid = result.user!.uid;
+        if (oldUid != newUid) await _migrateScores(oldUid, newUid);
+        setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Googleアカウントでログインし、戦歴をマージしました！'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _migrateScores(String oldUid, String newUid) async {
+    // Firestoreバッチの上限(500件)を考慮してループ処理
+    const batchSize = 500;
+    while (true) {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('scores')
+          .where('appUserId', isEqualTo: oldUid)
+          .limit(batchSize)
+          .get();
+      if (snapshot.docs.isEmpty) break;
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in snapshot.docs) {
+        batch.update(doc.reference, {'appUserId': newUid});
+      }
+      await batch.commit();
+      if (snapshot.docs.length < batchSize) break;
+    }
   }
 
   void _add() {
@@ -305,6 +452,18 @@ class _SetupScreenState extends State<SetupScreen> {
           child: Text(Localizations.localeOf(context).languageCode == 'ja' ? 'EN' : 'JA', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
         actions: [
+          IconButton(
+            icon: Text(
+              'G',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: _isGoogleLinked ? Colors.green : const Color(0xFF4285F4),
+              ),
+            ),
+            onPressed: _showGoogleSignInDialog,
+            tooltip: _isGoogleLinked ? 'Google連携済み' : 'Googleアカウント連携',
+          ),
           IconButton(icon: const Icon(Icons.help_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const HelpPage())), tooltip: t.get('help_title')),
           IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history')),
         ],

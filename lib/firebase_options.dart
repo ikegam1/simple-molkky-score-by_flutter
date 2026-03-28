@@ -58,7 +58,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCjbScMSf1VnFhdTA6tYgwC_cIoEwWnS3Q',
-    appId: '1:52196197674:android:dc926183a969df12048a53',
+    appId: '1:52196197674:android:cd293af5906e2e78048a53',
     messagingSenderId: '52196197674',
     projectId: 'simple-molkky-score',
     storageBucket: 'simple-molkky-score.firebasestorage.app',
