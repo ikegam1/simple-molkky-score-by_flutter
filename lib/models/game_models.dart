@@ -42,7 +42,7 @@ class SetRecord {
   SetRecord(this.setNumber, this.starterPlayerId, this.playerOrder);
 }
 
-enum MatchType { raceTo, fixedSets, self5Turn }
+enum MatchType { raceTo, fixedSets, self5Turn, hyakin }
 
 class MolkkyMatch {
   List<Player> players;
@@ -80,6 +80,7 @@ class MolkkyMatch {
 
   bool get isMatchOver {
     if (type == MatchType.self5Turn) return false; // managed explicitly in GameScreen
+    if (type == MatchType.hyakin) return completedSets.length >= 2;
     // 修正: completedSets.length で判定することで、指定セット数が「完了」するまで終わらないようにする
     if (type == MatchType.fixedSets) return completedSets.length >= limit;
     for (var p in players) {
@@ -91,10 +92,37 @@ class MolkkyMatch {
     return false;
   }
 
+  /// 2番・10番の fixedSets で、全セット完了後にセット数・合計点数が同じ場合は引き分け
+  bool get isMatchDraw {
+    if (type != MatchType.fixedSets) return false;
+    if (limit != 2 && limit != 10) return false;
+    if (completedSets.length < limit) return false;
+    if (players.length < 2) return false;
+    final sorted = List<Player>.from(players)
+      ..sort((a, b) {
+        final sc = b.setsWon.compareTo(a.setsWon);
+        if (sc != 0) return sc;
+        return b.totalMatchScore.compareTo(a.totalMatchScore);
+      });
+    return sorted[0].setsWon == sorted[1].setsWon &&
+        sorted[0].totalMatchScore == sorted[1].totalMatchScore;
+  }
+
   Player? get matchWinner {
+    if (type == MatchType.hyakin) {
+      if (completedSets.length < 2) return null;
+      final sorted = List<Player>.from(players);
+      sorted.sort((a, b) {
+        if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
+        return a.totalMatchThrows.compareTo(b.totalMatchThrows);
+      });
+      return sorted.first;
+    }
     if (type == MatchType.fixedSets) {
       // マッチが終わっていない（全セット完了していない）場合は勝者を決めない
       if (completedSets.length < limit) return null;
+      // 引き分け判定（2番・10番のみ）
+      if (isMatchDraw) return null;
       final sorted = List<Player>.from(players);
       sorted.sort((a, b) {
         if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
@@ -144,7 +172,8 @@ class MolkkyMatch {
           return a.initialOrder.compareTo(b.initialOrder);
         });
       } else {
-        if (type == MatchType.fixedSets && limit == 2 && nextIndex == 2) {
+        if ((type == MatchType.fixedSets && limit == 2 && nextIndex == 2) ||
+            (type == MatchType.hyakin && nextIndex == 2)) {
           players = players.reversed.toList();
         } else {
           if (players.length > 1) {

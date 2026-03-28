@@ -72,6 +72,17 @@ class L10n {
       'consecutive_success': 'Streak: {n}',
       'next_challenge': 'Next Challenge',
       'back_to_top': 'Back to Top',
+      'voice_input': 'Voice Input (Beta)',
+      'help_title': 'How to Play',
+      'pts': 'pts',
+      'hyakin_mode': 'Hyakin (表裏 2 sets)',
+      'self5turn_fail_1': 'So close! Keep it up! 😤',
+      'self5turn_fail_2_3': 'Not bad at all! 👍',
+      'self5turn_fail_4_5': 'Seriously!? That\'s amazing! 🤩',
+      'self5turn_fail_6_8': 'Incredible! I can\'t believe it! 😱',
+      'self5turn_fail_9plus': 'Are you a pro?! The legendary {name}!! 🏆',
+      'match_draw': '🤝 Draw!',
+      'match_draw_detail': 'Same sets won and total score — it\'s a draw!',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -114,6 +125,17 @@ class L10n {
       'consecutive_success': '連続成功: {n}回',
       'next_challenge': '次のチャレンジへ',
       'back_to_top': 'トップへ',
+      'voice_input': '音声入力（試験中）',
+      'help_title': '使い方',
+      'pts': '点',
+      'hyakin_mode': '100均（表裏2セット）',
+      'self5turn_fail_1': '惜しい！まだまだこれから！😤',
+      'self5turn_fail_2_3': 'なかなかやりますね！👍',
+      'self5turn_fail_4_5': 'マジで！？凄いです！🤩',
+      'self5turn_fail_6_8': '凄いです！信じられません！😱',
+      'self5turn_fail_9plus': 'プロですか？世界の{name}！！🏆',
+      'match_draw': '🤝 引き分け！',
+      'match_draw_detail': 'セット数・合計点数が同じため引き分けです！',
     }
   };
 
@@ -186,8 +208,8 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
       supportedLocales: const [Locale('ja'), Locale('en')],
       localeResolutionCallback: (locale, supportedLocales) {
         if (_locale != null) return _locale;
-        if (locale != null && locale.languageCode.startsWith('ja')) return const Locale('ja');
-        return const Locale('en');
+        if (locale != null && locale.languageCode.startsWith('en')) return const Locale('en');
+        return const Locale('ja');
       },
       home: const SetupScreen(),
     );
@@ -407,6 +429,7 @@ class _SetupScreenState extends State<SetupScreen> {
     final Map<int, String> options = {
       1: t.get('sets_count', args: {'n': '1'}),
       2: t.get('sets_count', args: {'n': '2'}),
+      -2: t.get('hyakin_mode'),
       3: t.get('race_to', args: {'n': '2'}),
       5: t.get('race_to', args: {'n': '3'}),
       7: t.get('race_to', args: {'n': '4'}),
@@ -440,7 +463,7 @@ class _SetupScreenState extends State<SetupScreen> {
             onPressed: _showGoogleSignInDialog,
             tooltip: _isGoogleLinked ? 'Google連携済み' : 'Googleアカウント連携',
           ),
-          IconButton(icon: const Icon(Icons.help_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const HelpPage())), tooltip: '使い方'),
+          IconButton(icon: const Icon(Icons.help_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const HelpPage())), tooltip: t.get('help_title')),
           IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history')),
         ],
       ),
@@ -474,7 +497,7 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 10),
             // 音声入力設定スイッチの追加
             SwitchListTile(
-              title: const Text('音声入力 (試験中)', style: TextStyle(fontSize: 16)),
+              title: Text(t.get('voice_input'), style: const TextStyle(fontSize: 16)),
               value: _voiceInputEnabled,
               onChanged: (bool value) => setState(() => _voiceInputEnabled = value),
               secondary: Icon(Icons.mic, color: _voiceInputEnabled ? Colors.blue : Colors.grey),
@@ -492,12 +515,14 @@ class _SetupScreenState extends State<SetupScreen> {
                 MolkkyMatch match;
                 if (_selectedModeKey == -1) {
                   match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+                } else if (_selectedModeKey == -2) {
+                  match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
                 } else {
                   MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
                   int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
                   match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
                 }
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: _voiceInputEnabled)));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: _voiceInputEnabled, appLocale: Localizations.localeOf(context))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
@@ -506,7 +531,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.9.3', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.10.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -518,7 +543,8 @@ class GameScreen extends StatefulWidget {
   final MolkkyMatch match;
   final String appUserId;
   final bool voiceEnabled;
-  const GameScreen({super.key, required this.match, required this.appUserId, this.voiceEnabled = false});
+  final Locale? appLocale;
+  const GameScreen({super.key, required this.match, required this.appUserId, this.voiceEnabled = false, this.appLocale});
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -534,7 +560,7 @@ class _GameScreenState extends State<GameScreen> {
   // 音声認識
   final SpeechToText _speech = SpeechToText();
   bool _speechAvailable = false;
-  String? _localeId; // 利用可能な日本語ロケールID
+  String? _localeId; // 利用可能なSTTロケールID
   String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
 
   bool _micHeld = false;          // user is holding mic button
@@ -588,16 +614,17 @@ class _GameScreenState extends State<GameScreen> {
       },
     );
     if (_speechAvailable) {
-      // 利用可能なロケールから日本語を探して使用する
+      // 利用可能なロケールからアプリ言語に合うものを探す
       // Webではlocales()が空リストを返すことがあるため安全に処理する
       try {
         final locales = await _speech.locales();
         if (locales.isNotEmpty) {
-          final jaLocale = locales.firstWhere(
-            (l) => l.localeId.startsWith('ja'),
+          final langCode = widget.appLocale?.languageCode ?? 'ja';
+          final matched = locales.firstWhere(
+            (l) => l.localeId.startsWith(langCode),
             orElse: () => locales.first,
           );
-          _localeId = jaLocale.localeId;
+          _localeId = matched.localeId;
         }
         debugPrint('Speech locale: $_localeId');
       } catch (e) {
@@ -671,7 +698,7 @@ class _GameScreenState extends State<GameScreen> {
           setState(() => _voiceText = '');
         }
       },
-      localeId: _localeId ?? 'ja-JP',
+      localeId: _localeId ?? (widget.appLocale?.languageCode == 'en' ? 'en-US' : 'ja-JP'),
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 2),
     );
@@ -721,10 +748,17 @@ class _GameScreenState extends State<GameScreen> {
     for (final w in [
       'てきしゅ', '敵襲', 'てき終', 'てき修', 'テキ終', 'テキ修',
       '圧倒的', // STT誤認識パターン
+      'スコア',   // ウェイクワード追加
       '入力',   // 「入力10点」など
       '終了',   // 「終了2点」など短い発話にも対応
     ]) {
       final idx = normalized.indexOf(w);
+      if (idx >= 0) return idx + w.length;
+    }
+    // English wake words (case-insensitive, spaces already removed)
+    final normalizedLower = normalized.toLowerCase();
+    for (final w in ['done', 'score', 'enter', 'input', 'finish']) {
+      final idx = normalizedLower.indexOf(w);
       if (idx >= 0) return idx + w.length;
     }
     return -1;
@@ -761,7 +795,10 @@ class _GameScreenState extends State<GameScreen> {
     final wakeEnd = _wakeWordEnd(text);
     String afterWake;
     if (wakeEnd >= 0) {
-      afterWake = normalized.substring(wakeEnd);
+      afterWake = normalized
+          .substring(wakeEnd)
+          .replaceAll('ポイント', '点') // 「ポイント」を「点」に置換
+          .replaceAll('ポイン', '点');  // 「ポイン」まででも「点」に置換
     } else {
       // ウェイクワードが必須なため、それ以外は無視する
       return null;
@@ -769,6 +806,7 @@ class _GameScreenState extends State<GameScreen> {
 
     if (afterWake.isEmpty) return null;
     if (afterWake.contains('ミス') || afterWake.contains('みす')) return -1;
+    if (afterWake.toLowerCase().contains('miss')) return -1;
 
     // アラビア数字を優先して検出
     final digitMatch = RegExp(r'(\d+)').firstMatch(afterWake);
@@ -797,6 +835,17 @@ class _GameScreenState extends State<GameScreen> {
       if (afterWake.contains(entry.key)) return entry.value;
     }
 
+    // English number words (longest first to avoid 'one' matching inside 'eleven')
+    const enMap = <String, int>{
+      'twelve': 12, 'eleven': 11, 'ten': 10,
+      'nine': 9, 'eight': 8, 'seven': 7, 'six': 6, 'five': 5,
+      'four': 4, 'three': 3, 'two': 2, 'one': 1,
+    };
+    final afterWakeLower = afterWake.toLowerCase();
+    for (final entry in enMap.entries) {
+      if (RegExp(r'\b' + entry.key + r'\b').hasMatch(afterWakeLower)) return entry.value;
+    }
+
     return null;
   }
 
@@ -808,6 +857,55 @@ class _GameScreenState extends State<GameScreen> {
     bool self5TurnFailed = false;
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
+      // === Hyakin Set 2 mode: custom throw processing (must run before normal processThrow) ===
+      if (widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2) {
+        final set1Score = player.setFinalScores.isNotEmpty ? player.setFinalScores[0] : 0;
+        GameLogic.processHyakinSet2Throw(player, selectedSkitels, widget.match, set1Score);
+        int hyakinPoints = player.scoreHistory.last;
+        player.matchScoreHistory.add(hyakinPoints);
+        turnInProgressScores[player.id] = hyakinPoints;
+
+        // Survivor logic for hyakin Set 2
+        final survivors2 = widget.match.players.where((p) => !p.isDisqualified).toList();
+        if (widget.match.players.length >= 2 && survivors2.length == 1) {
+          final s = survivors2.first;
+          final sSet1 = s.setFinalScores.isNotEmpty ? s.setFinalScores[0] : 0;
+          final sTarget = 100 - sSet1;
+          int needed = sTarget - s.currentScore;
+          s.currentScore = sTarget;
+          s.scoreHistory.add(needed);
+          s.matchScoreHistory.add(needed);
+          turnInProgressScores[s.id] = needed;
+          systemCalculatedIds.add(s.id);
+          for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
+        }
+
+        // Winner check: anyone who reached their personal target (100 - set1Score)
+        Player? hyakinWinner;
+        for (var p in widget.match.players) {
+          final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+          if (p.currentScore == 100 - pSet1) { hyakinWinner = p; break; }
+        }
+
+        if (hyakinWinner != null) {
+          isSetFinished = true;
+          hyakinWinner.setsWon++;
+          widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
+          widget.match.finalizeCurrentSetIfNeeded();
+          final finalWinner = widget.match.matchWinner ?? hyakinWinner;
+          _uploadMatchData(finalWinner);
+          _showMatchWinnerDialog(finalWinner);
+        } else {
+          if (currentPlayerIndex == widget.match.players.length - 1) {
+            widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
+            turnInProgressScores.clear(); systemCalculatedIds.clear();
+          }
+          selectedSkitels.clear(); _nextPlayer();
+        }
+        return; // skip normal logic
+      }
+      // === End Hyakin Set 2 mode ===
+
       GameLogic.processThrow(player, selectedSkitels, widget.match);
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
@@ -867,9 +965,14 @@ class _GameScreenState extends State<GameScreen> {
 
         if (matchTrulyOver) {
            widget.match.finalizeCurrentSetIfNeeded();
-           final finalWinner = widget.match.matchWinner ?? winner;
-           _uploadMatchData(finalWinner);
-           _showMatchWinnerDialog(finalWinner);
+           if (widget.match.isMatchDraw) {
+             _uploadMatchData(null);
+             _showMatchDrawDialog();
+           } else {
+             final finalWinner = widget.match.matchWinner ?? winner;
+             _uploadMatchData(finalWinner);
+             _showMatchWinnerDialog(finalWinner);
+           }
         } else {
            _showSetWinnerDialog(winner);
         }
@@ -951,10 +1054,26 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showSelf5TurnFailureDialog() {
     final t = L10n.of(context);
+    final n = widget.match.consecutiveSuccesses;
+    final playerName = widget.match.players.isNotEmpty ? widget.match.players.first.name : '';
+    String resultMsg;
+    if (n == 0) {
+      resultMsg = t.get('self5turn_failure');
+    } else if (n == 1) {
+      resultMsg = t.get('self5turn_fail_1');
+    } else if (n <= 3) {
+      resultMsg = t.get('self5turn_fail_2_3');
+    } else if (n <= 5) {
+      resultMsg = t.get('self5turn_fail_4_5');
+    } else if (n <= 8) {
+      resultMsg = t.get('self5turn_fail_6_8');
+    } else {
+      resultMsg = t.get('self5turn_fail_9plus', args: {'name': playerName});
+    }
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text(t.get('self5turn_failure'), style: const TextStyle(fontSize: 20)),
+      title: Text(resultMsg, style: const TextStyle(fontSize: 20)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
+        Text(t.get('consecutive_success', args: {'n': '$n'}),
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
       ]),
       actions: [
@@ -1013,7 +1132,7 @@ class _GameScreenState extends State<GameScreen> {
     } catch (e) { debugPrint("Self5Turn Upload Error: $e"); }
   }
 
-  Future<void> _uploadMatchData(Player finalWinner) async {
+  Future<void> _uploadMatchData(Player? finalWinner) async {
     try {
       final match = widget.match;
       List<SetRecord> setsToUpload = List.from(match.completedSets);
@@ -1028,7 +1147,7 @@ class _GameScreenState extends State<GameScreen> {
         'endTime': FieldValue.serverTimestamp(),
         'matchType': match.type.toString(),
         'limit': match.limit,
-        'winner': finalWinner.name,
+        'winner': finalWinner?.name ?? 'DRAW',
         'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber, 'starterId': s.starterPlayerId, 'playerOrder': s.playerOrder, 'finalScores': s.finalCumulativeScores,
@@ -1051,11 +1170,17 @@ class _GameScreenState extends State<GameScreen> {
         allSets.add(widget.match.currentSetRecord);
       }
     }
+    String? resolvedWinnerName;
+    if (widget.match.isMatchOver) {
+      resolvedWinnerName = widget.match.isMatchDraw ? 'DRAW' : widget.match.matchWinner?.name;
+    }
     Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
       match: widget.match,
       sets: allSets,
       isSelf5Turn: widget.match.type == MatchType.self5Turn,
+      isHyakin: widget.match.type == MatchType.hyakin,
       consecutiveSuccesses: widget.match.consecutiveSuccesses,
+      winnerName: resolvedWinnerName,
     )));
   }
 
@@ -1112,6 +1237,19 @@ class _GameScreenState extends State<GameScreen> {
       actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
   }
 
+  void _showMatchDrawDialog() {
+    final t = L10n.of(context);
+    final int finishedSetNum = widget.match.currentSetIndex;
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(t.get('match_draw'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(t.get('match_draw_detail'), style: const TextStyle(fontSize: 14, color: Colors.grey)),
+      ]),
+      actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
+  }
+
   TextStyle _setCountStyle(Player player) {
     final maxSets = widget.match.players.fold<int>(0, (m, p) => p.setsWon > m ? p.setsWon : m);
     final isLeader = player.setsWon == maxSets && maxSets > 0;
@@ -1164,17 +1302,45 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
+    final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
+
+    if (isHyakinSet2) {
+      // Show total (set1 + set2) only, no parentheses
+      if (players.length == 2) {
+        final a = players[0];
+        final b = players[1];
+        final aSet1 = a.setFinalScores.isNotEmpty ? a.setFinalScores[0] : 0;
+        final bSet1 = b.setFinalScores.isNotEmpty ? b.setFinalScores[0] : 0;
+        return Text(
+          '${aSet1 + a.currentScore}${_stars(a.setsWon)} - ${bSet1 + b.currentScore}${_stars(b.setsWon)}',
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        );
+      }
+      final text = players.map((p) {
+        final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+        return '${p.name} ${s1 + p.currentScore}${_stars(p.setsWon)}';
+      }).join('  -  ');
+      return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
+    }
+
+    final showTotal = widget.match.currentSetIndex > 1;
+
     if (players.length == 2) {
       final a = players[0];
       final b = players[1];
+      final aScore = showTotal ? '${a.currentScore}(${_runningTotal(a)})' : '${a.currentScore}';
+      final bScore = showTotal ? '${b.currentScore}(${_runningTotal(b)})' : '${b.currentScore}';
       return Text(
-        '${a.currentScore}(${_runningTotal(a)})${_stars(a.setsWon)} - ${b.currentScore}(${_runningTotal(b)})${_stars(b.setsWon)}',
+        '$aScore${_stars(a.setsWon)} - $bScore${_stars(b.setsWon)}',
         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
       );
     }
 
     final text = players
-        .map((p) => '${p.name} ${p.currentScore}(${_runningTotal(p)})${_stars(p.setsWon)}')
+        .map((p) {
+          final score = showTotal ? '${p.currentScore}(${_runningTotal(p)})' : '${p.currentScore}';
+          return '${p.name} $score${_stars(p.setsWon)}';
+        })
         .join('  -  ');
     return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
   }
@@ -1193,8 +1359,16 @@ class _GameScreenState extends State<GameScreen> {
 
     // アガリガイドメッセージ
     String? reachMsg;
-    if (currentPlayer.currentScore >= 38 && !isSetFinished) {
-      reachMsg = t.get('reach_msg', args: {'name': currentPlayer.name, 'n': '${50 - currentPlayer.currentScore}'});
+    if (!isSetFinished) {
+      if (widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2) {
+        final set1 = currentPlayer.setFinalScores.isNotEmpty ? currentPlayer.setFinalScores[0] : 0;
+        final remaining = (100 - set1) - currentPlayer.currentScore;
+        if (remaining <= 12 && remaining > 0) {
+          reachMsg = t.get('reach_msg', args: {'name': currentPlayer.name, 'n': '$remaining'});
+        }
+      } else if (currentPlayer.currentScore >= 38) {
+        reachMsg = t.get('reach_msg', args: {'name': currentPlayer.name, 'n': '${50 - currentPlayer.currentScore}'});
+      }
     }
 
     final isSelf5Turn = widget.match.type == MatchType.self5Turn;
@@ -1244,7 +1418,20 @@ class _GameScreenState extends State<GameScreen> {
                     cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
                       int score = 0, total = 0;
                       bool hasScore = p.scoreHistory.length >= turn;
-                      if (hasScore) { score = p.scoreHistory[turn - 1]; int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; } total = tmp; }
+                      final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
+                      if (hasScore) {
+                        score = p.scoreHistory[turn - 1];
+                        if (isHyakinSet2) {
+                          final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+                          final pTarget = 100 - pSet1;
+                          final pBurst = 75 - pSet1;
+                          int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > pTarget) tmp = pBurst; }
+                          total = pSet1 + tmp; // combined total (Set 1 + Set 2)
+                        } else {
+                          int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
+                          total = tmp;
+                        }
+                      }
                       final fontSize = isCurrent ? 17.0 : 15.0;
                       return [DataCell(Row(children: [
                         Container(width: 40, alignment: Alignment.center, child: Text(hasScore ? '$score' : '', style: TextStyle(fontSize: fontSize))),
@@ -1310,22 +1497,33 @@ class HistoryPage extends StatelessWidget {
   final String? winnerName;
   final bool isSelf5Turn;
   final int consecutiveSuccesses;
-  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName, this.isSelf5Turn = false, this.consecutiveSuccesses = 0});
+  final bool isHyakin;
+  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName, this.isSelf5Turn = false, this.consecutiveSuccesses = 0, this.isHyakin = false});
 
   Map<String, int> _finalSetWins(List<Player> allPlayers) {
     final wins = <String, int>{for (var p in allPlayers) p.id: 0};
 
     for (final set in sets) {
       String? winnerId;
-      // モルックの勝利条件は50点ちょうど。サバイバー自動完了も50点に設定されるため、
-      // 最高スコアではなく50点のプレイヤーを勝者とする。
-      for (final p in allPlayers) {
-        if ((set.finalCumulativeScores[p.id] ?? 0) == 50) {
-          winnerId = p.id;
-          break;
+      // 100均モードのSet2: 合計(set1+set2)==100 で勝利
+      if (isHyakin && set.setNumber == 2 && sets.length >= 2) {
+        final set1 = sets.firstWhere((s) => s.setNumber == 1, orElse: () => set);
+        for (final p in allPlayers) {
+          final s1 = set1.finalCumulativeScores[p.id] ?? 0;
+          final s2 = set.finalCumulativeScores[p.id] ?? 0;
+          if (s1 + s2 == 100) { winnerId = p.id; break; }
+        }
+      } else {
+        // モルックの勝利条件は50点ちょうど。サバイバー自動完了も50点に設定されるため、
+        // 最高スコアではなく50点のプレイヤーを勝者とする。
+        for (final p in allPlayers) {
+          if ((set.finalCumulativeScores[p.id] ?? 0) == 50) {
+            winnerId = p.id;
+            break;
+          }
         }
       }
-      // フォールバック：50点のプレイヤーがいない場合（進行中セット表示時など）は最高スコアで判定
+      // フォールバック：勝者が特定できない場合は最高スコアで判定
       if (winnerId == null) {
         int best = -1;
         for (final p in allPlayers) {
@@ -1377,7 +1575,8 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
-  String _resolveWinnerName(List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+  String _resolveWinnerName(BuildContext context, List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+    if (winnerName == 'DRAW') return L10n.of(context).get('match_draw');
     if (winnerName != null && winnerName!.trim().isNotEmpty && winnerName != 'None') return winnerName!;
     if (match?.matchWinner != null) return match!.matchWinner!.name;
 
@@ -1437,7 +1636,7 @@ class HistoryPage extends StatelessWidget {
           Builder(builder: (context) {
             final wins = _finalSetWins(allPlayers);
             final totals = _finalTotals(allPlayers);
-            final winner = _resolveWinnerName(allPlayers, totals, wins);
+            final winner = _resolveWinnerName(context, allPlayers, totals, wins);
             return Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -1502,9 +1701,15 @@ class GlobalHistoryPage extends StatefulWidget {
 
 class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
   String _filter = 'all'; // 'all', 'normal', 'self5Turn'
+  String _self5TurnSort = 'date_desc'; // 'date_desc', 'date_asc', 'streak_desc'
+  int _currentPage = 0;
+  static const int _pageSize = 50;
 
   static bool _isSelf5TurnRecord(Map<String, dynamic> data) =>
       data['matchType'] == 'MatchType.self5Turn';
+
+  void _setFilter(String v) => setState(() { _filter = v; _currentPage = 0; });
+  void _setSort(String v) => setState(() { _self5TurnSort = v; _currentPage = 0; });
 
   @override
   Widget build(BuildContext context) {
@@ -1526,31 +1731,74 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
           final hasSelf5Turn = allDocs.any((d) => _isSelf5TurnRecord(d.data() as Map<String, dynamic>));
           final hasNormal = allDocs.any((d) => !_isSelf5TurnRecord(d.data() as Map<String, dynamic>));
           final showFilter = hasSelf5Turn && hasNormal;
+          final showingOnlySelf5Turn = _filter == 'self5Turn' || (!showFilter && hasSelf5Turn);
 
-          final docs = showFilter && _filter != 'all'
+          // Filter
+          var filtered = showFilter && _filter != 'all'
               ? allDocs.where((d) {
                   final isSelf = _isSelf5TurnRecord(d.data() as Map<String, dynamic>);
                   return _filter == 'self5Turn' ? isSelf : !isSelf;
                 }).toList()
-              : allDocs;
+              : List.from(allDocs);
+
+          // Sort for self5Turn view
+          if (showingOnlySelf5Turn) {
+            if (_self5TurnSort == 'date_asc') {
+              filtered.sort((a, b) {
+                final ta = (a.data() as Map)['startTime'] as Timestamp;
+                final tb = (b.data() as Map)['startTime'] as Timestamp;
+                return ta.compareTo(tb);
+              });
+            } else if (_self5TurnSort == 'streak_desc') {
+              filtered.sort((a, b) {
+                final sa = ((a.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
+                final sb = ((b.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
+                return sb.compareTo(sa);
+              });
+            }
+            // date_desc: already ordered by Firestore (descending startTime)
+          }
+
+          // Pagination
+          final totalDocs = filtered.length;
+          final totalPages = (totalDocs / _pageSize).ceil().clamp(1, double.maxFinite).toInt();
+          final safePage = _currentPage.clamp(0, totalPages - 1);
+          final pageStart = safePage * _pageSize;
+          final pageEnd = (pageStart + _pageSize).clamp(0, totalDocs);
+          final pageDocs = filtered.sublist(pageStart, pageEnd);
 
           return Column(children: [
-            if (showFilter)
+            if (showFilter || showingOnlySelf5Turn)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: DropdownButtonFormField<String>(
-                  value: _filter,
-                  decoration: const InputDecoration(labelText: 'フィルター', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('すべて')),
-                    DropdownMenuItem(value: 'normal', child: Text('通常試合')),
-                    DropdownMenuItem(value: 'self5Turn', child: Text('セルフ5ターン')),
-                  ],
-                  onChanged: (v) => setState(() => _filter = v!),
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Row(children: [
+                  if (showFilter)
+                    Expanded(child: DropdownButtonFormField<String>(
+                      value: _filter,
+                      decoration: const InputDecoration(labelText: 'フィルター', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      items: const [
+                        DropdownMenuItem(value: 'all', child: Text('すべて')),
+                        DropdownMenuItem(value: 'normal', child: Text('通常試合')),
+                        DropdownMenuItem(value: 'self5Turn', child: Text('セルフ5ターン')),
+                      ],
+                      onChanged: (v) => _setFilter(v!),
+                    )),
+                  if (showFilter && showingOnlySelf5Turn) const SizedBox(width: 8),
+                  if (showingOnlySelf5Turn)
+                    Expanded(child: DropdownButtonFormField<String>(
+                      value: _self5TurnSort,
+                      decoration: const InputDecoration(labelText: '並び替え', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      items: const [
+                        DropdownMenuItem(value: 'date_desc', child: Text('日付↓')),
+                        DropdownMenuItem(value: 'date_asc', child: Text('日付↑')),
+                        DropdownMenuItem(value: 'streak_desc', child: Text('連続↓')),
+                      ],
+                      onChanged: (v) => _setSort(v!),
+                    )),
+                ]),
               ),
-            Expanded(child: ListView.builder(itemCount: docs.length, itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
+            Expanded(child: ListView.builder(itemCount: pageDocs.length, itemBuilder: (context, index) {
+              final data = pageDocs[index].data() as Map<String, dynamic>;
               final start = (data['startTime'] as Timestamp).toDate();
               final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
               if (_isSelf5TurnRecord(data)) {
@@ -1563,8 +1811,23 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                 );
               }
               final winner = data['winner'] ?? "???";
-              return ListTile(leading: const Icon(Icons.cloud_done, color: Colors.blue), title: Text("${DateFormat('MM/dd HH:mm').format(start)} Win: $winner"), subtitle: Text("Players: $playerNames"), onTap: () => _viewDetail(context, data, start));
+              final isDraw = winner == 'DRAW';
+              return ListTile(
+                leading: Icon(isDraw ? Icons.handshake : Icons.cloud_done, color: isDraw ? Colors.orange : Colors.blue),
+                title: Text("${DateFormat('MM/dd HH:mm').format(start)} ${isDraw ? t.get('match_draw') : 'Win: $winner'}"),
+                subtitle: Text("Players: $playerNames"),
+                onTap: () => _viewDetail(context, data, start),
+              );
             })),
+            if (totalPages > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  IconButton(icon: const Icon(Icons.chevron_left), onPressed: safePage > 0 ? () => setState(() => _currentPage = safePage - 1) : null),
+                  Text('${safePage + 1} / $totalPages', style: const TextStyle(fontSize: 14)),
+                  IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages - 1 ? () => setState(() => _currentPage = safePage + 1) : null),
+                ]),
+              ),
           ]);
         },
       ),
@@ -1585,10 +1848,12 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
         (s['finalScores'] as Map).forEach((k, v) => set.finalCumulativeScores[k] = v as int);
         return set;
       }).toList();
+      final isHyakin = data['matchType'] == 'MatchType.hyakin';
       Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
         sets: sets, startTime: start, players: players,
         winnerName: isSelf5Turn ? null : data['winner'] as String?,
         isSelf5Turn: isSelf5Turn,
+        isHyakin: isHyakin,
         consecutiveSuccesses: consecutiveSuccesses,
       )));
     } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'})))); }
@@ -1604,87 +1869,181 @@ class HelpPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = L10n.of(context);
+    final isJa = Localizations.localeOf(context).languageCode == 'ja';
+
+    final sections = isJa ? _jaSections(t) : _enSections(t);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('使い方')),
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+      appBar: AppBar(title: Text(t.get('help_title'))),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _HelpSection(
-              title: '1. ゲームの準備',
-              items: [
-                'プレイヤー名を入力して「追加」→ 最大8人まで登録できます',
-                'リストのハンドル（☰）をドラッグして投げ順を調整できます',
-                '試合形式を選択します（例：2先 ＝ 2本先取）',
-                '音声でスコアを入力したい場合は「音声入力」をONにしてください（試験中）',
-                '「ゲーム開始」を押してスタート！',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '2. スコアの入力',
-              items: [
-                '倒れたピンの番号（1〜12）をタップして選択',
-                '複数のピンが倒れた場合は倒れた本数のボタンを1つタップ',
-                '「決定」ボタンで確定',
-                'ミスの場合は何も選ばずそのまま「0 Pts (ミス)」を押す',
-                '間違えた場合は「戻る」で1つ前に戻れます',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '3. 音声でスコアを入力する（音声入力ON時）',
-              body: 'マイクに向かって話しかけるだけで自動的に入力されます。',
-              examples: [
-                '「投てき終了、12点」',
-                '「入力、5点」',
-                '「投てき終了、ミス」',
-              ],
-              note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '4. 試合の進め方',
-              items: [
-                '誰かがちょうど50点を取るとそのセットが終了',
-                'セット終了後に次のセットの投げ順を変更できます',
-                '設定した試合形式（〇先など）で先に勝ち数に達した人が優勝',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '5. 戦績を確認する',
-              items: [
-                '画面右上の「戦績確認」からこれまでの試合結果を見られます',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '6. Googleアカウントで戦歴を同期する',
-              items: [
-                '画面右上の「G」ボタンを押すとGoogleアカウント連携ができます',
-                'ログインすると戦歴がアカウントに紐づき、別端末でも同じ戦歴を確認できます',
-                '連携済みの場合「G」ボタンは緑色で表示されます',
-              ],
-            ),
-            SizedBox(height: 20),
-            _HelpSection(
-              title: '7. セルフ5ターン（1人用練習モード）',
-              items: [
-                'プレイヤーが1名の場合のみ「セルフ5ターン」モードが選べます',
-                '5投で50点ちょうどに到達できれば「成功」',
-                '6投以上になるか、5投で50点に届かない場合は「失敗」でゲーム終了',
-                '何回連続で成功できるかを競います（連続成功記録を更新しましょう！）',
-                '失敗後は「トップへ」でタイトル画面に戻るか「次のチャレンジへ」で新記録に挑戦',
-              ],
-            ),
-            SizedBox(height: 32),
+            for (int i = 0; i < sections.length; i++) ...[
+              if (i > 0) const SizedBox(height: 20),
+              sections[i],
+            ],
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
+
+  List<Widget> _jaSections(L10n t) => [
+    const _HelpSection(
+      title: '1. ゲームの準備',
+      items: [
+        'プレイヤー名を入力して「追加」→ 最大8人まで登録できます',
+        'リストのハンドル（☰）をドラッグして投げ順を調整できます',
+        '試合形式を選択します（例：2先 ＝ 2本先取）',
+        '音声でスコアを入力したい場合は「音声入力」をONにしてください（試験中）',
+        '「ゲーム開始」を押してスタート！',
+      ],
+    ),
+    const _HelpSection(
+      title: '2. スコアの入力',
+      items: [
+        '倒れたピンの番号（1〜12）をタップして選択',
+        '複数のピンが倒れた場合は倒れた本数のボタンを1つタップ',
+        '「決定」ボタンで確定',
+        'ミスの場合は何も選ばずそのまま「0 Pts (ミス)」を押す',
+        '間違えた場合は「戻る」で1つ前に戻れます',
+      ],
+    ),
+    const _HelpSection(
+      title: '3. 音声でスコアを入力する（音声入力ON時）',
+      body: 'マイクに向かって話しかけるだけで自動的に入力されます。',
+      examplesLabel: '話し方の例：',
+      examples: [
+        '「投てき終了、12点」',
+        '「スコア、10ポイント」',
+        '「入力、5点」',
+        '「投てき終了、ミス」',
+      ],
+      note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
+    ),
+    const _HelpSection(
+      title: '4. 試合の進め方',
+      items: [
+        '誰かがちょうど50点を取るとそのセットが終了',
+        'セット終了後に次のセットの投げ順を変更できます',
+        '設定した試合形式（〇先など）で先に勝ち数に達した人が優勝',
+      ],
+    ),
+    const _HelpSection(
+      title: '5. 戦績を確認する',
+      items: [
+        '画面右上の「戦績確認」からこれまでの試合結果を見られます',
+      ],
+    ),
+    const _HelpSection(
+      title: '6. セルフ5ターン（1人用練習モード）',
+      items: [
+        'プレイヤーが1名の場合のみ「セルフ5ターン」モードが選べます',
+        '5投で50点ちょうどに到達できれば「成功」',
+        '6投以上になるか、5投で50点に届かない場合は「失敗」でゲーム終了',
+        '何回連続で成功できるかを競います（連続成功記録を更新しましょう！）',
+        '失敗後は「トップへ」でタイトル画面に戻るか「次のチャレンジへ」で新記録に挑戦',
+      ],
+    ),
+    const _HelpSection(
+      title: '7. 100均モード（表裏2セット）',
+      items: [
+        '試合形式で「100均（表裏2セット）」を選択します',
+        '1セット目は通常のモルック（50点ちょうどで勝利）',
+        '2セット目は1セット目との合計が100点ちょうどになれば勝利',
+        '2セット目でバースト（100点超え）した場合は合計が75点に戻ります',
+        '2セット目で3回連続ミスをすると2セット目の得点が0点になります',
+        '上部のスコア表示は合計得点のみ表示されます（カッコ表記なし）',
+      ],
+    ),
+    const _HelpSection(
+      title: '8. 小ネタ',
+      items: [
+        '秒数の上をタップすると0にリセットできるよ',
+        'スコアの入力は数字のダブルタップでもできるよ',
+      ],
+    ),
+  ];
+
+  List<Widget> _enSections(L10n t) => [
+    const _HelpSection(
+      title: '1. Setup',
+      items: [
+        'Enter a player name and tap "Add" — up to 8 players',
+        'Drag the handle (☰) to reorder the throwing order',
+        'Select a game mode (e.g. "First to 2 sets")',
+        'Turn on "Voice Input (Beta)" to enter scores by voice',
+        'Tap "Start Game" to begin!',
+      ],
+    ),
+    const _HelpSection(
+      title: '2. Entering Scores',
+      items: [
+        'Tap the pin number (1–12) that was knocked down',
+        'If multiple pins fell, tap the count button once',
+        'Tap "Confirm" to submit the score',
+        'For a miss, tap "0 pts (Miss)" without selecting any pin',
+        'Tap "Undo" to go back one step',
+      ],
+    ),
+    const _HelpSection(
+      title: '3. Voice Input (when enabled)',
+      body: 'Just speak toward the microphone — scores are entered automatically.',
+      examplesLabel: 'Example phrases:',
+      examples: [
+        '"Done, 12 points"',
+        '"Score five"',
+        '"Done, miss"',
+      ],
+      note: '* If voice input fails to recognize, use the buttons to enter manually.',
+    ),
+    const _HelpSection(
+      title: '4. How the Game Progresses',
+      items: [
+        'A set ends when someone reaches exactly 50 points',
+        'After each set you can reorder players for the next set',
+        'The first player to reach the target wins the match',
+      ],
+    ),
+    const _HelpSection(
+      title: '5. Viewing Match History',
+      items: [
+        'Tap the history icon in the top-right corner to view past results',
+      ],
+    ),
+    const _HelpSection(
+      title: '6. Self 5-Turn (Solo Practice Mode)',
+      items: [
+        'Available only when 1 player is registered',
+        'Reach exactly 50 points in 5 throws to succeed',
+        'Fail if you exceed 5 throws or cannot reach 50',
+        'Challenge yourself to build the longest success streak!',
+        'After failing, return to the top or start the next challenge',
+      ],
+    ),
+    const _HelpSection(
+      title: '7. Hyakin Mode (表裏 2 Sets)',
+      items: [
+        'Select "Hyakin (表裏 2 sets)" from the game mode options',
+        'Set 1 is normal Mölkky — reach exactly 50 to win',
+        'Set 2: reach a combined total (Set 1 + Set 2) of exactly 100 to win',
+        'Going over 100 in Set 2 (burst) resets the combined total back to 75',
+        '3 consecutive misses in Set 2 resets Set 2 score to 0',
+        'The score display shows the combined total only (no parentheses)',
+      ],
+    ),
+    const _HelpSection(
+      title: '8. Tips',
+      items: [
+        'Tap on the timer to reset it to 0',
+        'Double-tap a number to enter that score directly',
+      ],
+    ),
+  ];
 }
 
 class _HelpSection extends StatelessWidget {
@@ -1692,6 +2051,7 @@ class _HelpSection extends StatelessWidget {
   final List<String> items;
   final String? body;
   final List<String> examples;
+  final String examplesLabel;
   final String? note;
 
   const _HelpSection({
@@ -1699,6 +2059,7 @@ class _HelpSection extends StatelessWidget {
     this.items = const [],
     this.body,
     this.examples = const [],
+    this.examplesLabel = '話し方の例：',
     this.note,
   });
 
@@ -1736,7 +2097,7 @@ class _HelpSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('話し方の例：', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(examplesLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 for (final ex in examples)
                   Padding(
