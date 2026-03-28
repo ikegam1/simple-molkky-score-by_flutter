@@ -230,9 +230,6 @@ class _SetupScreenState extends State<SetupScreen> {
   final _uuid = const Uuid();
   bool _voiceInputEnabled = false; // 音声入力設定の追加
   bool _isGoogleLinked = false;
-  final _googleSignIn = GoogleSignIn(
-    serverClientId: '52196197674-342o533f0npiujhr6u61nlkplko95laa.apps.googleusercontent.com',
-  );
 
   @override
   void initState() {
@@ -352,7 +349,11 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _signInWithGoogleMobile(User currentUser, String oldUid) async {
-    final googleUser = await _googleSignIn.signIn();
+    // Webでは使用しないためmobile専用としてここでインスタンス化
+    final googleSignIn = GoogleSignIn(
+      serverClientId: '52196197674-342o533f0npiujhr6u61nlkplko95laa.apps.googleusercontent.com',
+    );
+    final googleUser = await googleSignIn.signIn();
     if (googleUser == null) return;
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
