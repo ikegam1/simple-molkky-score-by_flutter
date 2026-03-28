@@ -361,8 +361,12 @@ class _SetupScreenState extends State<SetupScreen> {
       idToken: googleAuth.idToken,
     );
     try {
-      await currentUser.linkWithCredential(credential);
-      setState(() => _isGoogleLinked = true);
+      final userCredential = await currentUser.linkWithCredential(credential);
+      final newUid = userCredential.user!.uid;
+      setState(() {
+        _firebaseUid = newUid;
+        _isGoogleLinked = true;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Googleアカウントと連携しました！'), backgroundColor: Colors.green),
@@ -373,7 +377,10 @@ class _SetupScreenState extends State<SetupScreen> {
         final result = await FirebaseAuth.instance.signInWithCredential(credential);
         final newUid = result.user!.uid;
         if (oldUid != newUid) await _migrateScores(oldUid, newUid);
-        setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
+        setState(() {
+          _firebaseUid = newUid;
+          _isGoogleLinked = true;
+        });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Googleアカウントでログインし、戦歴をマージしました！'), backgroundColor: Colors.green),
@@ -532,7 +539,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.10.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.10.6', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
