@@ -1312,45 +1312,55 @@ class _GameScreenState extends State<GameScreen> {
     final players = widget.match.players;
     final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
 
+    final String scoreText;
     if (isHyakinSet2) {
-      // Show total (set1 + set2) only, no parentheses
       if (players.length == 2) {
         final a = players[0];
         final b = players[1];
         final aSet1 = a.setFinalScores.isNotEmpty ? a.setFinalScores[0] : 0;
         final bSet1 = b.setFinalScores.isNotEmpty ? b.setFinalScores[0] : 0;
-        return Text(
-          '${aSet1 + a.currentScore}${_stars(a.setsWon)} - ${bSet1 + b.currentScore}${_stars(b.setsWon)}',
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        );
+        scoreText = '${aSet1 + a.currentScore}${_stars(a.setsWon)} - ${bSet1 + b.currentScore}${_stars(b.setsWon)}';
+      } else {
+        scoreText = players.map((p) {
+          final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+          return '${p.name} ${s1 + p.currentScore}${_stars(p.setsWon)}';
+        }).join('  -  ');
       }
-      final text = players.map((p) {
-        final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-        return '${p.name} ${s1 + p.currentScore}${_stars(p.setsWon)}';
-      }).join('  -  ');
-      return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
-    }
-
-    final showTotal = widget.match.currentSetIndex > 1;
-
-    if (players.length == 2) {
-      final a = players[0];
-      final b = players[1];
-      final aScore = showTotal ? '${a.currentScore}(${_runningTotal(a)})' : '${a.currentScore}';
-      final bScore = showTotal ? '${b.currentScore}(${_runningTotal(b)})' : '${b.currentScore}';
-      return Text(
-        '$aScore${_stars(a.setsWon)} - $bScore${_stars(b.setsWon)}',
-        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-      );
-    }
-
-    final text = players
-        .map((p) {
+    } else {
+      final showTotal = widget.match.currentSetIndex > 1;
+      if (players.length == 2) {
+        final a = players[0];
+        final b = players[1];
+        final aScore = showTotal ? '${a.currentScore}(${_runningTotal(a)})' : '${a.currentScore}';
+        final bScore = showTotal ? '${b.currentScore}(${_runningTotal(b)})' : '${b.currentScore}';
+        scoreText = '$aScore${_stars(a.setsWon)} - $bScore${_stars(b.setsWon)}';
+      } else {
+        scoreText = players.map((p) {
           final score = showTotal ? '${p.currentScore}(${_runningTotal(p)})' : '${p.currentScore}';
           return '${p.name} $score${_stars(p.setsWon)}';
-        })
-        .join('  -  ');
-    return Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800));
+        }).join('  -  ');
+      }
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Text(
+          scoreText,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            fontFamily: 'Courier',
+            color: Color(0xFF39FF14),
+            letterSpacing: 1.5,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1392,14 +1402,13 @@ class _GameScreenState extends State<GameScreen> {
         actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
       body: Column(
         children: [
+          if (!isSelf5Turn) _buildScoreSummaryRow(),
           Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
             child: Column(
               children: [
                 if (isSelf5Turn)
                   Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))
-                else
-                  _buildScoreSummaryRow(),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
                 const SizedBox(height: 6),
                 RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
                   TextSpan(text: '${currentPlayer.name} '),
