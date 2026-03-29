@@ -230,11 +230,28 @@ class _SetupScreenState extends State<SetupScreen> {
   final _uuid = const Uuid();
   bool _voiceInputEnabled = false; // 音声入力設定の追加
   bool _isGoogleLinked = false;
+  StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _initApp();
+    // Firebase Auth の状態変化を監視してUIをリアルタイム更新
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && mounted) {
+        final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
+        setState(() {
+          _firebaseUid = user.uid;
+          _isGoogleLinked = isGoogle;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initApp() async {
