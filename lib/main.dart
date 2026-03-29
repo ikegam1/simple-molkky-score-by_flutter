@@ -1314,32 +1314,16 @@ class _GameScreenState extends State<GameScreen> {
 
     final String scoreText;
     if (isHyakinSet2) {
-      if (players.length == 2) {
-        final a = players[0];
-        final b = players[1];
-        final aSet1 = a.setFinalScores.isNotEmpty ? a.setFinalScores[0] : 0;
-        final bSet1 = b.setFinalScores.isNotEmpty ? b.setFinalScores[0] : 0;
-        scoreText = '${aSet1 + a.currentScore}${_stars(a.setsWon)} - ${bSet1 + b.currentScore}${_stars(b.setsWon)}';
-      } else {
-        scoreText = players.map((p) {
-          final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-          return '${p.name} ${s1 + p.currentScore}${_stars(p.setsWon)}';
-        }).join('  -  ');
-      }
+      scoreText = players.map((p) {
+        final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+        return '${s1 + p.currentScore}${_stars(p.setsWon)}';
+      }).join(' - ');
     } else {
       final showTotal = widget.match.currentSetIndex > 1;
-      if (players.length == 2) {
-        final a = players[0];
-        final b = players[1];
-        final aScore = showTotal ? '${a.currentScore}(${_runningTotal(a)})' : '${a.currentScore}';
-        final bScore = showTotal ? '${b.currentScore}(${_runningTotal(b)})' : '${b.currentScore}';
-        scoreText = '$aScore${_stars(a.setsWon)} - $bScore${_stars(b.setsWon)}';
-      } else {
-        scoreText = players.map((p) {
-          final score = showTotal ? '${p.currentScore}(${_runningTotal(p)})' : '${p.currentScore}';
-          return '${p.name} $score${_stars(p.setsWon)}';
-        }).join('  -  ');
-      }
+      scoreText = players.map((p) {
+        final score = showTotal ? '${p.currentScore}(${_runningTotal(p)})' : '${p.currentScore}';
+        return '$score${_stars(p.setsWon)}';
+      }).join(' - ');
     }
 
     return Container(
