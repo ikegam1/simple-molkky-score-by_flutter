@@ -97120,7 +97120,7 @@ k=A.aNg(g,g,g,g,g,g,g,g,g,g,g,B.a7L,g,g,g,g,g,g,g,g)
 c=A.b([B.jZ,s,B.jZ,new A.EW(j.e,a2,B.a94,B.a7U,B.a7V,20,new A.aBE(j),!0,new A.aBF(),g),a3,c,B.jX,new A.UZ(q,new A.aBx(j),a0,o,B.aN,g),B.jX,m,B.jX,new A.Cu(!0,a,g,g,g,k,g,g,!1,g,!0,g,new A.a0C(l,B.P6,k,g,g),g),B.jX],r)
 a=j.r
 if(a.length!==0)c.push(A.av(e.d6("anonymous_id",A.Z(["id",B.c.ap(a,0,8)],d,d)),g,g,g,B.HU,g,g))
-c.push(B.adU)
+c.push(B.adP)
 return A.DF(a1,new A.bT(B.Og,A.eM(c,B.a1,B.Y,B.aa),g),!0)}}
 A.aB9.prototype={
 $1(a){var s=a.a.w
@@ -97147,7 +97147,7 @@ $1(a){var s=t.N
 return B.br.rq(A.Z(["id",a.a,"name",a.b],s,s),null)},
 $S:32}
 A.aBh.prototype={
-$1(a){return A.yy(A.b([A.kD(B.adT,new A.aBf(a),null),A.Am(B.adP,new A.aBg(a),null)],t.p),B.adL,B.a5K)},
+$1(a){return A.yy(A.b([A.kD(B.adU,new A.aBf(a),null),A.Am(B.adQ,new A.aBg(a),null)],t.p),B.adL,B.a5K)},
 $S:62}
 A.aBf.prototype={
 $0(){A.dJ(this.a,!1).nT(!1)
@@ -97668,7 +97668,7 @@ g=e===1?B.b.ga1(g):e
 g=" "+h+" ("+g+" "+a.aX("pts")+")"
 h=g}i=A.pG(A.Am(A.fN(A.b([B.P8,A.av(h,c,c,c,B.hr,c,c)],l),B.a1,B.dK,B.aa,0,c),d.gako(),i),2)
 h=d.ch
-k.push(A.et(c,A.eM(A.b([a1,B.jY,A.fN(A.b([j,B.hl,i,B.hl,A.kb(c,A.eC(A.eM(A.b([A.av(""+h,c,c,c,A.el(c,c,h>=60?B.jp:B.X,c,c,c,c,c,"Courier",c,c,28,c,c,B.ak,c,c,!0,c,1,c,c,c,c,c,c),c,c),B.adR],l),B.a1,B.dK,B.aa),c,52),B.ai,!1,c,c,c,c,c,c,c,c,c,c,c,c,c,c,d.gaix(),c,c,c,c,c,c)],l),B.a1,B.Y,B.aa,0,c),B.jY,A.av(a.aX("app_title"),c,c,c,B.abX,c,c),B.jY],l),B.a1,B.Y,B.aa),B.A,c,c,B.Jk,c,c,c,B.Oc,c,c,c))
+k.push(A.et(c,A.eM(A.b([a1,B.jY,A.fN(A.b([j,B.hl,i,B.hl,A.kb(c,A.eC(A.eM(A.b([A.av(""+h,c,c,c,A.el(c,c,h>=60?B.jp:B.X,c,c,c,c,c,"Courier",c,c,28,c,c,B.ak,c,c,!0,c,1,c,c,c,c,c,c),c,c),B.adS],l),B.a1,B.dK,B.aa),c,52),B.ai,!1,c,c,c,c,c,c,c,c,c,c,c,c,c,c,d.gaix(),c,c,c,c,c,c)],l),B.a1,B.Y,B.aa,0,c),B.jY,A.av(a.aX("app_title"),c,c,c,B.abX,c,c),B.jY],l),B.a1,B.Y,B.aa),B.A,c,c,B.Jk,c,c,c,B.Oc,c,c,c))
 return A.DF(a0,A.eM(k,B.a1,B.Y,B.aa),!1)}}
 A.avR.prototype={
 $1(a){var s,r=this.a
@@ -104337,8 +104337,8 @@ B.adO=new A.dQ("\u3059\u3079\u3066",null,null,null,null,null,null,null,null)
 B.ND=new A.fh("all",!0,B.adO,B.bE,null,t.b7)
 B.adK=new A.dQ("\u901a\u5e38\u8a66\u5408",null,null,null,null,null,null,null,null)
 B.NF=new A.fh("normal",!0,B.adK,B.bE,null,t.b7)
-B.adQ=new A.dQ("\u30bb\u30eb\u30d55\u30bf\u30fc\u30f3",null,null,null,null,null,null,null,null)
-B.NE=new A.fh("self5Turn",!0,B.adQ,B.bE,null,t.b7)
+B.adR=new A.dQ("\u30bb\u30eb\u30d55\u30bf\u30fc\u30f3",null,null,null,null,null,null,null,null)
+B.NE=new A.fh("self5Turn",!0,B.adR,B.bE,null,t.b7)
 B.Zk=s([B.ND,B.NF,B.NE],t.FG)
 B.Zl=s(["EEEE, d MMMM y '\u0433'.","d MMMM y '\u0433'.","d.MM.y '\u0433'.","d.MM.yy '\u0433'."],t.s)
 B.Zm=s(["1kv","2kv","3kv","4kv"],t.s)
@@ -105698,8 +105698,8 @@ B.cL=new A.arv(1,"down")
 B.abe=new A.m(!0,B.po,null,null,null,null,22,B.ak,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.adJ=new A.dQ("G",null,B.abe,null,null,null,null,null,null)
 B.hl=new A.fr(8,null,null,null)
-B.adS=new A.dQ("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u9023\u643a",null,null,null,null,null,null,null,null)
-B.UD=s([B.adJ,B.hl,B.adS],t.p)
+B.adT=new A.dQ("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u9023\u643a",null,null,null,null,null,null,null,null)
+B.UD=s([B.adJ,B.hl,B.adT],t.p)
 B.a5K=new A.DB(B.az,B.Y,B.aa,B.a1,null,B.cL,null,0,B.UD,null)
 B.a5L=new A.DD(1333)
 B.n2=new A.DD(2222)
@@ -106368,10 +106368,10 @@ B.a9r=new A.m(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,nul
 B.adE=new A.e8(B.abm,B.aab,B.abn,B.abS,B.a9S,B.aa_,B.aay,B.abN,B.aaM,B.ace,B.a9k,B.a9E,B.acb,B.acy,B.a9r)
 B.adL=new A.dQ("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u3067\u30ed\u30b0\u30a4\u30f3\u3059\u308b\u3068\u3001\u3053\u308c\u307e\u3067\u306e\u6226\u6b74\u304c\u30a2\u30ab\u30a6\u30f3\u30c8\u306b\u7d10\u3065\u304d\u3001\u5225\u7aef\u672b\u3084\u74b0\u5883\u3067\u30ed\u30b0\u30a4\u30f3\u3057\u305f\u5834\u5408\u3082\u4fdd\u6301\u3055\u308c\u308b\u3088\u3046\u306b\u306a\u308a\u307e\u3059\u3002\n\u30ed\u30b0\u30a4\u30f3\u3055\u308c\u307e\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
 B.adM=new A.dQ("\u2022 ",null,B.hq,null,null,null,null,null,null)
-B.adP=new A.dQ("Google\u3067\u30ed\u30b0\u30a4\u30f3",null,null,null,null,null,null,null,null)
-B.adR=new A.dQ("sec",null,B.HU,null,null,null,null,null,null)
-B.adT=new A.dQ("\u30ad\u30e3\u30f3\u30bb\u30eb",null,null,null,null,null,null,null,null)
-B.adU=new A.dQ("v1.10.6",null,B.HQ,null,null,null,null,null,null)
+B.adP=new A.dQ("v1.10.7",null,B.HQ,null,null,null,null,null,null)
+B.adQ=new A.dQ("Google\u3067\u30ed\u30b0\u30a4\u30f3",null,null,null,null,null,null,null,null)
+B.adS=new A.dQ("sec",null,B.HU,null,null,null,null,null,null)
+B.adU=new A.dQ("\u30ad\u30e3\u30f3\u30bb\u30eb",null,null,null,null,null,null,null,null)
 B.ajp=new A.aqS(0,"system")
 B.a3n=new A.f(0.056,0.024)
 B.a3D=new A.f(0.108,0.3085)
