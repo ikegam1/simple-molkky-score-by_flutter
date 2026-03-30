@@ -333,9 +333,21 @@ class _SetupScreenState extends State<SetupScreen> {
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'credential-already-in-use') {
-        final result = await FirebaseAuth.instance.signInWithPopup(provider);
+        final credential = e.credential;
+        if (credential == null) rethrow;
+
+        // 1. まだ oldUid(匿名)として認証中のうちにデータを読み取る
+        //    (サインイン後は appUserId != request.auth.uid となり permission-denied になるため)
+        final oldData = await _fetchAllScoreData(oldUid);
+
+        // 2. 既存のcredentialでGoogle認証に切り替え（2回目のポップアップ不要）
+        final result = await FirebaseAuth.instance.signInWithCredential(credential);
         final newUid = result.user!.uid;
-        if (oldUid != newUid) await _migrateScores(oldUid, newUid);
+
+        // 3. newUidとして認証された状態で新規ドキュメントを作成
+        if (oldUid != newUid && oldData.isNotEmpty) {
+          await _writeScoreDataAsNewUid(oldData, newUid);
+        }
         setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -363,10 +375,7 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       final userCredential = await currentUser.linkWithCredential(credential);
       final newUid = userCredential.user!.uid;
-      setState(() {
-        _firebaseUid = newUid;
-        _isGoogleLinked = true;
-      });
+      setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Googleアカウントと連携しました！'), backgroundColor: Colors.green),
@@ -374,13 +383,18 @@ class _SetupScreenState extends State<SetupScreen> {
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'credential-already-in-use') {
+        // 1. まだ oldUid(匿名)として認証中のうちにデータを読み取る
+        final oldData = await _fetchAllScoreData(oldUid);
+
+        // 2. Google認証に切り替え
         final result = await FirebaseAuth.instance.signInWithCredential(credential);
         final newUid = result.user!.uid;
-        if (oldUid != newUid) await _migrateScores(oldUid, newUid);
-        setState(() {
-          _firebaseUid = newUid;
-          _isGoogleLinked = true;
-        });
+
+        // 3. newUidとして認証された状態で新規ドキュメントを作成
+        if (oldUid != newUid && oldData.isNotEmpty) {
+          await _writeScoreDataAsNewUid(oldData, newUid);
+        }
+        setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Googleアカウントでログインし、戦歴をマージしました！'), backgroundColor: Colors.green),
@@ -392,22 +406,38 @@ class _SetupScreenState extends State<SetupScreen> {
     }
   }
 
-  Future<void> _migrateScores(String oldUid, String newUid) async {
-    // Firestoreバッチの上限(500件)を考慮してループ処理
+  /// oldUidに紐づく全スコアデータをFirestoreから読み取る。
+  /// ※oldUidとして認証されている状態で呼ぶこと（サインイン前）。
+  Future<List<Map<String, dynamic>>> _fetchAllScoreData(String uid) async {
+    final List<Map<String, dynamic>> all = [];
     const batchSize = 500;
     while (true) {
       final snapshot = await FirebaseFirestore.instance
           .collection('scores')
-          .where('appUserId', isEqualTo: oldUid)
+          .where('appUserId', isEqualTo: uid)
           .limit(batchSize)
           .get();
-      if (snapshot.docs.isEmpty) break;
+      all.addAll(snapshot.docs.map((d) => d.data()));
+      if (snapshot.docs.length < batchSize) break;
+    }
+    return all;
+  }
+
+  /// 読み取ったスコアデータをnewUidで新規ドキュメントとして書き込む。
+  /// ※newUidとして認証された状態で呼ぶこと（サインイン後）。
+  /// 旧ドキュメント(appUserId == oldUid)はFirestoreに残るが参照されなくなる。
+  Future<void> _writeScoreDataAsNewUid(
+    List<Map<String, dynamic>> data,
+    String newUid,
+  ) async {
+    const batchSize = 500;
+    for (int i = 0; i < data.length; i += batchSize) {
       final batch = FirebaseFirestore.instance.batch();
-      for (final doc in snapshot.docs) {
-        batch.update(doc.reference, {'appUserId': newUid});
+      for (final record in data.skip(i).take(batchSize)) {
+        final ref = FirebaseFirestore.instance.collection('scores').doc();
+        batch.set(ref, {...record, 'appUserId': newUid});
       }
       await batch.commit();
-      if (snapshot.docs.length < batchSize) break;
     }
   }
 
