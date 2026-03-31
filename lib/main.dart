@@ -802,22 +802,59 @@ class _GameScreenState extends State<GameScreen> {
     return -1;
   }
 
-  /// ウェイクワード以降のテキストから点数を解析する。
+  /// テキストから点数を解析する。
+  /// ロケールが日本語の場合はウェイクワード不要。英語版はウェイクワード必須のまま。
   /// 戻り値: 1〜12=ピン番号、-1=ミス、null=認識失敗
   int? _parseVoiceScore(String text) {
+    final isJa = (widget.appLocale?.languageCode ?? 'ja') == 'ja';
     final normalized = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
 
-    // 「N点を入力」「N点入れて」「N点入力」パターン（点数がウェイクワードの前に来る）
-    // アラビア数字（「10点入力」「10てん入力」の両形式に対応）
-    final scoreFirstMatch = RegExp(r'(\d{1,2})(?:点|てん)(?:を入力|入れて|入力)').firstMatch(normalized);
-    if (scoreFirstMatch != null) {
-      final n = int.tryParse(scoreFirstMatch.group(1)!);
+    if (!isJa) {
+      // === 英語パス: ウェイクワード必須（変更なし） ===
+      final wakeEnd = _wakeWordEnd(text);
+      if (wakeEnd < 0) return null;
+      final afterWake = normalized.substring(wakeEnd).toLowerCase();
+      if (afterWake.isEmpty) return null;
+      if (afterWake.contains('miss')) return -1;
+      final digitMatch = RegExp(r'(\d+)').firstMatch(afterWake);
+      if (digitMatch != null) {
+        final n = int.tryParse(digitMatch.group(1)!);
+        if (n != null && n >= 1 && n <= 12) return n;
+      }
+      const enMap = <String, int>{
+        'twelve': 12, 'eleven': 11, 'ten': 10,
+        'nine': 9, 'eight': 8, 'seven': 7, 'six': 6, 'five': 5,
+        'four': 4, 'three': 3, 'two': 2, 'one': 1,
+      };
+      for (final entry in enMap.entries) {
+        if (RegExp(r'\b' + entry.key + r'\b').hasMatch(afterWake)) return entry.value;
+      }
+      return null;
+    }
+
+    // === 日本語パス: ウェイクワード不要 ===
+    // 「ポイント」→「点」に統一（「0ポイント」「10ポイント」に対応）
+    final ja = normalized
+        .replaceAll('ポイント', '点')
+        .replaceAll('ポイン', '点');
+
+    // ミス判定: フォルト / 0点 / 0ポイント（「ミス」は意図的に除外）
+    if (ja.contains('フォルト') || ja.contains('ふぉると') ||
+        RegExp(r'[0０](?:点|てん)').hasMatch(ja) ||
+        RegExp(r'(?:ゼロ|ぜろ)(?:点|てん)').hasMatch(ja)) {
+      return -1;
+    }
+
+    // アラビア数字「N点」「Nてん」(1〜12)
+    final digitMatch = RegExp(r'([0-9]{1,2})(?:点|てん)').firstMatch(ja);
+    if (digitMatch != null) {
+      final n = int.tryParse(digitMatch.group(1)!);
       if (n != null && n >= 1 && n <= 12) return n;
     }
-    // 日本語数字（長いものを先に照合して誤マッチを防ぐ）
-    // 日本語数字（長いものを先に照合して誤マッチを防ぐ）
-    // 「点」はSTTでは「てん」と出ることもある
-    const jpScoreFirstList = <(String, int)>[
+
+    // 日本語数字「N点」「Nてん」（長いパターンを先に照合して誤マッチを防ぐ）
+    // 「点/てん」サフィックスを必須とすることで「ごめん」「ろくに」等の誤マッチを防ぐ
+    const jpScoreList = <(String, int)>[
       ('じゅうに', 12), ('十二', 12), ('じゅういち', 11), ('十一', 11),
       ('じゅう', 10), ('十', 10), ('きゅう', 9), ('九', 9),
       ('はち', 8), ('八', 8), ('なな', 7), ('しち', 7), ('七', 7),
@@ -825,63 +862,8 @@ class _GameScreenState extends State<GameScreen> {
       ('よん', 4), ('よっ', 4), ('四', 4), ('さん', 3), ('三', 3),
       ('に', 2), ('二', 2), ('いっ', 1), ('いち', 1), ('一', 1),
     ];
-    for (final (jp, score) in jpScoreFirstList) {
-      // 「にてん入力」「さんてんを入力」「十てん入れて」など
-      if (RegExp('${RegExp.escape(jp)}(?:てん|点)(?:を入力|入れて|入力)').hasMatch(normalized)) return score;
-    }
-
-    final wakeEnd = _wakeWordEnd(text);
-    String afterWake;
-    if (wakeEnd >= 0) {
-      afterWake = normalized
-          .substring(wakeEnd)
-          .replaceAll('ポイント', '点') // 「ポイント」を「点」に置換
-          .replaceAll('ポイン', '点');  // 「ポイン」まででも「点」に置換
-    } else {
-      // ウェイクワードが必須なため、それ以外は無視する
-      return null;
-    }
-
-    if (afterWake.isEmpty) return null;
-    if (afterWake.contains('ミス') || afterWake.contains('みす')) return -1;
-    if (afterWake.toLowerCase().contains('miss')) return -1;
-
-    // アラビア数字を優先して検出
-    final digitMatch = RegExp(r'(\d+)').firstMatch(afterWake);
-    if (digitMatch != null) {
-      final n = int.tryParse(digitMatch.group(1)!);
-      if (n != null && n >= 1 && n <= 12) return n;
-    }
-
-    // 日本語数字（長いパターンを先に照合して部分一致を防ぐ）
-    const jpMap = <String, int>{
-      'じゅうに': 12, '十二': 12,
-      'じゅういち': 11, '十一': 11,
-      'じゅう': 10, '十': 10,
-      'きゅう': 9, '九': 9,
-      'はち': 8, '八': 8,
-      'ななてん': 7, 'しちてん': 7, 'なな': 7, 'しち': 7, '七': 7,
-      'ろくてん': 6, 'ろく': 6, '六': 6,
-      'ごてん': 5, 'ご': 5, '五': 5,
-      'よんてん': 4, 'してん': 4, 'よん': 4, '四': 4,
-      'さんてん': 3, 'さん': 3, '三': 3,
-      'にてん': 2, '二': 2,
-      'いってん': 1, 'いちてん': 1, 'いち': 1, '一': 1,
-    };
-
-    for (final entry in jpMap.entries) {
-      if (afterWake.contains(entry.key)) return entry.value;
-    }
-
-    // English number words (longest first to avoid 'one' matching inside 'eleven')
-    const enMap = <String, int>{
-      'twelve': 12, 'eleven': 11, 'ten': 10,
-      'nine': 9, 'eight': 8, 'seven': 7, 'six': 6, 'five': 5,
-      'four': 4, 'three': 3, 'two': 2, 'one': 1,
-    };
-    final afterWakeLower = afterWake.toLowerCase();
-    for (final entry in enMap.entries) {
-      if (RegExp(r'\b' + entry.key + r'\b').hasMatch(afterWakeLower)) return entry.value;
+    for (final (jp, score) in jpScoreList) {
+      if (RegExp('${RegExp.escape(jp)}(?:てん|点)').hasMatch(ja)) return score;
     }
 
     return null;
@@ -1962,13 +1944,13 @@ class HelpPage extends StatelessWidget {
     ),
     const _HelpSection(
       title: '3. 音声でスコアを入力する（音声入力ON時）',
-      body: 'マイクに向かって話しかけるだけで自動的に入力されます。',
+      body: 'マイクに向かって得点を話しかけるだけで自動的に入力されます。ウェイクワード不要！',
       examplesLabel: '話し方の例：',
       examples: [
-        '「投てき終了、12点」',
-        '「スコア、10ポイント」',
-        '「入力、5点」',
-        '「投てき終了、ミス」',
+        '「10点」「10ポイント」',
+        '「じゅう点」「十点」',
+        '「5点」「ご点」',
+        '「フォルト」「0点」「0ポイント」（ミスの場合）',
       ],
       note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
     ),
