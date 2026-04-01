@@ -745,6 +745,25 @@ class _GameScreenState extends State<GameScreen> {
   /// 音声入力を解析してスコアを適用する。スコアを確定した場合 true を返す
   bool _processVoiceInput(String text) {
     if (isSetFinished) return false;
+
+    // 音声Undo検出（日本語のみ）
+    if ((widget.appLocale?.languageCode ?? 'ja') == 'ja') {
+      final n = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
+      if (n.contains('戻る') || n.contains('戻って') || n.contains('戻り') ||
+          n.contains('取り消し') || n.contains('とりけし')) {
+        HapticFeedback.mediumImpact();
+        SystemSound.play(SystemSoundType.click);
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('🎤 $text'),
+          duration: const Duration(milliseconds: 1500),
+          backgroundColor: Colors.orange.shade700,
+        ));
+        _undo();
+        return true;
+      }
+    }
+
     final score = _parseVoiceScore(text);
     if (score == null) return false;
 
@@ -838,33 +857,58 @@ class _GameScreenState extends State<GameScreen> {
         .replaceAll('ポイント', '点')
         .replaceAll('ポイン', '点');
 
-    // 1. アラビア数字「N点」「Nてん」(1〜12) を最初にチェック
+    // 1. アラビア数字「N点/てん/店/手」(1〜12) を最初にチェック
     //    ※ ミス判定より先に行うことで「10点」→「0」誤マッチを防ぐ
-    final digitMatch = RegExp(r'([0-9]{1,2})(?:点|てん)').firstMatch(ja);
+    //    店/手 を追加してSTT誤変換（1店、2手 等）に対応
+    final digitMatch = RegExp(r'([0-9]{1,2})(?:点|てん|店|手)').firstMatch(ja);
     if (digitMatch != null) {
       final n = int.tryParse(digitMatch.group(1)!);
       if (n != null && n >= 1 && n <= 12) return n;
     }
 
-    // 2. 日本語数字「N点」「Nてん」（長いパターンを先に照合して誤マッチを防ぐ）
-    //    「点/てん」サフィックスを必須とすることで「ごめん」「ろくに」等の誤マッチを防ぐ
-    //    「じゅっ」を追加: STTが「じゅってん」と出力する場合に対応（じゅうてん=10点）
+    // 2. 日本語数字（長いパターンを先に照合して誤マッチを防ぐ）
+    //    サフィックスに 店/手/転 を追加: 一手、一転、十手 等の誤変換に対応
+    //    はっ を追加: はってん系（発展）をカナで出力した場合に対応
+    //    銃に を追加: じゅうに系をSTTが漢字で出力する場合に対応
     const jpScoreList = <(String, int)>[
-      ('じゅうに', 12), ('十二', 12), ('じゅういち', 11), ('十一', 11),
-      ('じゅっ', 10), ('じゅう', 10), ('十', 10), ('きゅう', 9), ('九', 9),
-      ('はち', 8), ('八', 8), ('なな', 7), ('しち', 7), ('七', 7),
-      ('ろく', 6), ('六', 6), ('ご', 5), ('五', 5),
-      ('よん', 4), ('よっ', 4), ('四', 4), ('さん', 3), ('三', 3),
-      ('に', 2), ('二', 2), ('いっ', 1), ('いち', 1), ('一', 1),
+      ('じゅうに', 12), ('十二', 12), ('銃に', 12),
+      ('じゅういち', 11), ('十一', 11),
+      ('じゅっ', 10), ('じゅう', 10), ('十', 10),
+      ('きゅう', 9), ('九', 9),
+      ('はっ', 8), ('はち', 8), ('八', 8),
+      ('なな', 7), ('しち', 7), ('七', 7),
+      ('ろく', 6), ('六', 6),
+      ('ご', 5), ('五', 5),
+      ('よん', 4), ('よっ', 4), ('四', 4),
+      ('さん', 3), ('三', 3),
+      ('に', 2), ('二', 2),
+      ('いっ', 1), ('いち', 1), ('一', 1),
     ];
     for (final (jp, score) in jpScoreList) {
-      if (RegExp('${RegExp.escape(jp)}(?:てん|点)').hasMatch(ja)) return score;
+      if (RegExp('${RegExp.escape(jp)}(?:てん|点|店|手|転)').hasMatch(ja)) return score;
     }
 
-    // 3. ミス判定: フォルト / 0点 / 0ポイント（スコアチェック後に行うことで「10点」誤検知を防ぐ）
+    // 3. STTが出力する同音異義語・誤変換フレーズ（長いパターンを先に照合）
+    const jaHomophones = <(String, int)>[
+      ('銃に店', 12), ('住人', 12),              // 12点（じゅうにてん/じゅうにん）
+      ('獣医点', 11), ('10移転', 11),             // 11点（じゅういちてん）
+      ('ジュテーム', 10), ('じゅてーむ', 10),     // 10点（じゅうてん）
+      ('休店', 9), ('急転', 9),                   // 9点（きゅうてん）
+      ('発展', 8), ('はってん', 8), ('鉢店', 8),  // 8点（はってん）
+      ('御殿', 5),                                // 5点（ごてん）
+      ('位置点', 1), ('移転', 1),                 // 1点（いちてん）
+      ('銃に', 12),                               // 12点 サフィックスなし
+    ];
+    for (final (word, score) in jaHomophones) {
+      if (ja.contains(word)) return score;
+    }
+
+    // 4. ミス判定: フォルト / 0点 / 0手 / 零点 / 霊点 / 露天 / 露店
+    //    （スコアチェック後に行うことで「10点」誤検知を防ぐ）
     if (ja.contains('フォルト') || ja.contains('ふぉると') ||
-        RegExp(r'(?<![0-9０-９])[0０](?:点|てん)').hasMatch(ja) ||
-        RegExp(r'(?:ゼロ|ぜろ)(?:点|てん)').hasMatch(ja)) {
+        RegExp(r'(?<![0-9０-９])[0０](?:点|てん|店|手)').hasMatch(ja) ||
+        RegExp(r'(?:ゼロ|ぜろ|零|霊|れい)(?:点|てん|店)').hasMatch(ja) ||
+        ja.contains('露天') || ja.contains('露店')) {
       return -1;
     }
 
@@ -1946,13 +1990,12 @@ class HelpPage extends StatelessWidget {
     ),
     const _HelpSection(
       title: '3. 音声でスコアを入力する（音声入力ON時）',
-      body: 'マイクに向かって得点を話しかけるだけで自動的に入力されます。ウェイクワード不要！',
-      examplesLabel: '話し方の例：',
+      body: 'マイクに向かって得点を話しかけると自動的に入力されます。',
+      examplesLabel: '例：',
       examples: [
-        '「10点」「10ポイント」',
-        '「じゅう点」「十点」',
-        '「5点」「ご点」',
-        '「フォルト」「0点」「0ポイント」（ミスの場合）',
+        '「1点」〜「12点」',
+        '「フォルト」（ミスの場合）',
+        '「戻る」「取り消し」（直前の入力を取り消し）',
       ],
       note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
     ),
