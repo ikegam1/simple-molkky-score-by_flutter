@@ -863,7 +863,7 @@ class _GameScreenState extends State<GameScreen> {
 
     // 3. ミス判定: フォルト / 0点 / 0ポイント（スコアチェック後に行うことで「10点」誤検知を防ぐ）
     if (ja.contains('フォルト') || ja.contains('ふぉると') ||
-        RegExp(r'(?<![0-9])0(?:点|てん)').hasMatch(ja) ||
+        RegExp(r'(?<![0-9０-９])[0０](?:点|てん)').hasMatch(ja) ||
         RegExp(r'(?:ゼロ|ぜろ)(?:点|てん)').hasMatch(ja)) {
       return -1;
     }
