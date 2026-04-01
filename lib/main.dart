@@ -745,6 +745,25 @@ class _GameScreenState extends State<GameScreen> {
   /// 音声入力を解析してスコアを適用する。スコアを確定した場合 true を返す
   bool _processVoiceInput(String text) {
     if (isSetFinished) return false;
+
+    // 音声Undo検出（日本語のみ）
+    if ((widget.appLocale?.languageCode ?? 'ja') == 'ja') {
+      final n = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
+      if (n.contains('戻る') || n.contains('戻って') || n.contains('戻り') ||
+          n.contains('取り消し') || n.contains('とりけし')) {
+        HapticFeedback.mediumImpact();
+        SystemSound.play(SystemSoundType.click);
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('🎤 $text'),
+          duration: const Duration(milliseconds: 1500),
+          backgroundColor: Colors.orange.shade700,
+        ));
+        _undo();
+        return true;
+      }
+    }
+
     final score = _parseVoiceScore(text);
     if (score == null) return false;
 
@@ -802,6 +821,47 @@ class _GameScreenState extends State<GameScreen> {
     return -1;
   }
 
+  /// 日本語音声テキストをひらがな読みに正規化する
+  /// カタカナ→ひらがな変換後、同音異義語・漢字をひらがなに展開する
+  /// これにより _parseVoiceScore の照合を単純なひらがなマッチに統一できる
+  String _normalizeJaPhonetic(String text) {
+    // 句読点・空白を除去
+    var s = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
+    // 全角数字→半角数字
+    s = s.replaceAllMapped(RegExp(r'[０-９]'),
+        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0xFF10 + 0x30));
+    // カタカナ→ひらがな（U+30A1–U+30F6 の範囲; 長音符「ー」は対象外）
+    s = s.replaceAllMapped(RegExp(r'[\u30A1-\u30F6]'),
+        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0x60));
+    // 同音異義語フレーズ・漢字数字をひらがなに変換（長いものを先に処理）
+    const map = [
+      // 長音符を含むパターン（カタカナ→ひらがな変換後に対処）
+      ('じゅてーむ', 'じゅうてん'),       // ジュテーム (je t'aime)
+      // 同音異義語フレーズ
+      ('銃に店', 'じゅうにてん'), ('銃に', 'じゅうにてん'),
+      ('獣医点', 'じゅういちてん'), ('10移転', 'じゅういちてん'),
+      ('住人', 'じゅうにてん'),
+      ('発展', 'はってん'), ('鉢店', 'はちてん'),
+      ('御殿', 'ごてん'),
+      ('休店', 'きゅうてん'), ('急転', 'きゅうてん'),
+      ('位置点', 'いちてん'), ('移転', 'いちてん'),
+      // 漢字数字（長い順）
+      ('十二', 'じゅうに'), ('十一', 'じゅういち'), ('十', 'じゅう'),
+      ('九', 'きゅう'), ('八', 'はち'), ('七', 'なな'),
+      ('六', 'ろく'), ('五', 'ご'), ('四', 'よん'),
+      ('三', 'さん'), ('二', 'に'), ('一', 'いち'),
+      // 点数サフィックス（漢字・カタカナ）
+      ('ポイント', 'てん'), ('ポイン', 'てん'),
+      ('点', 'てん'), ('店', 'てん'), ('手', 'てん'), ('転', 'てん'),
+      // ミス関連漢字
+      ('零', 'れい'), ('霊', 'れい'),
+    ];
+    for (final (from, to) in map) {
+      s = s.replaceAll(from, to);
+    }
+    return s;
+  }
+
   /// テキストから点数を解析する。
   /// ロケールが日本語の場合はウェイクワード不要。英語版はウェイクワード必須のまま。
   /// 戻り値: 1〜12=ピン番号、-1=ミス、null=認識失敗
@@ -833,38 +893,34 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     // === 日本語パス: ウェイクワード不要 ===
-    // 「ポイント」→「点」に統一（「0ポイント」「10ポイント」に対応）
-    final ja = normalized
-        .replaceAll('ポイント', '点')
-        .replaceAll('ポイン', '点');
+    // 先にひらがなへ正規化することで漢字・カタカナ・同音異義語を統一処理できる
+    final ja = _normalizeJaPhonetic(text);
 
-    // 1. アラビア数字「N点」「Nてん」(1〜12) を最初にチェック
-    //    ※ ミス判定より先に行うことで「10点」→「0」誤マッチを防ぐ
-    final digitMatch = RegExp(r'([0-9]{1,2})(?:点|てん)').firstMatch(ja);
+    // 1. アラビア数字 + てん (1-12)
+    //    正規化後はサフィックスが全て「てん」に統一されている
+    final digitMatch = RegExp(r'([0-9]{1,2})てん').firstMatch(ja);
     if (digitMatch != null) {
       final n = int.tryParse(digitMatch.group(1)!);
       if (n != null && n >= 1 && n <= 12) return n;
     }
 
-    // 2. 日本語数字「N点」「Nてん」（長いパターンを先に照合して誤マッチを防ぐ）
-    //    「点/てん」サフィックスを必須とすることで「ごめん」「ろくに」等の誤マッチを防ぐ
-    //    「じゅっ」を追加: STTが「じゅってん」と出力する場合に対応（じゅうてん=10点）
+    // 2. ひらがな数字 + てん（長いパターンを先に照合して部分一致を防ぐ）
     const jpScoreList = <(String, int)>[
-      ('じゅうに', 12), ('十二', 12), ('じゅういち', 11), ('十一', 11),
-      ('じゅっ', 10), ('じゅう', 10), ('十', 10), ('きゅう', 9), ('九', 9),
-      ('はち', 8), ('八', 8), ('なな', 7), ('しち', 7), ('七', 7),
-      ('ろく', 6), ('六', 6), ('ご', 5), ('五', 5),
-      ('よん', 4), ('よっ', 4), ('四', 4), ('さん', 3), ('三', 3),
-      ('に', 2), ('二', 2), ('いっ', 1), ('いち', 1), ('一', 1),
+      ('じゅうに', 12), ('じゅういち', 11),
+      ('じゅっ', 10), ('じゅう', 10),
+      ('きゅう', 9), ('はっ', 8), ('はち', 8),
+      ('なな', 7), ('しち', 7), ('ろく', 6), ('ご', 5),
+      ('よん', 4), ('よっ', 4), ('さん', 3), ('に', 2),
+      ('いっ', 1), ('いち', 1),
     ];
     for (final (jp, score) in jpScoreList) {
-      if (RegExp('${RegExp.escape(jp)}(?:てん|点)').hasMatch(ja)) return score;
+      if (ja.contains('${jp}てん')) return score;
     }
 
-    // 3. ミス判定: フォルト / 0点 / 0ポイント（スコアチェック後に行うことで「10点」誤検知を防ぐ）
-    if (ja.contains('フォルト') || ja.contains('ふぉると') ||
-        RegExp(r'(?<![0-9０-９])[0０](?:点|てん)').hasMatch(ja) ||
-        RegExp(r'(?:ゼロ|ぜろ)(?:点|てん)').hasMatch(ja)) {
+    // 3. ミス判定（スコアチェック後; 「10てん」→「0」誤マッチを防ぐ）
+    if (ja.contains('ふぉると') ||
+        RegExp(r'(?<![0-9])0てん').hasMatch(ja) ||
+        ja.contains('ぜろてん') || ja.contains('れいてん')) {
       return -1;
     }
 
@@ -1946,13 +2002,12 @@ class HelpPage extends StatelessWidget {
     ),
     const _HelpSection(
       title: '3. 音声でスコアを入力する（音声入力ON時）',
-      body: 'マイクに向かって得点を話しかけるだけで自動的に入力されます。ウェイクワード不要！',
-      examplesLabel: '話し方の例：',
+      body: 'マイクに向かって得点を話しかけると自動的に入力されます。',
+      examplesLabel: '例：',
       examples: [
-        '「10点」「10ポイント」',
-        '「じゅう点」「十点」',
-        '「5点」「ご点」',
-        '「フォルト」「0点」「0ポイント」（ミスの場合）',
+        '「1点」〜「12点」',
+        '「フォルト」（ミスの場合）',
+        '「戻る」「取り消し」（直前の入力を取り消し）',
       ],
       note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
     ),
