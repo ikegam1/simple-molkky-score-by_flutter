@@ -838,25 +838,20 @@ class _GameScreenState extends State<GameScreen> {
         .replaceAll('ポイント', '点')
         .replaceAll('ポイン', '点');
 
-    // ミス判定: フォルト / 0点 / 0ポイント（「ミス」は意図的に除外）
-    if (ja.contains('フォルト') || ja.contains('ふぉると') ||
-        RegExp(r'[0０](?:点|てん)').hasMatch(ja) ||
-        RegExp(r'(?:ゼロ|ぜろ)(?:点|てん)').hasMatch(ja)) {
-      return -1;
-    }
-
-    // アラビア数字「N点」「Nてん」(1〜12)
+    // 1. アラビア数字「N点」「Nてん」(1〜12) を最初にチェック
+    //    ※ ミス判定より先に行うことで「10点」→「0」誤マッチを防ぐ
     final digitMatch = RegExp(r'([0-9]{1,2})(?:点|てん)').firstMatch(ja);
     if (digitMatch != null) {
       final n = int.tryParse(digitMatch.group(1)!);
       if (n != null && n >= 1 && n <= 12) return n;
     }
 
-    // 日本語数字「N点」「Nてん」（長いパターンを先に照合して誤マッチを防ぐ）
-    // 「点/てん」サフィックスを必須とすることで「ごめん」「ろくに」等の誤マッチを防ぐ
+    // 2. 日本語数字「N点」「Nてん」（長いパターンを先に照合して誤マッチを防ぐ）
+    //    「点/てん」サフィックスを必須とすることで「ごめん」「ろくに」等の誤マッチを防ぐ
+    //    「じゅっ」を追加: STTが「じゅってん」と出力する場合に対応（じゅうてん=10点）
     const jpScoreList = <(String, int)>[
       ('じゅうに', 12), ('十二', 12), ('じゅういち', 11), ('十一', 11),
-      ('じゅう', 10), ('十', 10), ('きゅう', 9), ('九', 9),
+      ('じゅっ', 10), ('じゅう', 10), ('十', 10), ('きゅう', 9), ('九', 9),
       ('はち', 8), ('八', 8), ('なな', 7), ('しち', 7), ('七', 7),
       ('ろく', 6), ('六', 6), ('ご', 5), ('五', 5),
       ('よん', 4), ('よっ', 4), ('四', 4), ('さん', 3), ('三', 3),
@@ -864,6 +859,13 @@ class _GameScreenState extends State<GameScreen> {
     ];
     for (final (jp, score) in jpScoreList) {
       if (RegExp('${RegExp.escape(jp)}(?:てん|点)').hasMatch(ja)) return score;
+    }
+
+    // 3. ミス判定: フォルト / 0点 / 0ポイント（スコアチェック後に行うことで「10点」誤検知を防ぐ）
+    if (ja.contains('フォルト') || ja.contains('ふぉると') ||
+        RegExp(r'(?<![0-9])0(?:点|てん)').hasMatch(ja) ||
+        RegExp(r'(?:ゼロ|ぜろ)(?:点|てん)').hasMatch(ja)) {
+      return -1;
     }
 
     return null;
