@@ -636,11 +636,10 @@ class _GameScreenState extends State<GameScreen> {
         if (!mounted) return;
         setState(() {});
         // 'done' のみで再起動。
-        // 'notListening' は listen() 直後にも発火するため、
-        // ここで再起動するとループ（緑点滅）の原因になる。
+        // 'notListening' は listen() 直後にも発火するため除外。
         if (status == 'done' && !isSetFinished && _voiceActive) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (_voiceActive) _startListening();
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted && _voiceActive && !_speech.isListening) _startListening();
           });
         }
       },
@@ -648,7 +647,11 @@ class _GameScreenState extends State<GameScreen> {
         debugPrint('Speech error: ${error.errorMsg}');
         if (!mounted) return;
         setState(() {});
-        if (!isSetFinished && _voiceActive) Future.delayed(const Duration(seconds: 1), _startListening);
+        if (!isSetFinished && _voiceActive) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted && _voiceActive && !_speech.isListening) _startListening();
+          });
+        }
       },
     );
     if (_speechAvailable) {
@@ -685,10 +688,10 @@ class _GameScreenState extends State<GameScreen> {
       setState(() => _autoMicActive = false);
       _speech.stop();
     });
-    // 必ず stop してから少し待って再スタート（エンジンのリセットを確実にする）
+    // stop してから再スタート（前セッションのクリーンリセット）
     _speech.stop();
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted && _voiceActive) _startListening();
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted && _voiceActive && !_speech.isListening) _startListening();
     });
   }
 
@@ -696,12 +699,16 @@ class _GameScreenState extends State<GameScreen> {
     _elapsedTimer?.cancel();
     setState(() => _elapsedSeconds = 0);
     if (isSetFinished) return;
-    if (_autoMicActive) _startAutoMic();
+    // _startAutoMic の呼び出しは呼び出し元に任せる（二重呼び出し防止）
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) { _elapsedTimer?.cancel(); return; }
       setState(() => _elapsedSeconds++);
       if (_elapsedSeconds == 60) {
         SystemSound.play(SystemSoundType.alert);
+      }
+      // ハートビート: 音声認識が意図せず停止していたら再起動
+      if (_voiceActive && !_speech.isListening && !isSetFinished) {
+        _startListening();
       }
     });
   }
@@ -715,10 +722,10 @@ class _GameScreenState extends State<GameScreen> {
         if (!mounted || _listenSessionId != sessionId) return;
         setState(() => _voiceText = result.recognizedWords);
 
-        // 途中結果：3秒フォールバックタイマー（finalResultが遅い端末への保険）
+        // 途中結果: フォールバックタイマー（finalResultが遅い端末への保険）
         _speechConfirmTimer?.cancel();
         if (!result.finalResult && result.recognizedWords.trim().isNotEmpty) {
-          _speechConfirmTimer = Timer(const Duration(milliseconds: 1500), () {
+          _speechConfirmTimer = Timer(const Duration(milliseconds: 800), () {
             if (mounted && _voiceActive && _listenSessionId == sessionId) {
               final handled = _processVoiceInput(result.recognizedWords);
               if (handled) {
@@ -738,7 +745,7 @@ class _GameScreenState extends State<GameScreen> {
       },
       localeId: _localeId ?? (widget.appLocale?.languageCode == 'en' ? 'en-US' : 'ja-JP'),
       listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 2),
+      pauseFor: const Duration(seconds: 1),
     );
   }
 
@@ -850,8 +857,10 @@ class _GameScreenState extends State<GameScreen> {
       ('九', 'きゅう'), ('八', 'はち'), ('七', 'なな'),
       ('六', 'ろく'), ('五', 'ご'), ('四', 'よん'),
       ('三', 'さん'), ('二', 'に'), ('一', 'いち'),
-      // 点数サフィックス（漢字・カタカナ）
-      ('ポイント', 'てん'), ('ポイン', 'てん'),
+      // 点数サフィックス（漢字・ひらがな）
+      // ※ カタカナ→ひらがな変換後にこのテーブルが適用されるため
+      //   ポイント→ぽいんと に変換済みのひらがな表記で照合する
+      ('ぽいんと', 'てん'), ('ぽいん', 'てん'),
       ('点', 'てん'), ('店', 'てん'), ('手', 'てん'), ('転', 'てん'),
       // ミス関連漢字
       ('零', 'れい'), ('霊', 'れい'),
@@ -1352,10 +1361,17 @@ class _GameScreenState extends State<GameScreen> {
     return GestureDetector(
       onTapDown: (_) {
         setState(() => _micHeld = true);
-        if (!_speech.isListening) _startListening();
+        if (!_autoMicActive) {
+          // 60秒タイムアウト後のタップ → 自動マイクを再起動
+          _startAutoMic();
+          _resetElapsedTimer();
+        } else if (!_speech.isListening) {
+          _startListening();
+        }
       },
       onTapUp: (_) {
         setState(() => _micHeld = false);
+        // _autoMicActive が true（再開直後含む）なら止めない
         if (!_autoMicActive) _speech.stop();
       },
       onTapCancel: () {
@@ -1555,7 +1571,11 @@ class _GameScreenState extends State<GameScreen> {
                 Expanded(flex: 2, child: ElevatedButton(onPressed: _submitThrow, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline), Text(selectedSkitels.isEmpty ? ' 0 ${t.get('pts')} (${t.get('miss')})' : ' ${t.get('confirm')} (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length} ${t.get('pts')})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]))),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: _resetElapsedTimer,
+                  onTap: () {
+                    // タイムアウト後でも確実に音声待ち受けを再開する
+                    _startAutoMic();
+                    _resetElapsedTimer();
+                  },
                   child: SizedBox(
                     width: 52,
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
