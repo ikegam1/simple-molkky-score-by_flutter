@@ -1406,52 +1406,44 @@ class _GameScreenState extends State<GameScreen> {
     final players = widget.match.players;
     final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
 
-    final String scoreText;
+    const color = Color(0xFF39FF14);
+    const bigStyle = TextStyle(fontSize: 40, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: color, letterSpacing: 1.5);
+    const smallStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Courier', color: color, letterSpacing: 1.0);
+    const sepStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: color);
+
+    List<InlineSpan> spans;
     if (isHyakinSet2) {
-      if (players.length == 2) {
-        final a = players[0];
-        final b = players[1];
-        final aSet1 = a.setFinalScores.isNotEmpty ? a.setFinalScores[0] : 0;
-        final bSet1 = b.setFinalScores.isNotEmpty ? b.setFinalScores[0] : 0;
-        scoreText = '${aSet1 + a.currentScore}${_stars(a.setsWon)} - ${bSet1 + b.currentScore}${_stars(b.setsWon)}';
-      } else {
-        scoreText = players.map((p) {
-          final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-          return '${p.name} ${s1 + p.currentScore}${_stars(p.setsWon)}';
-        }).join('  -  ');
+      spans = [];
+      for (int i = 0; i < players.length; i++) {
+        final p = players[i];
+        final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+        if (players.length > 2) spans.add(TextSpan(text: '${p.name} ', style: smallStyle));
+        spans.add(TextSpan(text: '${s1 + p.currentScore}', style: bigStyle));
+        if (_stars(p.setsWon).isNotEmpty) spans.add(TextSpan(text: _stars(p.setsWon), style: smallStyle));
+        if (i < players.length - 1) spans.add(TextSpan(text: ' - ', style: sepStyle));
       }
     } else {
       final showTotal = widget.match.currentSetIndex > 1;
-      if (players.length == 2) {
-        final a = players[0];
-        final b = players[1];
-        final aScore = showTotal ? '${a.currentScore}(${_runningTotal(a)})' : '${a.currentScore}';
-        final bScore = showTotal ? '${b.currentScore}(${_runningTotal(b)})' : '${b.currentScore}';
-        scoreText = '$aScore${_stars(a.setsWon)} - $bScore${_stars(b.setsWon)}';
-      } else {
-        scoreText = players.map((p) {
-          final score = showTotal ? '${p.currentScore}(${_runningTotal(p)})' : '${p.currentScore}';
-          return '${p.name} $score${_stars(p.setsWon)}';
-        }).join('  -  ');
+      spans = [];
+      for (int i = 0; i < players.length; i++) {
+        final p = players[i];
+        if (players.length > 2) spans.add(TextSpan(text: '${p.name} ', style: smallStyle));
+        spans.add(TextSpan(text: '${p.currentScore}', style: bigStyle));
+        if (showTotal) spans.add(TextSpan(text: '(${_runningTotal(p)})', style: smallStyle));
+        if (_stars(p.setsWon).isNotEmpty) spans.add(TextSpan(text: _stars(p.setsWon), style: smallStyle));
+        if (i < players.length - 1) spans.add(TextSpan(text: ' - ', style: sepStyle));
       }
     }
 
     return Container(
       width: double.infinity,
-      color: Colors.black,
+      color: const Color(0xFF2E2E2E),
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.center,
-        child: Text(
-          scoreText,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            fontFamily: 'Courier',
-            color: Color(0xFF39FF14),
-            letterSpacing: 1.5,
-          ),
+        child: RichText(
+          text: TextSpan(children: spans),
         ),
       ),
     );
@@ -1517,41 +1509,48 @@ class _GameScreenState extends State<GameScreen> {
                   ),
               ],
             )),
-          Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
-            child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-              child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
-                columns: [DataColumn(label: SizedBox(width: 40, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) => [DataColumn(label: Container(width: 80, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: TextStyle(fontSize: 12, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold)), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(t.get('points'), style: const TextStyle(fontSize: 9)), Text(t.get('total'), style: const TextStyle(fontSize: 9))])])))])],
-                rows: List.generate(currentTurnInSet, (i) {
-                  int turn = currentTurnInSet - i;
-                  final isCurrent = i == 0;
-                  return DataRow(
-                    color: isCurrent ? WidgetStateProperty.all(const Color(0xFFFFF9C4)) : null,
-                    cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
-                      int score = 0, total = 0;
-                      bool hasScore = p.scoreHistory.length >= turn;
-                      final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
-                      if (hasScore) {
-                        score = p.scoreHistory[turn - 1];
-                        if (isHyakinSet2) {
-                          final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-                          final pTarget = 100 - pSet1;
-                          final pBurst = 75 - pSet1;
-                          int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > pTarget) tmp = pBurst; }
-                          total = pSet1 + tmp; // combined total (Set 1 + Set 2)
-                        } else {
-                          int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
-                          total = tmp;
+          Expanded(child: LayoutBuilder(builder: (ctx, constraints) {
+            const turnColW = 44.0;
+            final numPlayers = widget.match.players.length;
+            final playerColW = ((constraints.maxWidth * 0.97 - turnColW) / numPlayers).clamp(80.0, 240.0);
+            final cellW = (playerColW / 2).floorToDouble();
+            final headerNameSize = (cellW * 0.14).clamp(9.0, 13.0);
+            final headerSubSize = (cellW * 0.11).clamp(8.0, 10.0);
+            return Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
+              child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+                child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
+                  columns: [DataColumn(label: SizedBox(width: turnColW, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) => [DataColumn(label: Container(width: playerColW, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: TextStyle(fontSize: headerNameSize, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold)), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(t.get('points'), style: TextStyle(fontSize: headerSubSize)), Text(t.get('total'), style: TextStyle(fontSize: headerSubSize))])])))])],
+                  rows: List.generate(currentTurnInSet, (i) {
+                    int turn = currentTurnInSet - i;
+                    final isCurrent = i == 0;
+                    return DataRow(
+                      color: isCurrent ? WidgetStateProperty.all(const Color(0xFFFFF9C4)) : null,
+                      cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
+                        int score = 0, total = 0;
+                        bool hasScore = p.scoreHistory.length >= turn;
+                        final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
+                        if (hasScore) {
+                          score = p.scoreHistory[turn - 1];
+                          if (isHyakinSet2) {
+                            final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+                            final pTarget = 100 - pSet1;
+                            final pBurst = 75 - pSet1;
+                            int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > pTarget) tmp = pBurst; }
+                            total = pSet1 + tmp; // combined total (Set 1 + Set 2)
+                          } else {
+                            int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
+                            total = tmp;
+                          }
                         }
-                      }
-                      final fontSize = isCurrent ? 17.0 : 15.0;
-                      return [DataCell(Row(children: [
-                        Container(width: 40, alignment: Alignment.center, child: Text(hasScore ? '$score' : '', style: TextStyle(fontSize: fontSize))),
-                        Container(width: 40, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize)))]))];
-                    })]);
-                }),
-              ),
-            ))),
-          ),
+                        final fontSize = (cellW * 0.35).clamp(11.0, isCurrent ? 17.0 : 15.0);
+                        return [DataCell(Row(children: [
+                          Container(width: cellW, alignment: Alignment.center, child: Text(hasScore ? '$score' : '', style: TextStyle(fontSize: fontSize))),
+                          Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize)))]))];
+                      })]);
+                  }),
+                ),
+              )));
+          })),
           Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
               LayoutBuilder(builder: (_, gc) {
