@@ -97860,7 +97860,7 @@ if(s.c==null){s=s.CW
 if(s!=null)s.bc()
 return}s.a9(new A.avY(s))
 if(s.ch===60)A.oj(B.HA)
-if((s.at||s.ax)&&!s.y.c&&!s.r)s.uO()},
+if((s.at||s.ax)&&!s.y.c&&!s.r&&B.e.ah(s.ch,5)===0)s.uO()},
 $S:97}
 A.avY.prototype={
 $0(){return this.a.ch++},
