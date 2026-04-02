@@ -1512,8 +1512,14 @@ class _GameScreenState extends State<GameScreen> {
             )),
           Expanded(child: LayoutBuilder(builder: (ctx, constraints) {
             const turnColW = 44.0;
+            const dtHMargin = 24.0;   // DataTable のデフォルト horizontalMargin
+            const containerMargin = 16.0; // Container margin: 8px × 2
+            const colSpacing = 10.0;
             final numPlayers = widget.match.players.length;
-            final playerColW = ((constraints.maxWidth * 0.97 - turnColW) / numPlayers).clamp(80.0, 240.0);
+            // DataTable 実幅 = dtHMargin*2 + turnColW + colSpacing*numPlayers + playerColW*numPlayers
+            // 利用可能幅 = constraints.maxWidth - containerMargin
+            final available = constraints.maxWidth - containerMargin;
+            final playerColW = ((available - 2 * dtHMargin - turnColW - colSpacing * numPlayers) / numPlayers).clamp(60.0, 200.0);
             final cellW = (playerColW / 2).floorToDouble();
             final headerNameSize = (cellW * 0.14).clamp(9.0, 13.0);
             final headerSubSize = (cellW * 0.11).clamp(8.0, 10.0);
