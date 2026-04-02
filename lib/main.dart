@@ -706,8 +706,9 @@ class _GameScreenState extends State<GameScreen> {
       if (_elapsedSeconds == 60) {
         SystemSound.play(SystemSoundType.alert);
       }
-      // ハートビート: 音声認識が意図せず停止していたら再起動
-      if (_voiceActive && !_speech.isListening && !isSetFinished) {
+      // ハートビート: pauseFor 経過直後に isListening=false になる窓でのセッション破壊を防ぐため
+      // 経過秒が5の倍数のときのみ再起動を試みる（1秒周期より干渉リスクを大幅低減）
+      if (_voiceActive && !_speech.isListening && !isSetFinished && _elapsedSeconds % 5 == 0) {
         _startListening();
       }
     });
