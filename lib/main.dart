@@ -926,7 +926,15 @@ class _GameScreenState extends State<GameScreen> {
       if (ja.contains('${jp}てん')) return score;
     }
 
-    // 3. ミス判定（スコアチェック後; 「10てん」→「0」誤マッチを防ぐ）
+    // 3. 裸のアラビア数字 1-12（STTが「点」を省略した場合のフォールバック）
+    //    例: STT が「10点」→「10」と返した場合にもスコアとして認識する
+    final bareMatch = RegExp(r'^([0-9]{1,2})$').firstMatch(ja);
+    if (bareMatch != null) {
+      final n = int.tryParse(bareMatch.group(1)!);
+      if (n != null && n >= 1 && n <= 12) return n;
+    }
+
+    // 4. ミス判定（スコアチェック後; 「10てん」→「0」誤マッチを防ぐ）
     if (ja.contains('ふぉると') ||
         RegExp(r'(?<![0-9])0てん').hasMatch(ja) ||
         ja.contains('ぜろてん') || ja.contains('れいてん')) {
