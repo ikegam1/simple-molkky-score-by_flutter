@@ -745,7 +745,7 @@ class _GameScreenState extends State<GameScreen> {
       },
       localeId: _localeId ?? (widget.appLocale?.languageCode == 'en' ? 'en-US' : 'ja-JP'),
       listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 1),
+      pauseFor: const Duration(milliseconds: 1500),
     );
   }
 
