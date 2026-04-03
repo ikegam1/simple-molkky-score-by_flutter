@@ -98272,9 +98272,9 @@ A.avF.prototype={
 $0(){return this.a.at=!1},
 $S:0}
 A.awP.prototype={
-$2(a,b){var s=null,r=this.a,q=B.d.dl((b.b*0.97-44)/r.a.c.a.length,80,240),p=Math.floor(q/2),o=B.d.dl(p*0.14,9,13),n=B.d.dl(p*0.11,8,10),m=A.aKJ(B.ec),l=new A.aJ(B.ec,1,B.v,-1),k=this.b,j=A.b([A.a8S(A.eD(A.aw(k.aX("turn_label"),s,s,s,s,s,s),s,44))],t.UR),i=r.a.c.a
-B.b.Z(j,new A.e7(i,new A.awN(q,o,this.c,k,n),A.S(i).i("e7<1,jY>")))
-return A.eu(s,A.Ux(A.Ux(A.aLl(new A.V5(l,l,l,l,l,l,B.a9),10,j,40,30,new A.b0(B.dq,t.rc),40,A.afd(r.f,new A.awO(r,p),!0,t.VZ)),s,B.aB),s,B.an),B.A,s,s,new A.dJ(s,s,m,s,s,s,B.b1),s,s,B.pT,s,s,s,s)},
+$2(a,b){var s=null,r=this.a,q=r.a.c.a.length,p=B.d.dl((b.b-16-48-44-10*q)/q,60,200),o=Math.floor(p/2),n=B.d.dl(o*0.14,9,13),m=B.d.dl(o*0.11,8,10),l=A.aKJ(B.ec),k=new A.aJ(B.ec,1,B.v,-1),j=this.b,i=A.b([A.a8S(A.eD(A.aw(j.aX("turn_label"),s,s,s,s,s,s),s,44))],t.UR),h=r.a.c.a
+B.b.Z(i,new A.e7(h,new A.awN(p,n,this.c,j,m),A.S(h).i("e7<1,jY>")))
+return A.eu(s,A.Ux(A.Ux(A.aLl(new A.V5(k,k,k,k,k,k,B.a9),10,i,40,30,new A.b0(B.dq,t.rc),40,A.afd(r.f,new A.awO(r,o),!0,t.VZ)),s,B.aB),s,B.an),B.A,s,s,new A.dJ(s,s,l,s,s,s,B.b1),s,s,B.pT,s,s,s,s)},
 $S:622}
 A.awN.prototype={
 $1(a){var s=this,r=null,q=a===s.c?B.bU:B.o,p=s.d,o=s.e,n=t.p
