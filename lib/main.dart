@@ -600,6 +600,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _speechAvailable = false;
   String? _localeId; // 利用可能なSTTロケールID
   String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
+  String _lastInterimText = ''; // finalResultが空だった場合のフォールバック用
 
   bool _micHeld = false;          // user is holding mic button
   bool _autoMicActive = false;    // 60s auto mode is active
@@ -726,6 +727,7 @@ class _GameScreenState extends State<GameScreen> {
         // 途中結果: フォールバックタイマー（finalResultが遅い端末への保険）
         _speechConfirmTimer?.cancel();
         if (!result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+          _lastInterimText = result.recognizedWords; // finalResult空時のフォールバック用に保存
           _speechConfirmTimer = Timer(const Duration(milliseconds: 800), () {
             if (mounted && _voiceActive && _listenSessionId == sessionId) {
               final handled = _processVoiceInput(result.recognizedWords);
@@ -740,7 +742,13 @@ class _GameScreenState extends State<GameScreen> {
 
         if (result.finalResult) {
           _speechConfirmTimer?.cancel();
-          _processVoiceInput(result.recognizedWords);
+          // finalResultのテキストが空の場合は直前のinterim結果をフォールバックとして使う
+          // （STTが認識済みテキストを空でfinalizeする端末への対応）
+          final finalText = result.recognizedWords.trim().isNotEmpty
+              ? result.recognizedWords
+              : _lastInterimText;
+          _lastInterimText = '';
+          _processVoiceInput(finalText);
           setState(() => _voiceText = '');
         }
       },
@@ -869,6 +877,7 @@ class _GameScreenState extends State<GameScreen> {
       ('誤', 'ご'), ('語', 'ご'), ('碁', 'ご'),
       ('禄', 'ろく'),
       ('蜂', 'はち'),
+      ('球', 'きゅう'),
       ('旧', 'きゅう'), ('急', 'きゅう'),
       ('重', 'じゅう'), ('銃', 'じゅう'), ('住', 'じゅう'), ('獣', 'じゅう'),
       // 漢字数字（長い順）
@@ -966,7 +975,7 @@ class _GameScreenState extends State<GameScreen> {
       'ろく': 6, 'six': 6, 'しっくす': 6,
       'なな': 7, 'しち': 7, 'seven': 7, 'せぶん': 7,
       'はち': 8, 'eight': 8, 'えいと': 8,
-      'きゅう': 9, 'nine': 9, 'ないん': 9,
+      'きゅう': 9, 'きゅー': 9, 'nine': 9, 'ないん': 9, 'q': 9,
       'じゅう': 10, 'ten': 10,  // 'てん' は除外: 数字接尾辞と衝突するため
       'じゅういち': 11, 'eleven': 11, 'いれぶん': 11,
       'じゅうに': 12, 'twelve': 12, 'とぅえるぶ': 12,
