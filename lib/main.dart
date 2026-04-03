@@ -600,6 +600,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _speechAvailable = false;
   String? _localeId; // 利用可能なSTTロケールID
   String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
+  String _lastInterimText = ''; // finalResultが空だった場合のフォールバック用
 
   bool _micHeld = false;          // user is holding mic button
   bool _autoMicActive = false;    // 60s auto mode is active
@@ -726,6 +727,7 @@ class _GameScreenState extends State<GameScreen> {
         // 途中結果: フォールバックタイマー（finalResultが遅い端末への保険）
         _speechConfirmTimer?.cancel();
         if (!result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+          _lastInterimText = result.recognizedWords; // finalResult空時のフォールバック用に保存
           _speechConfirmTimer = Timer(const Duration(milliseconds: 800), () {
             if (mounted && _voiceActive && _listenSessionId == sessionId) {
               final handled = _processVoiceInput(result.recognizedWords);
@@ -740,7 +742,13 @@ class _GameScreenState extends State<GameScreen> {
 
         if (result.finalResult) {
           _speechConfirmTimer?.cancel();
-          _processVoiceInput(result.recognizedWords);
+          // finalResultのテキストが空の場合は直前のinterim結果をフォールバックとして使う
+          // （STTが認識済みテキストを空でfinalizeする端末への対応）
+          final finalText = result.recognizedWords.trim().isNotEmpty
+              ? result.recognizedWords
+              : _lastInterimText;
+          _lastInterimText = '';
+          _processVoiceInput(finalText);
           setState(() => _voiceText = '');
         }
       },
