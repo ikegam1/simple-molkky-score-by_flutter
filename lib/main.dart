@@ -1018,6 +1018,7 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       // === Hyakin Set 2 mode: custom throw processing (must run before normal processThrow) ===
       if (widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2) {
+        final int hyakinPreMisses = player.consecutiveMisses;
         final set1Score = player.setFinalScores.isNotEmpty ? player.setFinalScores[0] : 0;
         GameLogic.processHyakinSet2Throw(player, selectedSkitels, widget.match, set1Score);
         int hyakinPoints = player.scoreHistory.last;
@@ -1053,7 +1054,7 @@ class _GameScreenState extends State<GameScreen> {
           widget.match.finalizeCurrentSetIfNeeded();
           final finalWinner = widget.match.matchWinner ?? hyakinWinner;
           _uploadMatchData(finalWinner);
-          _showMatchWinnerDialog(finalWinner);
+          _showMatchWinnerDialog(finalWinner, winMsg: _buildWinMessage(finalWinner, preMisses: hyakinPreMisses));
         } else {
           if (currentPlayerIndex == widget.match.players.length - 1) {
             widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
