@@ -96545,20 +96545,22 @@ o=A.adO(o,q?B.l:B.dn,r,20)
 return A.lm(r,new A.yr(o,B.pE,new A.dJ(p,r,r,r,r,r,B.kP),r,B.a6,B.W,r,r),B.am,!1,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,new A.avj(s),new A.avk(s),new A.avl(s),r,r,r)},
 a6K(){var s,r,q,p,o,n=null,m=this.a.c,l=m.a,k=m.f===B.cB&&m.r===2,j=t.VO
 if(k){s=A.b([],j)
-for(r=0;m=l.length,r<m;++r){q=l[r]
-j=q.z
-p=j.length!==0?j[0]:0
-if(m>2)s.push(new A.d0(q.b+" ",n,n,B.af,n,n,n,n,n,n,B.hp))
-m=q.d
+for(r=0;r<l.length;++r){q=l[r]
+m=q.z
+p=m.length!==0?m[0]:0
+m=q.b
+if(m.length!==0){m=m[0]
+s.push(new A.d0(m+" ",n,n,B.af,n,n,n,n,n,n,B.hp))}m=q.d
 s.push(new A.d0(""+(p+m),n,n,B.af,n,n,n,n,n,n,B.HI))
 m=q.r
 j=m<=0
 if((j?"":B.c.ad("\u2b50",m)).length!==0){m=j?"":B.c.ad("\u2b50",m)
 s.push(new A.d0(m,n,n,B.af,n,n,n,n,n,n,B.hp))}if(r<l.length-1)s.push(new A.d0(" - ",n,n,B.af,n,n,n,n,n,n,B.HC))}}else{o=m.r>1
 s=A.b([],j)
-for(r=0;m=l.length,r<m;++r){q=l[r]
-if(m>2)s.push(new A.d0(q.b+" ",n,n,B.af,n,n,n,n,n,n,B.hp))
-m=q.d
+for(r=0;r<l.length;++r){q=l[r]
+m=q.b
+if(m.length!==0){m=m[0]
+s.push(new A.d0(m+" ",n,n,B.af,n,n,n,n,n,n,B.hp))}m=q.d
 s.push(new A.d0(""+m,n,n,B.af,n,n,n,n,n,n,B.HI))
 if(o){m=this.aig(q)
 s.push(new A.d0("("+m+")",n,n,B.af,n,n,n,n,n,n,B.hp))}m=q.r
@@ -96613,7 +96615,7 @@ g=f===1?B.b.ga_(g):f
 g=" "+h+" ("+g+" "+b.aY("pts")+")"
 h=g}i=A.pE(A.Ad(A.fL(A.b([B.OP,A.aw(h,d,d,d,B.ho,d,d)],l),B.a0,B.dI,B.aa,0,d),e.gajJ(),i),2)
 h=e.CW
-k.push(A.es(d,A.eN(A.b([a0,B.jZ,A.fL(A.b([j,B.hi,i,B.hi,A.lm(d,A.eC(A.eN(A.b([A.aw(""+h,d,d,d,A.dU(d,d,h>=60?B.js:B.V,d,d,d,d,d,"Courier",d,d,32,d,d,B.im,d,d,!0,d,1,d,d,d,d,d,d),d,d),B.aeL],l),B.a0,B.dI,B.aa),d,52),B.am,!1,d,d,d,d,d,d,d,d,d,d,d,d,d,d,e.gahQ(),d,d,d,d,d,d)],l),B.a0,B.X,B.aa,0,d),B.jZ,A.aw(b.aY("app_title"),d,d,d,B.acQ,d,d),B.jZ],l),B.a0,B.X,B.aa),B.x,d,d,B.J6,d,d,d,B.NS,d,d,d))
+k.push(A.es(d,A.eN(A.b([a0,B.jZ,A.fL(A.b([j,B.hi,i,B.hi,A.lm(d,A.eC(A.eN(A.b([A.aw(""+h,d,d,d,A.dU(d,d,h>=60?B.js:B.V,d,d,d,d,d,"Courier",d,d,32,d,d,B.im,d,d,!0,d,1,d,d,d,d,d,d),d,d),B.aeL],l),B.a0,B.dI,B.aa),d,72),B.am,!1,d,d,d,d,d,d,d,d,d,d,d,d,d,d,e.gahQ(),d,d,d,d,d,d)],l),B.a0,B.X,B.aa,0,d),B.jZ,A.aw(b.aY("app_title"),d,d,d,B.acQ,d,d),B.jZ],l),B.a0,B.X,B.aa),B.x,d,d,B.J6,d,d,d,B.NS,d,d,d))
 return A.Dw(a,A.eN(k,B.a0,B.X,B.aa),!1)}}
 A.avu.prototype={
 $1(a){var s,r=this.a
