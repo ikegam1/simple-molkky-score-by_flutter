@@ -1644,40 +1644,37 @@ class _GameScreenState extends State<GameScreen> {
           Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
             child: Column(children: [
               LayoutBuilder(builder: (_, gc) {
-                // 点数ボタングリッド: 4列×4行（1-12 + 0/ミスボタン）、1.4倍高さ
+                // 点数ボタングリッド: 4列×3行（1-12）、1.4倍高さ
                 final maxGridH = MediaQuery.of(context).size.height * 0.56;
-                final cellH = (maxGridH - 8.0 * 3) / 4;
+                final cellH = (maxGridH - 8.0 * 2) / 3;
                 final cellW = (gc.maxWidth - 8.0 * 3) / 4;
                 final aspectRatio = (cellW / cellH).clamp(1.0, double.infinity);
-                return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 13, itemBuilder: (c, i) {
-                  if (i < 12) {
-                    final num = i + 1;
-                    return ElevatedButton(
-                      onPressed: () {
-                        if (isSetFinished) return;
-                        setState(() => selectedSkitels = [num]);
-                        _submitThrow();
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, side: BorderSide(color: Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: Text('$num', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                    );
-                  } else {
-                    // 0/ミスボタン（赤）
-                    return ElevatedButton(
-                      onPressed: () {
-                        if (isSetFinished) return;
-                        setState(() => selectedSkitels = []);
-                        _submitThrow();
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text('0', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                    );
-                  }
+                return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
+                  final num = i + 1;
+                  return ElevatedButton(
+                    onPressed: () {
+                      if (isSetFinished) return;
+                      setState(() => selectedSkitels = [num]);
+                      _submitThrow();
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, side: BorderSide(color: Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    child: Text('$num', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                  );
                 });
               }),
               const SizedBox(height: 12),
               Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                 Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 4)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 20), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 15))]))),
+                const SizedBox(width: 8),
+                Expanded(flex: 2, child: ElevatedButton(
+                  onPressed: () {
+                    if (isSetFinished) return;
+                    setState(() => selectedSkitels = []);
+                    _submitThrow();
+                  },
+                  style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                  child: const Text('0', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                )),
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: _resetElapsedTimer,
