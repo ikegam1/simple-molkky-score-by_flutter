@@ -228,7 +228,6 @@ class _SetupScreenState extends State<SetupScreen> {
   int _selectedModeKey = 3;
   String _firebaseUid = "";
   final _uuid = const Uuid();
-  bool _voiceInputEnabled = false; // 音声入力設定の追加
   bool _isGoogleLinked = false;
 
   @override
@@ -533,15 +532,6 @@ class _SetupScreenState extends State<SetupScreen> {
               decoration: InputDecoration(labelText: t.get('game_mode')),
             ),
             const SizedBox(height: 10),
-            // 音声入力設定スイッチの追加
-            SwitchListTile(
-              title: Text(t.get('voice_input'), style: const TextStyle(fontSize: 16)),
-              value: _voiceInputEnabled,
-              onChanged: (bool value) => setState(() => _voiceInputEnabled = value),
-              secondary: Icon(Icons.mic, color: _voiceInputEnabled ? Colors.blue : Colors.grey),
-              contentPadding: EdgeInsets.zero,
-            ),
-            const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _registeredPlayers.isEmpty ? null : () {
                 // セルフ5ターンは1名専用。2名以上ではエラー
@@ -560,7 +550,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
                   match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
                 }
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: _voiceInputEnabled, appLocale: Localizations.localeOf(context))));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: true, appLocale: Localizations.localeOf(context))));
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
               child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
@@ -611,6 +601,7 @@ class _GameScreenState extends State<GameScreen> {
   // 経過秒タイマー
   int _elapsedSeconds = 0;
   Timer? _elapsedTimer;
+  Timer? _elapsedStartDelayTimer; // 2秒遅延キャンセル用
   Timer? _speechConfirmTimer;
   int _listenSessionId = 0; // セッションIDで古い認識結果を除外する
 
@@ -625,6 +616,7 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _autoMicTimer?.cancel();
     _elapsedTimer?.cancel();
+    _elapsedStartDelayTimer?.cancel();
     _speechConfirmTimer?.cancel();
     _speech.stop();
     super.dispose();
@@ -684,7 +676,7 @@ class _GameScreenState extends State<GameScreen> {
     if (!widget.voiceEnabled || !_speechAvailable || !mounted) return;
     _autoMicTimer?.cancel();
     setState(() => _autoMicActive = true);
-    _autoMicTimer = Timer(const Duration(seconds: 60), () {
+    _autoMicTimer = Timer(const Duration(seconds: 10), () {
       if (!mounted) return;
       setState(() => _autoMicActive = false);
       _speech.stop();
@@ -698,20 +690,24 @@ class _GameScreenState extends State<GameScreen> {
 
   void _resetElapsedTimer() {
     _elapsedTimer?.cancel();
+    _elapsedStartDelayTimer?.cancel();
     setState(() => _elapsedSeconds = 0);
     if (isSetFinished) return;
-    // _startAutoMic の呼び出しは呼び出し元に任せる（二重呼び出し防止）
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) { _elapsedTimer?.cancel(); return; }
-      setState(() => _elapsedSeconds++);
-      if (_elapsedSeconds == 60) {
-        SystemSound.play(SystemSoundType.alert);
-      }
-      // ハートビート: pauseFor 経過直後に isListening=false になる窓でのセッション破壊を防ぐため
-      // 経過秒が5の倍数のときのみ再起動を試みる（1秒周期より干渉リスクを大幅低減）
-      if (_voiceActive && !_speech.isListening && !isSetFinished && _elapsedSeconds % 5 == 0) {
-        _startListening();
-      }
+    // [0]表示から2秒後にカウントアップ開始（再呼び出し時は遅延もキャンセルされる）
+    _elapsedStartDelayTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted || isSetFinished) return;
+      _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) { _elapsedTimer?.cancel(); return; }
+        setState(() => _elapsedSeconds++);
+        if (_elapsedSeconds == 60) {
+          SystemSound.play(SystemSoundType.alert);
+        }
+        // ハートビート: pauseFor 経過直後に isListening=false になる窓でのセッション破壊を防ぐため
+        // 経過秒が5の倍数のときのみ再起動を試みる（1秒周期より干渉リスクを大幅低減）
+        if (_voiceActive && !_speech.isListening && !isSetFinished && _elapsedSeconds % 5 == 0) {
+          _startListening();
+        }
+      });
     });
   }
 
@@ -1147,7 +1143,7 @@ class _GameScreenState extends State<GameScreen> {
         if (self5TurnSucceeded) _showSelf5TurnSuccessDialog();
         else if (self5TurnFailed) { _uploadSelf5TurnData(); _showSelf5TurnFailureDialog(); }
       } else {
-        _resetElapsedTimer(); _startAutoMic();
+        _resetElapsedTimer();
       }
       return;
     }
@@ -1158,7 +1154,6 @@ class _GameScreenState extends State<GameScreen> {
       _speech.stop();
     } else {
       _resetElapsedTimer();
-      _startAutoMic(); // 点数確定後に確実に入力待ち再開
     }
   }
 
@@ -1376,7 +1371,6 @@ class _GameScreenState extends State<GameScreen> {
               widget.match.applyManualOrder(reorderList);
               currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
             });
-            _startAutoMic(); // 次のセット開始時に自動60秒モードで音声認識を再開
             _resetElapsedTimer();
           }, child: Text(t.get('next_set'))),
         ],
@@ -1468,7 +1462,7 @@ class _GameScreenState extends State<GameScreen> {
     final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
 
     const color = Color(0xFF39FF14);
-    const bigStyle = TextStyle(fontSize: 40, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: color, letterSpacing: 1.5);
+    const bigStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: color, letterSpacing: 1.5);
     const smallStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Courier', color: color, letterSpacing: 1.0);
     const sepStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: color);
 
@@ -1653,7 +1647,7 @@ class _GameScreenState extends State<GameScreen> {
                   child: SizedBox(
                     width: 52,
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Text('$_elapsedSeconds', style: TextStyle(fontSize: 28, fontFamily: 'Courier', fontWeight: FontWeight.bold, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
+                      Text('$_elapsedSeconds', style: TextStyle(fontSize: 32, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
                       const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
                     ]),
                   ),
