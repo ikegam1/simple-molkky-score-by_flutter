@@ -567,7 +567,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.10.18', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.10.19', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -1658,7 +1658,7 @@ class _GameScreenState extends State<GameScreen> {
                       _submitThrow();
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, side: BorderSide(color: Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                    child: Text('$num', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                    child: Text('$num', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
                   );
                 });
               }),
@@ -1666,14 +1666,14 @@ class _GameScreenState extends State<GameScreen> {
               Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                 Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 4)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 20), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 15))]))),
                 const SizedBox(width: 8),
-                Expanded(flex: 2, child: ElevatedButton(
+                Expanded(child: ElevatedButton(
                   onPressed: () {
                     if (isSetFinished) return;
                     setState(() => selectedSkitels = []);
                     _submitThrow();
                   },
                   style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                  child: const Text('0', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                  child: const Text('0(fault)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 )),
                 const SizedBox(width: 8),
                 GestureDetector(
