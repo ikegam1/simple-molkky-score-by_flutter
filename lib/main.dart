@@ -559,7 +559,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.10.15', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.10.16', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -666,10 +666,6 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
     if (mounted) setState(() {});
-    // 初期化直後は自動60秒モードで開始
-    if (_speechAvailable && mounted) {
-      _startAutoMic();
-    }
   }
 
   void _startAutoMic() {
@@ -796,7 +792,7 @@ class _GameScreenState extends State<GameScreen> {
       selectedSkitels = [score];
     }
     _submitThrow();
-    // _submitThrow内の else ブランチで _startAutoMic / _resetElapsedTimer が呼ばれる
+    // _submitThrow内の else ブランチで _resetElapsedTimer が呼ばれる
     return true;
   }
 
@@ -1183,9 +1179,7 @@ class _GameScreenState extends State<GameScreen> {
       }
       selectedSkitels.clear();
     });
-    // アンドゥ後に確実に入力待ち再開
     _resetElapsedTimer();
-    _startAutoMic();
   }
 
   void _showSelf5TurnSuccessDialog() {
@@ -1255,7 +1249,6 @@ class _GameScreenState extends State<GameScreen> {
       turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
     });
     _resetElapsedTimer();
-    _startAutoMic();
   }
 
   Future<void> _uploadSelf5TurnData() async {
