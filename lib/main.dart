@@ -49,6 +49,10 @@ class L10n {
       'miss': 'Miss',
       'history_title': 'Match History',
       'winner_is': '{name} Wins!',
+      'win_5turns': '{name} wins in 5 turns!',
+      'win_last': '{name} breaks from last position!',
+      'win_2miss': '{name} wins with 2 misses on the line!',
+      'win_burst': '{name} wins after a burst!',
       'next_set': 'Next Set',
       'final_result': 'Final Result',
       'match_over': 'Match Over',
@@ -102,6 +106,10 @@ class L10n {
       'miss': 'ミス',
       'history_title': '全セット履歴',
       'winner_is': '{name} さんが勝利！',
+      'win_5turns': '{name} さん、5ターンで完勝！',
+      'win_last': '{name} さん、後攻からのブレイクです！',
+      'win_2miss': '{name} さん、2ミスからの1投で勝利！',
+      'win_burst': '{name} さん、逆転勝利！',
       'next_set': '次のセットへ',
       'final_result': '最終結果へ',
       'match_over': '🎊 マッチ終了 🎊',
@@ -598,6 +606,9 @@ class _GameScreenState extends State<GameScreen> {
 
   bool get _voiceActive => _micHeld || _autoMicActive;
 
+  // 勝利メッセージ用フラグ
+  final Set<String> _playersBurstedThisSet = {}; // このセットでバーストしたプレイヤーのID
+
   // 経過秒タイマー
   int _elapsedSeconds = 0;
   Timer? _elapsedTimer;
@@ -1007,6 +1018,7 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       // === Hyakin Set 2 mode: custom throw processing (must run before normal processThrow) ===
       if (widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2) {
+        final int hyakinPreMisses = player.consecutiveMisses;
         final set1Score = player.setFinalScores.isNotEmpty ? player.setFinalScores[0] : 0;
         GameLogic.processHyakinSet2Throw(player, selectedSkitels, widget.match, set1Score);
         int hyakinPoints = player.scoreHistory.last;
@@ -1042,7 +1054,7 @@ class _GameScreenState extends State<GameScreen> {
           widget.match.finalizeCurrentSetIfNeeded();
           final finalWinner = widget.match.matchWinner ?? hyakinWinner;
           _uploadMatchData(finalWinner);
-          _showMatchWinnerDialog(finalWinner);
+          _showMatchWinnerDialog(finalWinner, winMsg: _buildWinMessage(finalWinner, preMisses: hyakinPreMisses));
         } else {
           if (currentPlayerIndex == widget.match.players.length - 1) {
             widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
@@ -1054,10 +1066,18 @@ class _GameScreenState extends State<GameScreen> {
       }
       // === End Hyakin Set 2 mode ===
 
+      final int preMisses = player.consecutiveMisses;
       GameLogic.processThrow(player, selectedSkitels, widget.match);
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
+      // バースト検出: 投擲前スコア + 得点 > 目標点 ならバースト
+      if (selectedSkitels.isNotEmpty && player.scoreSnapshot.isNotEmpty) {
+        final preScore = player.scoreSnapshot.last;
+        if (preScore + lastPoints > widget.match.targetScore) {
+          _playersBurstedThisSet.add(player.id);
+        }
+      }
 
       // === Self5Turn mode: 5投制チャレンジ判定 ===
       if (widget.match.type == MatchType.self5Turn) {
@@ -1111,6 +1131,7 @@ class _GameScreenState extends State<GameScreen> {
           matchTrulyOver = widget.match.isMatchOver;
         }
 
+        final winMsg = _buildWinMessage(winner, preMisses: preMisses);
         if (matchTrulyOver) {
            widget.match.finalizeCurrentSetIfNeeded();
            if (widget.match.isMatchDraw) {
@@ -1119,10 +1140,10 @@ class _GameScreenState extends State<GameScreen> {
            } else {
              final finalWinner = widget.match.matchWinner ?? winner;
              _uploadMatchData(finalWinner);
-             _showMatchWinnerDialog(finalWinner);
+             _showMatchWinnerDialog(finalWinner, winMsg: winMsg);
            }
         } else {
-           _showSetWinnerDialog(winner);
+           _showSetWinnerDialog(winner, winMsg: winMsg);
         }
       } else {
         if (currentPlayerIndex == widget.match.players.length - 1) {
@@ -1328,11 +1349,23 @@ class _GameScreenState extends State<GameScreen> {
     )));
   }
 
-  void _showSetWinnerDialog(Player winner) {
+  String _buildWinMessage(Player winner, {required int preMisses}) {
+    final t = L10n.of(context);
+    final name = winner.name;
+    final isLast = widget.match.players.indexOf(winner) == widget.match.players.length - 1;
+    final hadBurst = _playersBurstedThisSet.contains(winner.id);
+    if (currentTurnInSet == 5) return t.get('win_5turns', args: {'name': name});
+    if (isLast) return t.get('win_last', args: {'name': name});
+    if (preMisses == 2) return t.get('win_2miss', args: {'name': name});
+    if (hadBurst) return t.get('win_burst', args: {'name': name});
+    return t.get('winner_is', args: {'name': name});
+  }
+
+  void _showSetWinnerDialog(Player winner, {required String winMsg}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex; // 現在のセット番号を保持
     widget.match.prepareNextSet(manualOrder: false);
-    List<Player> reorderList = List.from(widget.match.players); 
+    List<Player> reorderList = List.from(widget.match.players);
 
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
       return AlertDialog(
@@ -1340,7 +1373,7 @@ class _GameScreenState extends State<GameScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(t.get('winner_is', args: {'name': winner.name})),
+            Text(winMsg),
             const SizedBox(height: 16),
             const Divider(),
             Text(t.get('reorder_hint'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1363,6 +1396,7 @@ class _GameScreenState extends State<GameScreen> {
             setState(() {
               widget.match.applyManualOrder(reorderList);
               currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
+              _playersBurstedThisSet.clear();
             });
             _resetElapsedTimer();
           }, child: Text(t.get('next_set'))),
@@ -1371,12 +1405,16 @@ class _GameScreenState extends State<GameScreen> {
     }));
   }
 
-  void _showMatchWinnerDialog(Player winner) {
+  void _showMatchWinnerDialog(Player winner, {required String winMsg}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
       title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'),
-      content: Text(t.get('winner_crown', args: {'name': winner.name})),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(winMsg),
+        const SizedBox(height: 8),
+        Text(t.get('winner_crown', args: {'name': winner.name}), style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      ]),
       actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
   }
 
