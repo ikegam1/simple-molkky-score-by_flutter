@@ -559,7 +559,7 @@ class _SetupScreenState extends State<SetupScreen> {
             OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
             const SizedBox(height: 10),
             if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.10.15', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text('v1.10.16', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -666,10 +666,6 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
     if (mounted) setState(() {});
-    // 初期化直後は自動60秒モードで開始
-    if (_speechAvailable && mounted) {
-      _startAutoMic();
-    }
   }
 
   void _startAutoMic() {
@@ -796,7 +792,7 @@ class _GameScreenState extends State<GameScreen> {
       selectedSkitels = [score];
     }
     _submitThrow();
-    // _submitThrow内の else ブランチで _startAutoMic / _resetElapsedTimer が呼ばれる
+    // _submitThrow内の else ブランチで _resetElapsedTimer が呼ばれる
     return true;
   }
 
@@ -1183,9 +1179,7 @@ class _GameScreenState extends State<GameScreen> {
       }
       selectedSkitels.clear();
     });
-    // アンドゥ後に確実に入力待ち再開
     _resetElapsedTimer();
-    _startAutoMic();
   }
 
   void _showSelf5TurnSuccessDialog() {
@@ -1255,7 +1249,6 @@ class _GameScreenState extends State<GameScreen> {
       turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
     });
     _resetElapsedTimer();
-    _startAutoMic();
   }
 
   Future<void> _uploadSelf5TurnData() async {
@@ -1639,11 +1632,7 @@ class _GameScreenState extends State<GameScreen> {
                 Expanded(flex: 2, child: ElevatedButton(onPressed: _submitThrow, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.blue, foregroundColor: Colors.white), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline), Text(selectedSkitels.isEmpty ? ' 0 ${t.get('pts')} (${t.get('miss')})' : ' ${t.get('confirm')} (${selectedSkitels.length == 1 ? selectedSkitels.first : selectedSkitels.length} ${t.get('pts')})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]))),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: () {
-                    // タイムアウト後でも確実に音声待ち受けを再開する
-                    _startAutoMic();
-                    _resetElapsedTimer();
-                  },
+                  onTap: _resetElapsedTimer,
                   child: SizedBox(
                     width: 52,
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -2074,7 +2063,6 @@ class HelpPage extends StatelessWidget {
         'プレイヤー名を入力して「追加」→ 最大8人まで登録できます',
         'リストのハンドル（☰）をドラッグして投げ順を調整できます',
         '試合形式を選択します（例：2先 ＝ 2本先取）',
-        '音声でスコアを入力したい場合は「音声入力」をONにしてください（試験中）',
         '「ゲーム開始」を押してスタート！',
       ],
     ),
@@ -2089,8 +2077,8 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '3. 音声でスコアを入力する（音声入力ON時）',
-      body: 'マイクに向かって得点を話しかけると自動的に入力されます。',
+      title: '3. 音声でスコアを入力する',
+      body: '画面上部のマイクボタンを押してから、マイクに向かって得点を話しかけると自動的に入力されます（10秒間待ち受け）。',
       examplesLabel: '例：',
       examples: [
         '「1点」〜「12点」',
@@ -2150,7 +2138,6 @@ class HelpPage extends StatelessWidget {
         'Enter a player name and tap "Add" — up to 8 players',
         'Drag the handle (☰) to reorder the throwing order',
         'Select a game mode (e.g. "First to 2 sets")',
-        'Turn on "Voice Input (Beta)" to enter scores by voice',
         'Tap "Start Game" to begin!',
       ],
     ),
@@ -2165,8 +2152,8 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '3. Voice Input (when enabled)',
-      body: 'Just speak toward the microphone — scores are entered automatically.',
+      title: '3. Voice Input',
+      body: 'Tap the mic button at the top of the screen, then speak toward the microphone — scores are entered automatically (10-second window).',
       examplesLabel: 'Example phrases:',
       examples: [
         '"Done, 12 points"',
