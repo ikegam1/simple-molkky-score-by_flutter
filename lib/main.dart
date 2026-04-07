@@ -1465,7 +1465,7 @@ class _GameScreenState extends State<GameScreen> {
       for (int i = 0; i < players.length; i++) {
         final p = players[i];
         final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-        if (players.length > 2) spans.add(TextSpan(text: '${p.name} ', style: smallStyle));
+        if (p.name.isNotEmpty) spans.add(TextSpan(text: '${p.name[0]} ', style: smallStyle));
         spans.add(TextSpan(text: '${s1 + p.currentScore}', style: bigStyle));
         if (_stars(p.setsWon).isNotEmpty) spans.add(TextSpan(text: _stars(p.setsWon), style: smallStyle));
         if (i < players.length - 1) spans.add(TextSpan(text: ' - ', style: sepStyle));
@@ -1475,7 +1475,7 @@ class _GameScreenState extends State<GameScreen> {
       spans = [];
       for (int i = 0; i < players.length; i++) {
         final p = players[i];
-        if (players.length > 2) spans.add(TextSpan(text: '${p.name} ', style: smallStyle));
+        if (p.name.isNotEmpty) spans.add(TextSpan(text: '${p.name[0]} ', style: smallStyle));
         spans.add(TextSpan(text: '${p.currentScore}', style: bigStyle));
         if (showTotal) spans.add(TextSpan(text: '(${_runningTotal(p)})', style: smallStyle));
         if (_stars(p.setsWon).isNotEmpty) spans.add(TextSpan(text: _stars(p.setsWon), style: smallStyle));
@@ -1634,7 +1634,7 @@ class _GameScreenState extends State<GameScreen> {
                 GestureDetector(
                   onTap: _resetElapsedTimer,
                   child: SizedBox(
-                    width: 52,
+                    width: 72,
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Text('$_elapsedSeconds', style: TextStyle(fontSize: 32, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
                       const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
