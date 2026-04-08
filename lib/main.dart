@@ -1645,7 +1645,7 @@ class _GameScreenState extends State<GameScreen> {
             child: Column(children: [
               LayoutBuilder(builder: (_, gc) {
                 // 点数ボタングリッド: 4列×3行（1-12）、1.4倍高さ
-                final maxGridH = MediaQuery.of(context).size.height * 0.42;
+                final maxGridH = MediaQuery.of(context).size.height * 0.392;
                 final cellH = (maxGridH - 8.0 * 2) / 3;
                 final cellW = (gc.maxWidth - 8.0 * 3) / 4;
                 final aspectRatio = (cellW / cellH).clamp(1.0, double.infinity);
