@@ -1648,7 +1648,7 @@ class _GameScreenState extends State<GameScreen> {
                 final maxGridH = MediaQuery.of(context).size.height * 0.392;
                 final cellH = (maxGridH - 8.0 * 2) / 3;
                 final cellW = (gc.maxWidth - 8.0 * 3) / 4;
-                final aspectRatio = (cellW / cellH).clamp(1.0, double.infinity);
+                final aspectRatio = (cellW / cellH).clamp(1.5, double.infinity);
                 return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
                   final num = i + 1;
                   return ElevatedButton(
