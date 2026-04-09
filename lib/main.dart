@@ -2114,10 +2114,9 @@ class HelpPage extends StatelessWidget {
     const _HelpSection(
       title: '2. スコアの入力',
       items: [
-        '倒れたピンの番号（1〜12）をタップして選択',
+        '倒れたピンの番号（1〜12）をタップすると即座に確定',
         '複数のピンが倒れた場合は倒れた本数のボタンを1つタップ',
-        '「決定」ボタンで確定',
-        'ミスの場合は何も選ばずそのまま「0 Pts (ミス)」を押す',
+        'ミスの場合は「0(fault)」ボタンを押す',
         '間違えた場合は「戻る」で1つ前に戻れます',
       ],
     ),
@@ -2171,7 +2170,6 @@ class HelpPage extends StatelessWidget {
       title: '8. 小ネタ',
       items: [
         '秒数の上をタップすると0にリセットできるよ',
-        'スコアの入力は数字のダブルタップでもできるよ',
       ],
     ),
   ];
@@ -2189,10 +2187,9 @@ class HelpPage extends StatelessWidget {
     const _HelpSection(
       title: '2. Entering Scores',
       items: [
-        'Tap the pin number (1–12) that was knocked down',
+        'Tap the pin number (1–12) to instantly submit the score',
         'If multiple pins fell, tap the count button once',
-        'Tap "Confirm" to submit the score',
-        'For a miss, tap "0 pts (Miss)" without selecting any pin',
+        'For a miss, tap the "0(fault)" button',
         'Tap "Undo" to go back one step',
       ],
     ),
@@ -2246,7 +2243,6 @@ class HelpPage extends StatelessWidget {
       title: '8. Tips',
       items: [
         'Tap on the timer to reset it to 0',
-        'Double-tap a number to enter that score directly',
       ],
     ),
   ];
