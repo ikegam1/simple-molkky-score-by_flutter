@@ -1489,33 +1489,59 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
     final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
+    final showTotal = !isHyakinSet2 && widget.match.currentSetIndex > 1;
 
-    const color = Color(0xFF39FF14);
-    const bigStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: color, letterSpacing: 1.5);
-    const smallStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Courier', color: color, letterSpacing: 1.0);
-    const sepStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: color);
+    const neonGreen = Color(0xFF39FF14);
+    const bigStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: neonGreen, letterSpacing: 1.5);
+    const smallStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Courier', color: neonGreen, letterSpacing: 1.0);
+    const sepStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: neonGreen);
+    const zeroBigStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: Colors.red, letterSpacing: 1.5);
+    const currentNameStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: Colors.blue, letterSpacing: 1.0);
+    const currentNameMissStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: Colors.red, letterSpacing: 1.0);
 
-    List<InlineSpan> spans;
-    if (isHyakinSet2) {
-      spans = [];
-      for (int i = 0; i < players.length; i++) {
-        final p = players[i];
-        final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-        if (p.name.isNotEmpty) spans.add(TextSpan(text: '${p.name[0]} ', style: smallStyle));
-        spans.add(TextSpan(text: '${s1 + p.currentScore}', style: bigStyle));
-        if (_stars(p.setsWon).isNotEmpty) spans.add(TextSpan(text: _stars(p.setsWon), style: smallStyle));
-        if (i < players.length - 1) spans.add(TextSpan(text: ' - ', style: sepStyle));
+    final List<Widget> cells = [];
+    for (int i = 0; i < players.length; i++) {
+      final p = players[i];
+      final isCurrent = i == currentPlayerIndex;
+
+      // 名前の文字スタイル
+      TextStyle nameStyle;
+      if (isCurrent) {
+        nameStyle = p.consecutiveMisses >= 2 ? currentNameMissStyle : currentNameStyle;
+      } else {
+        nameStyle = smallStyle;
       }
-    } else {
-      final showTotal = widget.match.currentSetIndex > 1;
-      spans = [];
-      for (int i = 0; i < players.length; i++) {
-        final p = players[i];
-        if (p.name.isNotEmpty) spans.add(TextSpan(text: '${p.name[0]} ', style: smallStyle));
-        spans.add(TextSpan(text: '${p.currentScore}', style: bigStyle));
-        if (showTotal) spans.add(TextSpan(text: '(${_runningTotal(p)})', style: smallStyle));
-        if (_stars(p.setsWon).isNotEmpty) spans.add(TextSpan(text: _stars(p.setsWon), style: smallStyle));
-        if (i < players.length - 1) spans.add(TextSpan(text: ' - ', style: sepStyle));
+
+      // 得点表示: 0点は「―」を赤で表示
+      String scoreText;
+      TextStyle scoreStyle;
+      if (isHyakinSet2) {
+        final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+        final total = s1 + p.currentScore;
+        scoreText = total == 0 ? '―' : '$total';
+        scoreStyle = total == 0 ? zeroBigStyle : bigStyle;
+      } else {
+        scoreText = p.currentScore == 0 ? '―' : '${p.currentScore}';
+        scoreStyle = p.currentScore == 0 ? zeroBigStyle : bigStyle;
+      }
+
+      final List<InlineSpan> spans = [
+        if (p.name.isNotEmpty) TextSpan(text: '${p.name[0]} ', style: nameStyle),
+        TextSpan(text: scoreText, style: scoreStyle),
+        if (showTotal) TextSpan(text: '(${_runningTotal(p)})', style: smallStyle),
+        if (_stars(p.setsWon).isNotEmpty) TextSpan(text: _stars(p.setsWon), style: smallStyle),
+      ];
+
+      cells.add(Container(
+        decoration: isCurrent
+            ? BoxDecoration(border: Border.all(color: Colors.red, width: 2.5))
+            : null,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: RichText(text: TextSpan(children: spans)),
+      ));
+
+      if (i < players.length - 1) {
+        cells.add(Text(' - ', style: sepStyle));
       }
     }
 
@@ -1526,8 +1552,10 @@ class _GameScreenState extends State<GameScreen> {
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.center,
-        child: RichText(
-          text: TextSpan(children: spans),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: cells,
         ),
       ),
     );
@@ -1543,7 +1571,7 @@ class _GameScreenState extends State<GameScreen> {
     String missIcons = '';
     if (currentPlayer.consecutiveMisses == 1) missIcons = ' ☠';
     if (currentPlayer.consecutiveMisses == 2) missIcons = ' ☠☠';
-    Color nameColor = currentPlayer.consecutiveMisses >= 2 ? Colors.red : Colors.black;
+    Color nameColor = currentPlayer.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
 
     // アガリガイドメッセージ
     String? reachMsg;
