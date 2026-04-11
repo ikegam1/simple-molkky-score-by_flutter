@@ -1666,16 +1666,18 @@ class _GameScreenState extends State<GameScreen> {
                           }
                         }
                         final fontSize = (cellW * 0.35).clamp(11.0, isCurrent ? 17.0 : 15.0);
-                        // 現在のターン・現在の投擲者で未投擲 → 「―」を赤で表示
-                        final showDash = isCurrent && p == currentPlayer && !hasScore;
+                        // fault（得点0）は「―」を赤で表示
+                        final isFault = hasScore && score == 0;
+                        // 現在のターンの現在投擲者（未投擲）セルに赤枠
+                        final isNextThrow = isCurrent && p == currentPlayer && !hasScore;
                         return [DataCell(Row(children: [
                           Container(
                             width: cellW,
                             alignment: Alignment.center,
-                            decoration: showDash ? BoxDecoration(border: Border.all(color: Colors.red, width: 2)) : null,
+                            decoration: isNextThrow ? BoxDecoration(border: Border.all(color: Colors.red, width: 2)) : null,
                             child: Text(
-                              showDash ? '―' : (hasScore ? '$score' : ''),
-                              style: TextStyle(fontSize: fontSize, color: showDash ? Colors.red : null, fontWeight: showDash ? FontWeight.bold : null),
+                              isFault ? '―' : (hasScore ? '$score' : ''),
+                              style: TextStyle(fontSize: fontSize, color: isFault ? Colors.red : null, fontWeight: isFault ? FontWeight.bold : null),
                             ),
                           ),
                           Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize)))]))];
