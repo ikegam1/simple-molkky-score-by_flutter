@@ -1634,9 +1634,6 @@ class _GameScreenState extends State<GameScreen> {
                         : Colors.black;
                     return [DataColumn(label: Container(
                       width: playerColW,
-                      decoration: isCurrentCol
-                          ? BoxDecoration(border: Border.all(color: Colors.red, width: 2))
-                          : null,
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Text(p.name, style: TextStyle(fontSize: headerNameSize, color: colNameColor, fontWeight: FontWeight.bold)),
                         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
@@ -1672,10 +1669,15 @@ class _GameScreenState extends State<GameScreen> {
                         // 現在のターン・現在の投擲者で未投擲 → 「―」を赤で表示
                         final showDash = isCurrent && p == currentPlayer && !hasScore;
                         return [DataCell(Row(children: [
-                          Container(width: cellW, alignment: Alignment.center, child: Text(
-                            showDash ? '―' : (hasScore ? '$score' : ''),
-                            style: TextStyle(fontSize: fontSize, color: showDash ? Colors.red : null, fontWeight: showDash ? FontWeight.bold : null),
-                          )),
+                          Container(
+                            width: cellW,
+                            alignment: Alignment.center,
+                            decoration: showDash ? BoxDecoration(border: Border.all(color: Colors.red, width: 2)) : null,
+                            child: Text(
+                              showDash ? '―' : (hasScore ? '$score' : ''),
+                              style: TextStyle(fontSize: fontSize, color: showDash ? Colors.red : null, fontWeight: showDash ? FontWeight.bold : null),
+                            ),
+                          ),
                           Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize)))]))];
                       })]);
                   }),
