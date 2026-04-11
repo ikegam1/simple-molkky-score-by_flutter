@@ -1495,46 +1495,36 @@ class _GameScreenState extends State<GameScreen> {
     const bigStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: neonGreen, letterSpacing: 1.5);
     const smallStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Courier', color: neonGreen, letterSpacing: 1.0);
     const sepStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: neonGreen);
-    const zeroBigStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: Colors.red, letterSpacing: 1.5);
-    const currentNameStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: Colors.blue, letterSpacing: 1.0);
-    const currentNameMissStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: Colors.red, letterSpacing: 1.0);
 
     final List<Widget> cells = [];
     for (int i = 0; i < players.length; i++) {
       final p = players[i];
       final isCurrent = i == currentPlayerIndex;
+      final is2Miss = isCurrent && p.consecutiveMisses >= 2;
 
-      // 名前の文字スタイル
-      TextStyle nameStyle;
-      if (isCurrent) {
-        nameStyle = p.consecutiveMisses >= 2 ? currentNameMissStyle : currentNameStyle;
-      } else {
-        nameStyle = smallStyle;
-      }
-
-      // 得点表示: 0点は「―」を赤で表示
+      // 得点表示（通常のまま）
       String scoreText;
-      TextStyle scoreStyle;
       if (isHyakinSet2) {
         final s1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-        final total = s1 + p.currentScore;
-        scoreText = total == 0 ? '―' : '$total';
-        scoreStyle = total == 0 ? zeroBigStyle : bigStyle;
+        scoreText = '${s1 + p.currentScore}';
       } else {
-        scoreText = p.currentScore == 0 ? '―' : '${p.currentScore}';
-        scoreStyle = p.currentScore == 0 ? zeroBigStyle : bigStyle;
+        scoreText = '${p.currentScore}';
       }
 
       final List<InlineSpan> spans = [
-        if (p.name.isNotEmpty) TextSpan(text: '${p.name[0]} ', style: nameStyle),
-        TextSpan(text: scoreText, style: scoreStyle),
+        if (p.name.isNotEmpty) TextSpan(text: '${p.name[0]} ', style: smallStyle),
+        TextSpan(text: scoreText, style: bigStyle),
         if (showTotal) TextSpan(text: '(${_runningTotal(p)})', style: smallStyle),
         if (_stars(p.setsWon).isNotEmpty) TextSpan(text: _stars(p.setsWon), style: smallStyle),
       ];
 
+      // 現在の投擲者はアンダーライン強調（2ミス時は赤）
       cells.add(Container(
         decoration: isCurrent
-            ? BoxDecoration(border: Border.all(color: Colors.red, width: 2.5))
+            ? BoxDecoration(border: Border(bottom: BorderSide(
+                color: is2Miss ? Colors.red : Colors.white,
+                width: 3.0,
+              )))
             : null,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: RichText(text: TextSpan(children: spans)),
@@ -1637,7 +1627,25 @@ class _GameScreenState extends State<GameScreen> {
             return Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
               child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
                 child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
-                  columns: [DataColumn(label: SizedBox(width: turnColW, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) => [DataColumn(label: Container(width: playerColW, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: TextStyle(fontSize: headerNameSize, color: p == currentPlayer ? Colors.blue : Colors.black, fontWeight: FontWeight.bold)), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(t.get('points'), style: TextStyle(fontSize: headerSubSize)), Text(t.get('total'), style: TextStyle(fontSize: headerSubSize))])])))])],
+                  columns: [DataColumn(label: SizedBox(width: turnColW, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) {
+                    final isCurrentCol = p == currentPlayer;
+                    final colNameColor = isCurrentCol
+                        ? (p.consecutiveMisses >= 2 ? Colors.red : Colors.blue)
+                        : Colors.black;
+                    return [DataColumn(label: Container(
+                      width: playerColW,
+                      decoration: isCurrentCol
+                          ? BoxDecoration(border: Border.all(color: Colors.red, width: 2))
+                          : null,
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(p.name, style: TextStyle(fontSize: headerNameSize, color: colNameColor, fontWeight: FontWeight.bold)),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                          Text(t.get('points'), style: TextStyle(fontSize: headerSubSize)),
+                          Text(t.get('total'), style: TextStyle(fontSize: headerSubSize)),
+                        ]),
+                      ]),
+                    ))];
+                  })],
                   rows: List.generate(currentTurnInSet, (i) {
                     int turn = currentTurnInSet - i;
                     final isCurrent = i == 0;
@@ -1661,8 +1669,13 @@ class _GameScreenState extends State<GameScreen> {
                           }
                         }
                         final fontSize = (cellW * 0.35).clamp(11.0, isCurrent ? 17.0 : 15.0);
+                        // 現在のターン・現在の投擲者で未投擲 → 「―」を赤で表示
+                        final showDash = isCurrent && p == currentPlayer && !hasScore;
                         return [DataCell(Row(children: [
-                          Container(width: cellW, alignment: Alignment.center, child: Text(hasScore ? '$score' : '', style: TextStyle(fontSize: fontSize))),
+                          Container(width: cellW, alignment: Alignment.center, child: Text(
+                            showDash ? '―' : (hasScore ? '$score' : ''),
+                            style: TextStyle(fontSize: fontSize, color: showDash ? Colors.red : null, fontWeight: showDash ? FontWeight.bold : null),
+                          )),
                           Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize)))]))];
                       })]);
                   }),
