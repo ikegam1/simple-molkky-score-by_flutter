@@ -513,61 +513,175 @@ class _SetupScreenState extends State<SetupScreen> {
         ],
       ),
       extendBodyBehindAppBar: true,
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0),
-        child: Column(
+      body: OrientationBuilder(builder: (_, orientation) {
+        if (orientation == Orientation.landscape) {
+          return _buildLandscapeBody(context, t, options, self5TurnEnabled);
+        }
+        // --- 縦向き（変更なし）---
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              Text(t.get('app_title'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              const SizedBox(height: 20),
+              TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add(), maxLength: 20, buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null),
+              Expanded(child: ReorderableListView(
+                onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); },
+                children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() { _registeredPlayers.removeAt(i); }); _savePlayers(); })) ]
+              )),
+              DropdownButtonFormField<int>(
+                value: _selectedModeKey,
+                items: options.entries.map((e) {
+                  final isSelf5Turn = e.key == -1;
+                  final enabled = !isSelf5Turn || self5TurnEnabled;
+                  return DropdownMenuItem<int>(
+                    value: e.key,
+                    enabled: enabled,
+                    child: Text(e.value, style: TextStyle(color: enabled ? null : Colors.grey)),
+                  );
+                }).toList(),
+                onChanged: (v) { if (v != null) setState(() => _selectedModeKey = v); },
+                decoration: InputDecoration(labelText: t.get('game_mode')),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _registeredPlayers.isEmpty ? null : () {
+                  if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
+                    _showError(t.get('self5turn_solo_only'));
+                    return;
+                  }
+                  final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
+                  MolkkyMatch match;
+                  if (_selectedModeKey == -1) {
+                    match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+                  } else if (_selectedModeKey == -2) {
+                    match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
+                  } else {
+                    MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
+                    int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+                    match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
+                  }
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: true, appLocale: Localizations.localeOf(context))));
+                },
+                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
+                child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
+              const SizedBox(height: 10),
+              if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              const Text('v1.11.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildLandscapeBody(BuildContext context, L10n t, Map<int, String> options, bool self5TurnEnabled) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 20),
-            Text(t.get('app_title'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-            const SizedBox(height: 20),
-            TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add(), maxLength: 20, buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null),
-            Expanded(child: ReorderableListView(
-              onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); }, 
-              children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() { _registeredPlayers.removeAt(i); }); _savePlayers(); })) ]
-            )),
-            DropdownButtonFormField<int>(
-              value: _selectedModeKey,
-              items: options.entries.map((e) {
-                final isSelf5Turn = e.key == -1;
-                final enabled = !isSelf5Turn || self5TurnEnabled;
-                return DropdownMenuItem<int>(
-                  value: e.key,
-                  enabled: enabled,
-                  child: Text(e.value, style: TextStyle(color: enabled ? null : Colors.grey)),
-                );
-              }).toList(),
-              onChanged: (v) { if (v != null) setState(() => _selectedModeKey = v); },
-              decoration: InputDecoration(labelText: t.get('game_mode')),
+            // 左：タイトル + 入力 + プレイヤーリスト
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(t.get('app_title'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueAccent), textAlign: TextAlign.center),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: t.get('player_name'),
+                      suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add)),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _add(),
+                    maxLength: 20,
+                    buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                  ),
+                  Expanded(
+                    child: ReorderableListView(
+                      onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); },
+                      children: [
+                        for (int i = 0; i < _registeredPlayers.length; i++)
+                          ListTile(
+                            key: Key(_registeredPlayers[i].id),
+                            leading: const Icon(Icons.drag_handle, size: 18),
+                            title: Text('${i + 1}. ${_registeredPlayers[i].name}', style: const TextStyle(fontSize: 13)),
+                            trailing: IconButton(icon: const Icon(Icons.delete, size: 18), onPressed: () { setState(() { _registeredPlayers.removeAt(i); }); _savePlayers(); }),
+                            dense: true,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: _registeredPlayers.isEmpty ? null : () {
-                // セルフ5ターンは1名専用。2名以上ではエラー
-                if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
-                  _showError(t.get('self5turn_solo_only'));
-                  return;
-                }
-                final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
-                MolkkyMatch match;
-                if (_selectedModeKey == -1) {
-                  match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
-                } else if (_selectedModeKey == -2) {
-                  match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
-                } else {
-                  MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
-                  int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                  match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
-                }
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: true, appLocale: Localizations.localeOf(context))));
-              },
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
-              child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(width: 12),
+            // 右：モード選択 + ボタン類
+            Expanded(
+              flex: 2,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<int>(
+                    value: _selectedModeKey,
+                    items: options.entries.map((e) {
+                      final isSelf5Turn = e.key == -1;
+                      final enabled = !isSelf5Turn || self5TurnEnabled;
+                      return DropdownMenuItem<int>(
+                        value: e.key,
+                        enabled: enabled,
+                        child: Text(e.value, style: TextStyle(color: enabled ? null : Colors.grey, fontSize: 13)),
+                      );
+                    }).toList(),
+                    onChanged: (v) { if (v != null) setState(() => _selectedModeKey = v); },
+                    decoration: InputDecoration(labelText: t.get('game_mode'), isDense: true),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: _registeredPlayers.isEmpty ? null : () {
+                      if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
+                        _showError(t.get('self5turn_solo_only'));
+                        return;
+                      }
+                      final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
+                      MolkkyMatch match;
+                      if (_selectedModeKey == -1) {
+                        match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+                      } else if (_selectedModeKey == -2) {
+                        match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
+                      } else {
+                        MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
+                        int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+                        match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
+                      }
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: true, appLocale: Localizations.localeOf(context))));
+                    },
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 44), backgroundColor: Colors.blue),
+                    child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 16)),
+                  ),
+                  const SizedBox(height: 6),
+                  OutlinedButton.icon(
+                    onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
+                    icon: const Icon(Icons.cloud_done, size: 16),
+                    label: Text(t.get('match_history'), style: const TextStyle(fontSize: 13)),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
+                  ),
+                  const SizedBox(height: 4),
+                  if (_firebaseUid.isNotEmpty)
+                    Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.center),
+                  const Text('v1.11.0', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
-            const SizedBox(height: 10),
-            if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            const Text('v1.10.26', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -1610,176 +1724,289 @@ class _GameScreenState extends State<GameScreen> {
           if (_speechAvailable) _buildMicButton(),
         ]),
         actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
-      body: Column(
-        children: [
-          if (!isSelf5Turn) _buildScoreSummaryRow(),
-          Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)), margin: const EdgeInsets.all(8),
-            child: Column(
-              children: [
-                if (isSelf5Turn)
-                  Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                const SizedBox(height: 6),
-                RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
-                  TextSpan(text: '${currentPlayer.name} '),
-                  TextSpan(text: '(${t.get('turn_n', args: {'n': '$currentTurnInSet'})})'),
-                  TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
-                ])),
-                if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
-                if (_speechAvailable && _speech.isListening && _voiceText.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2.0),
-                    child: Text(_voiceText, style: const TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+      body: OrientationBuilder(builder: (_, orientation) {
+        final isLandscape = orientation == Orientation.landscape;
+        if (isLandscape) {
+          // ─── 横向きレイアウト ───────────────────────────────────
+          final rightW = (MediaQuery.of(context).size.width * 0.42).clamp(200.0, 360.0);
+          final bottomPad = MediaQuery.of(context).padding.bottom;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 左パネル: スコア表示 + プレイヤー情報 + スコアテーブル
+              Expanded(
+                child: Column(
+                  children: [
+                    if (!isSelf5Turn) _buildScoreSummaryRow(),
+                    _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelf5Turn,
+                        margin: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                    Expanded(child: _buildScoreTable(t, currentPlayer)),
+                  ],
+                ),
+              ),
+              // 右パネル: ピンボタン + コントロール
+              SizedBox(
+                width: rightW,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(-2, 0))],
                   ),
-              ],
-            )),
-          Expanded(child: LayoutBuilder(builder: (ctx, constraints) {
-            const turnColW = 44.0;
-            const dtHMargin = 24.0;   // DataTable のデフォルト horizontalMargin
-            const containerMargin = 16.0; // Container margin: 8px × 2
-            const colSpacing = 10.0;
-            final numPlayers = widget.match.players.length;
-            // DataTable 実幅 = dtHMargin*2 + turnColW + colSpacing*numPlayers + playerColW*numPlayers
-            // 利用可能幅 = constraints.maxWidth - containerMargin
-            final available = constraints.maxWidth - containerMargin;
-            final playerColW = ((available - 2 * dtHMargin - turnColW - colSpacing * numPlayers) / numPlayers).clamp(60.0, 200.0);
-            final cellW = (playerColW / 2).floorToDouble();
-            final headerNameSize = (cellW * 0.14).clamp(9.0, 13.0);
-            final headerSubSize = (cellW * 0.11).clamp(8.0, 10.0);
-            return Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
-              child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-                child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
-                  columns: [DataColumn(label: SizedBox(width: turnColW, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) {
-                    final isCurrentCol = p == currentPlayer;
-                    final Color colNameColor;
-                    if (p.isDisqualified) {
-                      colNameColor = Colors.grey;
-                    } else if (isCurrentCol) {
-                      colNameColor = p.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
-                    } else {
-                      colNameColor = Colors.black;
-                    }
-                    return [DataColumn(label: Container(
-                      width: playerColW,
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(p.name, style: TextStyle(fontSize: headerNameSize, color: colNameColor, fontWeight: FontWeight.bold)),
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                          Text(t.get('points'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
-                          Text(t.get('total'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
-                        ]),
-                      ]),
-                    ))];
-                  })],
-                  rows: List.generate(currentTurnInSet, (i) {
-                    int turn = currentTurnInSet - i;
-                    final isCurrent = i == 0;
-                    return DataRow(
-                      color: isCurrent ? WidgetStateProperty.all(const Color(0xFFFFF9C4)) : null,
-                      cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
-                        int score = 0, total = 0;
-                        bool hasScore = p.scoreHistory.length >= turn;
-                        final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
-                        if (hasScore) {
-                          score = p.scoreHistory[turn - 1];
-                          if (isHyakinSet2) {
-                            final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-                            final pTarget = 100 - pSet1;
-                            final pBurst = 75 - pSet1;
-                            int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > pTarget) tmp = pBurst; }
-                            total = pSet1 + tmp;
-                          } else {
-                            int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
-                            total = tmp;
-                          }
-                        }
-                        final fontSize = (cellW * 0.35).clamp(11.0, isCurrent ? 17.0 : 15.0);
-                        // fault（得点0）は「―」を赤で表示
-                        final isFault = hasScore && score == 0;
-                        // 現在のターンの現在投擲者（未投擲）セルに色枠（ミス数で変化）
-                        final isNextThrow = isCurrent && p == currentPlayer && !hasScore;
-                        final Color nextThrowBorderColor;
-                        if (p.consecutiveMisses >= 2) {
-                          nextThrowBorderColor = Colors.red;
-                        } else if (p.consecutiveMisses == 1) {
-                          nextThrowBorderColor = Colors.orange;
-                        } else {
-                          nextThrowBorderColor = Colors.yellow[700]!;
-                        }
-                        // 失格プレイヤーはグレー表示
-                        final Color? textColor = p.isDisqualified
-                            ? Colors.grey
-                            : (isFault ? Colors.red : null);
-                        final Color totalTextColor = p.isDisqualified ? Colors.grey : Colors.black;
-                        return [DataCell(Row(children: [
-                          Container(
-                            width: cellW,
-                            alignment: Alignment.center,
-                            decoration: isNextThrow ? BoxDecoration(border: Border.all(color: nextThrowBorderColor, width: 2)) : null,
-                            child: Text(
-                              isFault ? '―' : (hasScore ? '$score' : ''),
-                              style: TextStyle(fontSize: fontSize, color: textColor, fontWeight: isFault ? FontWeight.bold : null),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                          child: LayoutBuilder(builder: (_, gc) {
+                            final cellH = (gc.maxHeight - 6.0 * 2) / 3;
+                            final cellW = (gc.maxWidth - 6.0 * 3) / 4;
+                            final aspectRatio = (cellW / cellH).clamp(0.8, double.infinity);
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 4, mainAxisSpacing: 6, crossAxisSpacing: 6, childAspectRatio: aspectRatio),
+                              itemCount: 12,
+                              itemBuilder: (c, i) {
+                                final num = i + 1;
+                                return ElevatedButton(
+                                  onPressed: () {
+                                    if (isSetFinished) return;
+                                    setState(() => selectedSkitels = [num]);
+                                    _submitThrow();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white, foregroundColor: Colors.black,
+                                      side: BorderSide(color: Colors.grey[300]!),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                      padding: EdgeInsets.zero),
+                                  child: Text('$num', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                                );
+                              },
+                            );
+                          }),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(8, 4, 8, bottomPad + 6),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                          Expanded(child: OutlinedButton(
+                            onPressed: _undo,
+                            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 2)),
+                            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 16), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 13))]),
+                          )),
+                          const SizedBox(width: 6),
+                          Expanded(child: ElevatedButton(
+                            onPressed: () {
+                              if (isSetFinished) return;
+                              setState(() => selectedSkitels = []);
+                              _submitThrow();
+                            },
+                            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                            child: const Text('0(fault)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          )),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: _resetElapsedTimer,
+                            child: SizedBox(
+                              width: 72,
+                              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                Text('$_elapsedSeconds', style: TextStyle(fontSize: 26, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
+                                const Text('sec', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                              ]),
                             ),
                           ),
-                          Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize, color: totalTextColor)))]))];
-                      })]);
-                  }),
-                ),
-              )));
-          })),
-          Container(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
-            child: Column(children: [
-              LayoutBuilder(builder: (_, gc) {
-                // 点数ボタングリッド: 4列×3行（1-12）、1.4倍高さ
-                final maxGridH = MediaQuery.of(context).size.height * 0.392;
-                final cellH = (maxGridH - 8.0 * 2) / 3;
-                final cellW = (gc.maxWidth - 8.0 * 3) / 4;
-                final aspectRatio = (cellW / cellH).clamp(1.5, double.infinity);
-                return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
-                  final num = i + 1;
-                  return ElevatedButton(
-                    onPressed: () {
-                      if (isSetFinished) return;
-                      setState(() => selectedSkitels = [num]);
-                      _submitThrow();
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, side: BorderSide(color: Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                    child: Text('$num', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                  );
-                });
-              }),
-              const SizedBox(height: 12),
-              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 4)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 20), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 15))]))),
-                const SizedBox(width: 8),
-                Expanded(child: ElevatedButton(
-                  onPressed: () {
-                    if (isSetFinished) return;
-                    setState(() => selectedSkitels = []);
-                    _submitThrow();
-                  },
-                  style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                  child: const Text('0(fault)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                )),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _resetElapsedTimer,
-                  child: SizedBox(
-                    width: 100,
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Text('$_elapsedSeconds', style: TextStyle(fontSize: 32, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
-                      const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    ]),
+                        ]),
+                      ),
+                    ],
                   ),
                 ),
+              ),
+            ],
+          );
+        }
+
+        // ─── 縦向きレイアウト（変更なし）────────────────────────────
+        return Column(
+          children: [
+            if (!isSelf5Turn) _buildScoreSummaryRow(),
+            _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelf5Turn),
+            Expanded(child: _buildScoreTable(t, currentPlayer)),
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+              decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
+              child: Column(children: [
+                LayoutBuilder(builder: (_, gc) {
+                  // 点数ボタングリッド: 4列×3行（1-12）
+                  final maxGridH = MediaQuery.of(context).size.height * 0.392;
+                  final cellH = (maxGridH - 8.0 * 2) / 3;
+                  final cellW = (gc.maxWidth - 8.0 * 3) / 4;
+                  final aspectRatio = (cellW / cellH).clamp(1.5, double.infinity);
+                  return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
+                    final num = i + 1;
+                    return ElevatedButton(
+                      onPressed: () {
+                        if (isSetFinished) return;
+                        setState(() => selectedSkitels = [num]);
+                        _submitThrow();
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, side: BorderSide(color: Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      child: Text('$num', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                    );
+                  });
+                }),
+                const SizedBox(height: 12),
+                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 4)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 20), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 15))]))),
+                  const SizedBox(width: 8),
+                  Expanded(child: ElevatedButton(
+                    onPressed: () {
+                      if (isSetFinished) return;
+                      setState(() => selectedSkitels = []);
+                      _submitThrow();
+                    },
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                    child: const Text('0(fault)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  )),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _resetElapsedTimer,
+                    child: SizedBox(
+                      width: 100,
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text('$_elapsedSeconds', style: TextStyle(fontSize: 32, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
+                        const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      ]),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                Text(t.get('app_title'), style: const TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.w300)),
+                const SizedBox(height: 12),
               ]),
-              const SizedBox(height: 12),
-              Text(t.get('app_title'), style: const TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.w300)),
-              const SizedBox(height: 12),
-            ]),
-          ),
+            ),
+          ],
+        );
+      }),
+    )); // PopScope
+  }
+
+  Widget _buildPlayerInfoCard(L10n t, Player currentPlayer, String missIcons, Color nameColor, String? reachMsg, bool isSelf5Turn, {EdgeInsets margin = const EdgeInsets.all(8), EdgeInsets padding = const EdgeInsets.all(8)}) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)),
+      margin: margin,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isSelf5Turn)
+            Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+          const SizedBox(height: 6),
+          RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
+            TextSpan(text: '${currentPlayer.name} '),
+            TextSpan(text: '(${t.get('turn_n', args: {'n': '$currentTurnInSet'})})'),
+            TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
+          ])),
+          if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
+          if (_speechAvailable && _speech.isListening && _voiceText.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2.0),
+              child: Text(_voiceText, style: const TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+            ),
         ],
       ),
-    )); // PopScope
+    );
+  }
+
+  Widget _buildScoreTable(L10n t, Player currentPlayer) {
+    return LayoutBuilder(builder: (ctx, constraints) {
+      const turnColW = 44.0;
+      const dtHMargin = 24.0;
+      const containerMargin = 16.0;
+      const colSpacing = 10.0;
+      final numPlayers = widget.match.players.length;
+      final available = constraints.maxWidth - containerMargin;
+      final playerColW = ((available - 2 * dtHMargin - turnColW - colSpacing * numPlayers) / numPlayers).clamp(60.0, 200.0);
+      final cellW = (playerColW / 2).floorToDouble();
+      final headerNameSize = (cellW * 0.14).clamp(9.0, 13.0);
+      final headerSubSize = (cellW * 0.11).clamp(8.0, 10.0);
+      return Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
+        child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+          child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
+            columns: [DataColumn(label: SizedBox(width: turnColW, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) {
+              final isCurrentCol = p == currentPlayer;
+              final Color colNameColor;
+              if (p.isDisqualified) {
+                colNameColor = Colors.grey;
+              } else if (isCurrentCol) {
+                colNameColor = p.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
+              } else {
+                colNameColor = Colors.black;
+              }
+              return [DataColumn(label: Container(
+                width: playerColW,
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(p.name, style: TextStyle(fontSize: headerNameSize, color: colNameColor, fontWeight: FontWeight.bold)),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                    Text(t.get('points'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
+                    Text(t.get('total'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
+                  ]),
+                ]),
+              ))];
+            })],
+            rows: List.generate(currentTurnInSet, (i) {
+              int turn = currentTurnInSet - i;
+              final isCurrent = i == 0;
+              return DataRow(
+                color: isCurrent ? WidgetStateProperty.all(const Color(0xFFFFF9C4)) : null,
+                cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
+                  int score = 0, total = 0;
+                  bool hasScore = p.scoreHistory.length >= turn;
+                  final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
+                  if (hasScore) {
+                    score = p.scoreHistory[turn - 1];
+                    if (isHyakinSet2) {
+                      final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
+                      final pTarget = 100 - pSet1;
+                      final pBurst = 75 - pSet1;
+                      int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > pTarget) tmp = pBurst; }
+                      total = pSet1 + tmp;
+                    } else {
+                      int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
+                      total = tmp;
+                    }
+                  }
+                  final fontSize = (cellW * 0.35).clamp(11.0, isCurrent ? 17.0 : 15.0);
+                  final isFault = hasScore && score == 0;
+                  final isNextThrow = isCurrent && p == currentPlayer && !hasScore;
+                  final Color nextThrowBorderColor;
+                  if (p.consecutiveMisses >= 2) {
+                    nextThrowBorderColor = Colors.red;
+                  } else if (p.consecutiveMisses == 1) {
+                    nextThrowBorderColor = Colors.orange;
+                  } else {
+                    nextThrowBorderColor = Colors.yellow[700]!;
+                  }
+                  final Color? textColor = p.isDisqualified ? Colors.grey : (isFault ? Colors.red : null);
+                  final Color totalTextColor = p.isDisqualified ? Colors.grey : Colors.black;
+                  return [DataCell(Row(children: [
+                    Container(
+                      width: cellW, alignment: Alignment.center,
+                      decoration: isNextThrow ? BoxDecoration(border: Border.all(color: nextThrowBorderColor, width: 2)) : null,
+                      child: Text(isFault ? '―' : (hasScore ? '$score' : ''),
+                          style: TextStyle(fontSize: fontSize, color: textColor, fontWeight: isFault ? FontWeight.bold : null)),
+                    ),
+                    Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD),
+                        child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize, color: totalTextColor))),
+                  ]))];
+                })]);
+            }),
+          ),
+        )));
+    });
   }
 }
 
