@@ -1578,7 +1578,29 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     final isSelf5Turn = widget.match.type == MatchType.self5Turn;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            content: const Text('試合が無効になってしまいますが、最初の画面に戻って良いですか？'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                child: const Text('最初の画面に戻る'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed == true && context.mounted) {
+          Navigator.popUntil(context, (r) => r.isFirst);
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Row(children: [
           Text(isSelf5Turn
@@ -1757,7 +1779,7 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-    );
+    )); // PopScope
   }
 }
 
