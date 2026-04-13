@@ -1629,16 +1629,21 @@ class _GameScreenState extends State<GameScreen> {
                 child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
                   columns: [DataColumn(label: SizedBox(width: turnColW, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) {
                     final isCurrentCol = p == currentPlayer;
-                    final colNameColor = isCurrentCol
-                        ? (p.consecutiveMisses >= 2 ? Colors.red : Colors.blue)
-                        : Colors.black;
+                    final Color colNameColor;
+                    if (p.isDisqualified) {
+                      colNameColor = Colors.grey;
+                    } else if (isCurrentCol) {
+                      colNameColor = p.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
+                    } else {
+                      colNameColor = Colors.black;
+                    }
                     return [DataColumn(label: Container(
                       width: playerColW,
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Text(p.name, style: TextStyle(fontSize: headerNameSize, color: colNameColor, fontWeight: FontWeight.bold)),
                         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                          Text(t.get('points'), style: TextStyle(fontSize: headerSubSize)),
-                          Text(t.get('total'), style: TextStyle(fontSize: headerSubSize)),
+                          Text(t.get('points'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
+                          Text(t.get('total'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
                         ]),
                       ]),
                     ))];
@@ -1659,7 +1664,7 @@ class _GameScreenState extends State<GameScreen> {
                             final pTarget = 100 - pSet1;
                             final pBurst = 75 - pSet1;
                             int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > pTarget) tmp = pBurst; }
-                            total = pSet1 + tmp; // combined total (Set 1 + Set 2)
+                            total = pSet1 + tmp;
                           } else {
                             int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
                             total = tmp;
@@ -1668,19 +1673,32 @@ class _GameScreenState extends State<GameScreen> {
                         final fontSize = (cellW * 0.35).clamp(11.0, isCurrent ? 17.0 : 15.0);
                         // fault（得点0）は「―」を赤で表示
                         final isFault = hasScore && score == 0;
-                        // 現在のターンの現在投擲者（未投擲）セルに赤枠
+                        // 現在のターンの現在投擲者（未投擲）セルに色枠（ミス数で変化）
                         final isNextThrow = isCurrent && p == currentPlayer && !hasScore;
+                        final Color nextThrowBorderColor;
+                        if (p.consecutiveMisses >= 2) {
+                          nextThrowBorderColor = Colors.red;
+                        } else if (p.consecutiveMisses == 1) {
+                          nextThrowBorderColor = Colors.orange;
+                        } else {
+                          nextThrowBorderColor = Colors.yellow[700]!;
+                        }
+                        // 失格プレイヤーはグレー表示
+                        final Color? textColor = p.isDisqualified
+                            ? Colors.grey
+                            : (isFault ? Colors.red : null);
+                        final Color totalTextColor = p.isDisqualified ? Colors.grey : Colors.black;
                         return [DataCell(Row(children: [
                           Container(
                             width: cellW,
                             alignment: Alignment.center,
-                            decoration: isNextThrow ? BoxDecoration(border: Border.all(color: Colors.red, width: 2)) : null,
+                            decoration: isNextThrow ? BoxDecoration(border: Border.all(color: nextThrowBorderColor, width: 2)) : null,
                             child: Text(
                               isFault ? '―' : (hasScore ? '$score' : ''),
-                              style: TextStyle(fontSize: fontSize, color: isFault ? Colors.red : null, fontWeight: isFault ? FontWeight.bold : null),
+                              style: TextStyle(fontSize: fontSize, color: textColor, fontWeight: isFault ? FontWeight.bold : null),
                             ),
                           ),
-                          Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize)))]))];
+                          Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize, color: totalTextColor)))]))];
                       })]);
                   }),
                 ),
