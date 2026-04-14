@@ -1,5 +1,6 @@
 // 縦向き・横向きのレイアウト計算ロジックのユニットテスト
 // 縦向きの動作が変わっていないことを保証する
+// レイアウト切り替えは高さ500px未満を条件とする（向きではなく高さで判定）
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -64,6 +65,31 @@ void main() {
       final ratio = landscapeAspectRatio(panelW: 300, availH: 280);
       // ほとんどのケースで1.5未満になり得る
       expect(ratio, greaterThanOrEqualTo(0.8));
+    });
+  });
+
+  group('レイアウト切り替えの高さしきい値', () {
+    bool useCompactLayout(double availableHeight) => availableHeight < 500;
+
+    test('スマホ縦向き (高さ~788px) は縦用レイアウト', () {
+      expect(useCompactLayout(788), isFalse); // 390x844 - AppBar56
+    });
+
+    test('スマホ横向き (高さ~334px) は横用レイアウト', () {
+      expect(useCompactLayout(334), isTrue); // 844x390 - AppBar56
+    });
+
+    test('タブレット横向き (高さ~712px) は縦用レイアウト', () {
+      expect(useCompactLayout(712), isFalse); // iPad 768px - AppBar56
+    });
+
+    test('ブラウザ広幅 (高さ~600px) は縦用レイアウト', () {
+      expect(useCompactLayout(600), isFalse);
+    });
+
+    test('500px境界: 499px以下で横用、500px以上で縦用', () {
+      expect(useCompactLayout(499), isTrue);
+      expect(useCompactLayout(500), isFalse);
     });
   });
 

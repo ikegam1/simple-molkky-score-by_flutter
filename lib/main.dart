@@ -513,8 +513,9 @@ class _SetupScreenState extends State<SetupScreen> {
         ],
       ),
       extendBodyBehindAppBar: true,
-      body: OrientationBuilder(builder: (_, orientation) {
-        if (orientation == Orientation.landscape) {
+      body: LayoutBuilder(builder: (_, constraints) {
+        // 高さが500px未満の場合のみ横向きレイアウト（タブレットは縦用を維持）
+        if (constraints.maxHeight < 500) {
           return _buildLandscapeBody(context, t, options, self5TurnEnabled);
         }
         // --- 縦向き（変更なし）---
@@ -1724,8 +1725,9 @@ class _GameScreenState extends State<GameScreen> {
           if (_speechAvailable) _buildMicButton(),
         ]),
         actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
-      body: OrientationBuilder(builder: (_, orientation) {
-        final isLandscape = orientation == Orientation.landscape;
+      body: LayoutBuilder(builder: (_, constraints) {
+        // 高さが500px未満の場合のみ横向きレイアウト（タブレットは縦用を維持）
+        final isLandscape = constraints.maxHeight < 500;
         if (isLandscape) {
           // ─── 横向きレイアウト ───────────────────────────────────
           final rightW = (MediaQuery.of(context).size.width * 0.42).clamp(200.0, 360.0);
