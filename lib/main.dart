@@ -13,7 +13,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
@@ -76,7 +75,6 @@ class L10n {
       'consecutive_success': 'Streak: {n}',
       'next_challenge': 'Next Challenge',
       'back_to_top': 'Back to Top',
-      'voice_input': 'Voice Input (Beta)',
       'help_title': 'How to Play',
       'pts': 'pts',
       'hyakin_mode': 'Hyakin (表裏 2 sets)',
@@ -136,7 +134,6 @@ class L10n {
       'consecutive_success': '連続成功: {n}回',
       'next_challenge': '次のチャレンジへ',
       'back_to_top': 'トップへ',
-      'voice_input': '音声入力（試験中）',
       'help_title': '使い方',
       'pts': '点',
       'hyakin_mode': '100均（表裏2セット）',
@@ -576,7 +573,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
                     match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
                   }
-                  Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: true, appLocale: Localizations.localeOf(context))));
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, appLocale: Localizations.localeOf(context))));
                 },
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
                 child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
@@ -683,7 +680,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
                         match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
                       }
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, voiceEnabled: true, appLocale: Localizations.localeOf(context))));
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, appLocale: Localizations.localeOf(context))));
                     },
                     style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 44), backgroundColor: Colors.blue),
                     child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 16)),
@@ -712,9 +709,8 @@ class _SetupScreenState extends State<SetupScreen> {
 class GameScreen extends StatefulWidget {
   final MolkkyMatch match;
   final String appUserId;
-  final bool voiceEnabled;
   final Locale? appLocale;
-  const GameScreen({super.key, required this.match, required this.appUserId, this.voiceEnabled = false, this.appLocale});
+  const GameScreen({super.key, required this.match, required this.appUserId, this.appLocale});
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -727,19 +723,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   Map<String, int> turnInProgressScores = {};
   Set<String> systemCalculatedIds = {};
 
-  // 音声認識
-  final SpeechToText _speech = SpeechToText();
-  bool _speechAvailable = false;
-  String? _localeId; // 利用可能なSTTロケールID
-  String _voiceText = ''; // リアルタイム認識テキスト（デバッグ兼UX）
-  String _lastInterimText = ''; // finalResultが空だった場合のフォールバック用
-
-  bool _micHeld = false;          // user is holding mic button
-  bool _autoMicActive = false;    // 60s auto mode is active
-  Timer? _autoMicTimer;           // countdown for auto mode
-
-  bool get _voiceActive => _micHeld || _autoMicActive;
-
   // 勝利メッセージ用フラグ
   final Set<String> _playersBurstedThisSet = {}; // このセットでバーストしたプレイヤーのID
 
@@ -747,9 +730,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   int _elapsedSeconds = 0;
   Timer? _elapsedTimer;
   Timer? _elapsedStartDelayTimer; // 2秒遅延キャンセル用
-  Timer? _speechConfirmTimer;
-  int _listenSessionId = 0; // セッションIDで古い認識結果を除外する
-
   // 点滅アニメーション (2ミス + 49点)
   late AnimationController _blinkController;
   late Animation<double> _blinkOpacity;
@@ -759,18 +739,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     super.initState();
     _blinkController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _blinkOpacity = Tween<double>(begin: 0.2, end: 1.0).animate(_blinkController);
-    _initSpeech();
     _resetElapsedTimer();
   }
 
   @override
   void dispose() {
     _blinkController.dispose();
-    _autoMicTimer?.cancel();
     _elapsedTimer?.cancel();
     _elapsedStartDelayTimer?.cancel();
-    _speechConfirmTimer?.cancel();
-    _speech.stop();
     super.dispose();
   }
 
@@ -790,68 +766,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     return false;
   }
 
-  Future<void> _initSpeech() async {
-    if (!widget.voiceEnabled) return; // 音声無効時は初期化しない
-    _speechAvailable = await _speech.initialize(
-      onStatus: (status) {
-        if (!mounted) return;
-        setState(() {});
-        // 'done' のみで再起動。
-        // 'notListening' は listen() 直後にも発火するため除外。
-        if (status == 'done' && !isSetFinished && _voiceActive) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted && _voiceActive && !_speech.isListening) _startListening();
-          });
-        }
-      },
-      onError: (error) {
-        debugPrint('Speech error: ${error.errorMsg}');
-        if (!mounted) return;
-        setState(() {});
-        if (!isSetFinished && _voiceActive) {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted && _voiceActive && !_speech.isListening) _startListening();
-          });
-        }
-      },
-    );
-    if (_speechAvailable) {
-      // 利用可能なロケールからアプリ言語に合うものを探す
-      // Webではlocales()が空リストを返すことがあるため安全に処理する
-      try {
-        final locales = await _speech.locales();
-        if (locales.isNotEmpty) {
-          final langCode = widget.appLocale?.languageCode ?? 'ja';
-          final matched = locales.firstWhere(
-            (l) => l.localeId.startsWith(langCode),
-            orElse: () => locales.first,
-          );
-          _localeId = matched.localeId;
-        }
-        debugPrint('Speech locale: $_localeId');
-      } catch (e) {
-        debugPrint('locales() failed: $e');
-      }
-    }
-    if (mounted) setState(() {});
-  }
-
-  void _startAutoMic() {
-    if (!widget.voiceEnabled || !_speechAvailable || !mounted) return;
-    _autoMicTimer?.cancel();
-    setState(() => _autoMicActive = true);
-    _autoMicTimer = Timer(const Duration(seconds: 10), () {
-      if (!mounted) return;
-      setState(() => _autoMicActive = false);
-      _speech.stop();
-    });
-    // stop してから再スタート（前セッションのクリーンリセット）
-    _speech.stop();
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted && _voiceActive && !_speech.isListening) _startListening();
-    });
-  }
-
   void _resetElapsedTimer() {
     _elapsedTimer?.cancel();
     _elapsedStartDelayTimer?.cancel();
@@ -866,304 +780,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (_elapsedSeconds == 60) {
           SystemSound.play(SystemSoundType.alert);
         }
-        // ハートビート: pauseFor 経過直後に isListening=false になる窓でのセッション破壊を防ぐため
-        // 経過秒が5の倍数のときのみ再起動を試みる（1秒周期より干渉リスクを大幅低減）
-        if (_voiceActive && !_speech.isListening && !isSetFinished && _elapsedSeconds % 5 == 0) {
-          _startListening();
-        }
       });
     });
   }
 
-  void _startListening() {
-    if (!widget.voiceEnabled || !_speechAvailable || _speech.isListening || isSetFinished || !mounted || !_voiceActive) return;
-    final sessionId = ++_listenSessionId;
-    _speech.listen(
-      onResult: (result) {
-        // 古いセッションの遅延結果は無視する
-        if (!mounted || _listenSessionId != sessionId) return;
-        setState(() => _voiceText = result.recognizedWords);
-
-        // 途中結果: フォールバックタイマー（finalResultが遅い端末への保険）
-        _speechConfirmTimer?.cancel();
-        if (!result.finalResult && result.recognizedWords.trim().isNotEmpty) {
-          _lastInterimText = result.recognizedWords; // finalResult空時のフォールバック用に保存
-          _speechConfirmTimer = Timer(const Duration(milliseconds: 800), () {
-            if (mounted && _voiceActive && _listenSessionId == sessionId) {
-              final handled = _processVoiceInput(result.recognizedWords);
-              if (handled) {
-                // スコア確定時のみセッションを無効化して遅延finalResultの二重送信を防ぐ
-                ++_listenSessionId;
-                setState(() => _voiceText = '');
-              }
-            }
-          });
-        }
-
-        if (result.finalResult) {
-          _speechConfirmTimer?.cancel();
-          // finalResultのテキストが空の場合は直前のinterim結果をフォールバックとして使う
-          // （STTが認識済みテキストを空でfinalizeする端末への対応）
-          final finalText = result.recognizedWords.trim().isNotEmpty
-              ? result.recognizedWords
-              : _lastInterimText;
-          _lastInterimText = '';
-          _processVoiceInput(finalText);
-          setState(() => _voiceText = '');
-        }
-      },
-      localeId: _localeId ?? (widget.appLocale?.languageCode == 'en' ? 'en-US' : 'ja-JP'),
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(milliseconds: 1500),
-    );
-  }
-
-  /// 音声入力を解析してスコアを適用する。スコアを確定した場合 true を返す
-  bool _processVoiceInput(String text) {
-    if (isSetFinished) return false;
-
-    // 音声Undo検出（日本語のみ）
-    if ((widget.appLocale?.languageCode ?? 'ja') == 'ja') {
-      final n = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
-      if (n.contains('戻る') || n.contains('戻って') || n.contains('戻り') ||
-          n.contains('取り消し') || n.contains('とりけし')) {
-        HapticFeedback.mediumImpact();
-        SystemSound.play(SystemSoundType.click);
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('🎤 $text'),
-          duration: const Duration(milliseconds: 1500),
-          backgroundColor: Colors.orange.shade700,
-        ));
-        _undo();
-        return true;
-      }
-    }
-
-    final score = _parseVoiceScore(text);
-    if (score == null) return false;
-
-    // 成功時に音とバイブレーションでフィードバック
-    HapticFeedback.mediumImpact();
-    SystemSound.play(SystemSoundType.click);
-
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('🎤 $text'),
-      duration: const Duration(milliseconds: 1500),
-      backgroundColor: Colors.blue.shade700,
-    ));
-
-    if (score < 0) {
-      selectedSkitels = [];
-    } else {
-      selectedSkitels = [score];
-    }
-    _submitThrow();
-    // _submitThrow内の else ブランチで _resetElapsedTimer が呼ばれる
-    return true;
-  }
-
-  /// ウェイクワード検索：STT の認識揺れ（投てき終了 等）にも対応
-  int _wakeWordEnd(String text) {
-    // 句読点やスペースを排除して比較（認識精度向上）
-    final normalized = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
-    
-    // 完全一致パターン（長いものを先に照合して誤マッチを防ぐ）
-    for (final w in [
-      '投擲終了', '投てき終了', 'とうてき終了', '投テキ終了',
-      '投擲しゅうりょう', '投擲修了', '投擲週了',
-    ]) {
-      final idx = normalized.indexOf(w);
-      if (idx >= 0) return idx + w.length;
-    }
-    // 部分一致（STT認識ズレ対応）
-    for (final w in [
-      'てきしゅ', '敵襲', 'てき終', 'てき修', 'テキ終', 'テキ修',
-      '圧倒的', // STT誤認識パターン
-      'スコア',   // ウェイクワード追加
-      '入力',   // 「入力10点」など
-      '終了',   // 「終了2点」など短い発話にも対応
-    ]) {
-      final idx = normalized.indexOf(w);
-      if (idx >= 0) return idx + w.length;
-    }
-    // English wake words (case-insensitive, spaces already removed)
-    final normalizedLower = normalized.toLowerCase();
-    for (final w in ['done', 'score', 'enter', 'input', 'finish']) {
-      final idx = normalizedLower.indexOf(w);
-      if (idx >= 0) return idx + w.length;
-    }
-    return -1;
-  }
-
-  /// 日本語音声テキストをひらがな読みに正規化する
-  /// カタカナ→ひらがな変換後、同音異義語・漢字をひらがなに展開する
-  /// これにより _parseVoiceScore の照合を単純なひらがなマッチに統一できる
-  String _normalizeJaPhonetic(String text) {
-    // 句読点・空白を除去
-    var s = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
-    // 全角数字→半角数字
-    s = s.replaceAllMapped(RegExp(r'[０-９]'),
-        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0xFF10 + 0x30));
-    // カタカナ→ひらがな（U+30A1–U+30F6 の範囲; 長音符「ー」は対象外）
-    s = s.replaceAllMapped(RegExp(r'[\u30A1-\u30F6]'),
-        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0x60));
-    // 同音異義語フレーズ・漢字数字をひらがなに変換（長いものを先に処理）
-    const map = [
-      // 長音符を含むパターン（カタカナ→ひらがな変換後に対処）
-      ('じゅてーむ', 'じゅうてん'),       // ジュテーム (je t'aime)
-      // 同音異義語フレーズ
-      ('銃に店', 'じゅうにてん'), ('銃に', 'じゅうにてん'),
-      ('獣医点', 'じゅういちてん'), ('10移転', 'じゅういちてん'),
-      ('住人', 'じゅうにてん'),
-      ('発展', 'はってん'), ('鉢店', 'はちてん'),
-      ('御殿', 'ごてん'),
-      ('休店', 'きゅうてん'), ('急転', 'きゅうてん'),
-      ('位置点', 'いちてん'), ('移転', 'いちてん'),
-      // 英語音声の同音漢字
-      ('刷り', 'すりー'),
-      ('湾', 'わん'), ('通', 'つう'),
-      // 複合パターン（個別漢字変換より先に処理）
-      ('獣医', 'じゅういち'),
-      ('銃位置', 'じゅういち'),
-      ('住に', 'じゅうに'), ('獣に', 'じゅうに'),
-      ('重に', 'じゅうに'), ('柔に', 'じゅうに'),
-      ('奈々', 'なな'), ('菜々', 'なな'),
-      // 個別漢字（数字の同音異義語・長い複合は上で処理済み）
-      // 1 = いち
-      ('壱', 'いち'), ('位置', 'いち'),
-      // 2 = に
-      ('弐', 'に'), ('仁', 'に'), ('煮', 'に'), ('尼', 'に'), ('似', 'に'), ('荷', 'に'),
-      // 3 = さん
-      ('酸', 'さん'), ('産', 'さん'),
-      ('山', 'さん'), ('参', 'さん'), ('散', 'さん'), ('算', 'さん'), ('賛', 'さん'),
-      // 4 = し
-      ('死', 'し'),
-      // 5 = ご
-      ('誤', 'ご'), ('語', 'ご'), ('碁', 'ご'), ('御', 'ご'), ('護', 'ご'),
-      // 6 = ろく
-      ('禄', 'ろく'), ('録', 'ろく'),
-      // 8 = はち
-      ('蜂', 'はち'), ('鉢', 'はち'),
-      // 9 = きゅう
-      ('球', 'きゅう'), ('究', 'きゅう'), ('級', 'きゅう'), ('給', 'きゅう'),
-      ('救', 'きゅう'), ('宮', 'きゅう'), ('求', 'きゅう'), ('弓', 'きゅう'),
-      ('旧', 'きゅう'), ('急', 'きゅう'),
-      // 10 = じゅう
-      ('重', 'じゅう'), ('銃', 'じゅう'), ('住', 'じゅう'), ('獣', 'じゅう'),
-      ('充', 'じゅう'), ('柔', 'じゅう'), ('縦', 'じゅう'),
-      // 漢字数字（長い順）
-      ('十二', 'じゅうに'), ('十一', 'じゅういち'), ('十', 'じゅう'),
-      ('九', 'きゅう'), ('八', 'はち'), ('七', 'なな'),
-      ('六', 'ろく'), ('五', 'ご'), ('四', 'よん'),
-      ('三', 'さん'), ('二', 'に'), ('一', 'いち'),
-      // 点数サフィックス（漢字・ひらがな）
-      // ※ カタカナ→ひらがな変換後にこのテーブルが適用されるため
-      //   ポイント→ぽいんと に変換済みのひらがな表記で照合する
-      ('ぽいんと', 'てん'), ('ぽいん', 'てん'),
-      ('点', 'てん'), ('店', 'てん'), ('手', 'てん'), ('転', 'てん'),
-      // ミス関連漢字
-      ('零', 'れい'), ('霊', 'れい'),
-    ];
-    for (final (from, to) in map) {
-      s = s.replaceAll(from, to);
-    }
-    // 英語単語の大文字小文字を統一（STTが "One" や "TWO" と返す場合に対応）
-    s = s.toLowerCase();
-    return s;
-  }
-
-  /// テキストから点数を解析する。
-  /// ロケールが日本語の場合はウェイクワード不要。英語版はウェイクワード必須のまま。
-  /// 戻り値: 1〜12=ピン番号、-1=ミス、null=認識失敗
-  int? _parseVoiceScore(String text) {
-    final isJa = (widget.appLocale?.languageCode ?? 'ja') == 'ja';
-    final normalized = text.replaceAll(RegExp(r'[、。,.\s　]'), '');
-
-    if (!isJa) {
-      // === 英語パス: ウェイクワード必須（変更なし） ===
-      final wakeEnd = _wakeWordEnd(text);
-      if (wakeEnd < 0) return null;
-      final afterWake = normalized.substring(wakeEnd).toLowerCase();
-      if (afterWake.isEmpty) return null;
-      if (afterWake.contains('miss')) return -1;
-      final digitMatch = RegExp(r'(\d+)').firstMatch(afterWake);
-      if (digitMatch != null) {
-        final n = int.tryParse(digitMatch.group(1)!);
-        if (n != null && n >= 1 && n <= 12) return n;
-      }
-      const enMap = <String, int>{
-        'twelve': 12, 'eleven': 11, 'ten': 10,
-        'nine': 9, 'eight': 8, 'seven': 7, 'six': 6, 'five': 5,
-        'four': 4, 'three': 3, 'two': 2, 'one': 1,
-      };
-      for (final entry in enMap.entries) {
-        if (RegExp(r'\b' + entry.key + r'\b').hasMatch(afterWake)) return entry.value;
-      }
-      return null;
-    }
-
-    // === 日本語パス: ウェイクワード不要 ===
-    // 先にひらがなへ正規化することで漢字・カタカナ・同音異義語を統一処理できる
-    final ja = _normalizeJaPhonetic(text);
-
-    // 1. アラビア数字 + てん (1-12)
-    //    正規化後はサフィックスが全て「てん」に統一されている
-    final digitMatch = RegExp(r'([0-9]{1,2})てん').firstMatch(ja);
-    if (digitMatch != null) {
-      final n = int.tryParse(digitMatch.group(1)!);
-      if (n != null && n >= 1 && n <= 12) return n;
-    }
-
-    // 2. ひらがな数字 + てん（長いパターンを先に照合して部分一致を防ぐ）
-    const jpScoreList = <(String, int)>[
-      ('じゅうに', 12), ('じゅういち', 11),
-      ('じゅっ', 10), ('じゅう', 10),
-      ('きゅう', 9), ('はっ', 8), ('はち', 8),
-      ('なな', 7), ('しち', 7), ('ろく', 6), ('ご', 5),
-      ('よん', 4), ('よっ', 4), ('さん', 3), ('に', 2),
-      ('いっ', 1), ('いち', 1),
-    ];
-    for (final (jp, score) in jpScoreList) {
-      if (ja.contains('${jp}てん')) return score;
-    }
-
-    // 3. 裸のアラビア数字 1-12（STTが「点」を省略した場合のフォールバック）
-    //    例: STT が「10点」→「10」と返した場合にもスコアとして認識する
-    final bareMatch = RegExp(r'^([0-9]{1,2})$').firstMatch(ja);
-    if (bareMatch != null) {
-      final n = int.tryParse(bareMatch.group(1)!);
-      if (n != null && n >= 1 && n <= 12) return n;
-    }
-
-    // 4. 単体読み・英語数字（STTが「点」を省略、または英語で発話した場合）
-    //    正規化後の文字列が完全一致する場合のみスコアとして認識する
-    const standaloneMap = <String, int>{
-      'いち': 1, 'one': 1, 'わん': 1,
-      'に': 2, 'two': 2, 'つー': 2, 'つう': 2,
-      'さん': 3, 'three': 3, 'すりー': 3,
-      'よん': 4, 'し': 4, 'four': 4, 'ふぉー': 4,
-      'ご': 5, 'five': 5, 'ふぁいぶ': 5,
-      'ろく': 6, 'six': 6, 'しっくす': 6,
-      'なな': 7, 'しち': 7, 'seven': 7, 'せぶん': 7,
-      'はち': 8, 'eight': 8, 'えいと': 8,
-      'きゅう': 9, 'きゅー': 9, 'nine': 9, 'ないん': 9, 'q': 9,
-      'じゅう': 10, 'ten': 10,  // 'てん' は除外: 数字接尾辞と衝突するため
-      'じゅういち': 11, 'eleven': 11, 'いれぶん': 11,
-      'じゅうに': 12, 'twelve': 12, 'とぅえるぶ': 12,
-    };
-    if (standaloneMap.containsKey(ja)) return standaloneMap[ja]!;
-
-    // 5. ミス判定（スコアチェック後; 「10てん」→「0」誤マッチを防ぐ）
-    if (ja.contains('ふぉると') ||
-        RegExp(r'(?<![0-9])0てん').hasMatch(ja) ||
-        ja.contains('ぜろてん') || ja.contains('れいてん')) {
-      return -1;
-    }
-
-    return null;
-  }
 
   void _submitThrow() {
     if (isSetFinished) return;
@@ -1311,10 +931,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         selectedSkitels.clear(); _nextPlayer();
       }
     });
-    // タイマーと音声の管理
+    // タイマー管理
     if (_isSelfTurnMode) {
       if (isSetFinished) {
-        _elapsedTimer?.cancel(); _autoMicTimer?.cancel(); _speech.stop();
+        _elapsedTimer?.cancel();
         if (self5TurnSucceeded) _showSelf5TurnSuccessDialog();
         else if (self5TurnFailed) { _uploadSelf5TurnData(); _showSelf5TurnFailureDialog(); }
       } else {
@@ -1322,11 +942,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       }
       return;
     }
-    // セット終了時はタイマーと音声を停止
+    // セット終了時はタイマーを停止
     if (isSetFinished) {
       _elapsedTimer?.cancel();
-      _autoMicTimer?.cancel();
-      _speech.stop();
     } else {
       _resetElapsedTimer();
     }
@@ -1412,7 +1030,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => GameScreen(
               appUserId: widget.appUserId,
               match: MolkkyMatch(players: newPlayers, limit: 99, type: widget.match.type),
-              voiceEnabled: widget.voiceEnabled,
             )));
           },
           child: Text(t.get('next_challenge')),
@@ -1437,8 +1054,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       widget.match.finalizeCurrentSetIfNeeded();
     });
     _elapsedTimer?.cancel();
-    _autoMicTimer?.cancel();
-    _speech.stop();
     _uploadSelf5TurnData();
     _showSelf5TurnFailureDialog();
   }
@@ -1621,44 +1236,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   String _stars(int setsWon) => setsWon <= 0 ? '' : '⭐' * setsWon;
 
-  Widget _buildMicButton() {
-    final active = _voiceActive;
-    return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _micHeld = true);
-        if (!_autoMicActive) {
-          // 60秒タイムアウト後のタップ → 自動マイクを再起動
-          _startAutoMic();
-          _resetElapsedTimer();
-        } else if (!_speech.isListening) {
-          _startListening();
-        }
-      },
-      onTapUp: (_) {
-        setState(() => _micHeld = false);
-        // _autoMicActive が true（再開直後含む）なら止めない
-        if (!_autoMicActive) _speech.stop();
-      },
-      onTapCancel: () {
-        setState(() => _micHeld = false);
-        if (!_autoMicActive) _speech.stop();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: active ? Colors.green : Colors.grey[300],
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          active ? Icons.mic : Icons.mic_off,
-          size: 20,
-          color: active ? Colors.white : Colors.grey[600],
-        ),
-      ),
-    );
-  }
-
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
     final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
@@ -1787,13 +1364,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       },
       child: Scaffold(
       appBar: AppBar(
-        title: Row(children: [
-          Text(isSelfTurn
-            ? t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})
-            : t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
-          const SizedBox(width: 8),
-          if (_speechAvailable) _buildMicButton(),
-        ]),
+        title: Text(isSelfTurn
+          ? t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})
+          : t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
         actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
       body: LayoutBuilder(builder: (_, constraints) {
         // 高さが500px未満の場合のみ横向きレイアウト（タブレットは縦用を維持）
@@ -2015,11 +1588,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           else
             nameWidget,
           if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
-          if (_speechAvailable && _speech.isListening && _voiceText.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2.0),
-              child: Text(_voiceText, style: const TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-            ),
         ],
       ),
     );
@@ -2537,18 +2105,7 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '3. 音声でスコアを入力する',
-      body: '画面上部のマイクボタンを押してから、マイクに向かって得点を話しかけると自動的に入力されます（10秒間待ち受け）。',
-      examplesLabel: '例：',
-      examples: [
-        '「1点」〜「12点」',
-        '「フォルト」（ミスの場合）',
-        '「戻る」「取り消し」（直前の入力を取り消し）',
-      ],
-      note: '※ 音声入力がうまく認識されない場合はボタンで手動入力してください。',
-    ),
-    const _HelpSection(
-      title: '4. 試合の進め方',
+      title: '3. 試合の進め方',
       items: [
         '誰かがちょうど50点を取るとそのセットが終了',
         'セット終了後に次のセットの投げ順を変更できます',
@@ -2556,23 +2113,24 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '5. 戦績を確認する',
+      title: '4. 戦績を確認する',
       items: [
         '画面右上の「戦績確認」からこれまでの試合結果を見られます',
       ],
     ),
     const _HelpSection(
-      title: '6. セルフ5ターン（1人用練習モード）',
+      title: '5. セルフ5/6ターン（1人用練習モード）',
       items: [
-        'プレイヤーが1名の場合のみ「セルフ5ターン」モードが選べます',
-        '5投で50点ちょうどに到達できれば「成功」',
-        '6投以上になるか、5投で50点に届かない場合は「失敗」でゲーム終了',
+        'プレイヤーが1名の場合のみ「セルフ5ターン」「セルフ6ターン」モードが選べます',
+        '制限ターン（5または6投）以内で50点ちょうどに到達できれば「成功」',
+        '制限ターンを超えても投げ続けられます。50点を目指しましょう！',
+        '数学的に50点到達が不可能になった時点で「早期終了」ボタンが表示されます',
         '何回連続で成功できるかを競います（連続成功記録を更新しましょう！）',
         '失敗後は「トップへ」でタイトル画面に戻るか「次のチャレンジへ」で新記録に挑戦',
       ],
     ),
     const _HelpSection(
-      title: '7. 100均モード（表裏2セット）',
+      title: '6. 100均モード（表裏2セット）',
       items: [
         '試合形式で「100均（表裏2セット）」を選択します',
         '1セット目は通常のモルック（50点ちょうどで勝利）',
@@ -2583,7 +2141,7 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '8. 小ネタ',
+      title: '7. 小ネタ',
       items: [
         '秒数の上をタップすると0にリセットできるよ',
       ],
@@ -2610,18 +2168,7 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '3. Voice Input',
-      body: 'Tap the mic button at the top of the screen, then speak toward the microphone — scores are entered automatically (10-second window).',
-      examplesLabel: 'Example phrases:',
-      examples: [
-        '"Done, 12 points"',
-        '"Score five"',
-        '"Done, miss"',
-      ],
-      note: '* If voice input fails to recognize, use the buttons to enter manually.',
-    ),
-    const _HelpSection(
-      title: '4. How the Game Progresses',
+      title: '3. How the Game Progresses',
       items: [
         'A set ends when someone reaches exactly 50 points',
         'After each set you can reorder players for the next set',
@@ -2629,23 +2176,25 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '5. Viewing Match History',
+      title: '4. Viewing Match History',
       items: [
         'Tap the history icon in the top-right corner to view past results',
       ],
     ),
     const _HelpSection(
-      title: '6. Self 5-Turn (Solo Practice Mode)',
+      title: '5. Self 5/6-Turn (Solo Practice Mode)',
       items: [
         'Available only when 1 player is registered',
-        'Reach exactly 50 points in 5 throws to succeed',
-        'Fail if you exceed 5 throws or cannot reach 50',
+        'Select "Self 5-Turn" or "Self 6-Turn" from the game mode options',
+        'Reach exactly 50 points within the turn limit (5 or 6 throws) to succeed',
+        'You can keep throwing beyond the limit — aim for 50!',
+        'An "Early End" button appears when reaching 50 is mathematically impossible',
         'Challenge yourself to build the longest success streak!',
         'After failing, return to the top or start the next challenge',
       ],
     ),
     const _HelpSection(
-      title: '7. Hyakin Mode (表裏 2 Sets)',
+      title: '6. Hyakin Mode (表裏 2 Sets)',
       items: [
         'Select "Hyakin (表裏 2 sets)" from the game mode options',
         'Set 1 is normal Mölkky — reach exactly 50 to win',
@@ -2656,7 +2205,7 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
-      title: '8. Tips',
+      title: '7. Tips',
       items: [
         'Tap on the timer to reset it to 0',
       ],
@@ -2667,18 +2216,10 @@ class HelpPage extends StatelessWidget {
 class _HelpSection extends StatelessWidget {
   final String title;
   final List<String> items;
-  final String? body;
-  final List<String> examples;
-  final String examplesLabel;
-  final String? note;
 
   const _HelpSection({
     required this.title,
     this.items = const [],
-    this.body,
-    this.examples = const [],
-    this.examplesLabel = '話し方の例：',
-    this.note,
   });
 
   @override
@@ -2688,10 +2229,6 @@ class _HelpSection extends StatelessWidget {
       children: [
         Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.blue)),
         const SizedBox(height: 8),
-        if (body != null) ...[
-          Text(body!, style: const TextStyle(fontSize: 14)),
-          const SizedBox(height: 8),
-        ],
         for (final item in items) ...[
           Padding(
             padding: const EdgeInsets.only(left: 8, bottom: 4),
@@ -2702,34 +2239,6 @@ class _HelpSection extends StatelessWidget {
                 Expanded(child: Text(item, style: const TextStyle(fontSize: 14))),
               ],
             ),
-          ),
-        ],
-        if (examples.isNotEmpty) ...[
-          Container(
-            margin: const EdgeInsets.only(top: 4, left: 8),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(examplesLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                for (final ex in examples)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(ex, style: const TextStyle(fontSize: 14)),
-                  ),
-              ],
-            ),
-          ),
-        ],
-        if (note != null) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 8),
-            child: Text(note!, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           ),
         ],
       ],
