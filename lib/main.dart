@@ -1,7 +1,8 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -85,6 +86,15 @@ class L10n {
       'self5turn_fail_9plus': 'Are you a pro?! The legendary {name}!! 🏆',
       'self6turn_mode': 'Self 6-Turn (solo)',
       'self6turn_solo_only': 'Self 6-Turn is solo only (1 player)',
+      'match_history_filter': 'Filter',
+      'filter_all': 'All',
+      'filter_normal': 'Match',
+      'filter_self5turn': 'Self 5-Turn',
+      'filter_self6turn': 'Self 6-Turn',
+      'match_history_sort': 'Sort',
+      'sort_date_desc': 'Date ↓',
+      'sort_date_asc': 'Date ↑',
+      'sort_streak_desc': 'Streak ↓',
       'early_end': 'Early End',
       'match_draw': '🤝 Draw!',
       'match_draw_detail': 'Same sets won and total score — it\'s a draw!',
@@ -144,6 +154,15 @@ class L10n {
       'self5turn_fail_9plus': 'プロですか？世界の{name}！！🏆',
       'self6turn_mode': 'セルフ6ターン（1人用）',
       'self6turn_solo_only': 'セルフ6ターンは1名専用です',
+      'match_history_filter': 'フィルター',
+      'filter_all': 'すべて',
+      'filter_normal': '通常試合',
+      'filter_self5turn': 'セルフ5ターン',
+      'filter_self6turn': 'セルフ6ターン',
+      'match_history_sort': '並び替え',
+      'sort_date_desc': '日付 ↓',
+      'sort_date_asc': '日付 ↑',
+      'sort_streak_desc': '連続 ↓',
       'early_end': '早期終了',
       'match_draw': '🤝 引き分け！',
       'match_draw_detail': 'セット数・合計点数が同じため引き分けです！',
@@ -173,7 +192,9 @@ class L10nDelegate extends LocalizationsDelegate<L10n> {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try { await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); } catch (e) { debugPrint("Firebase init error: $e"); }
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, systemNavigationBarColor: Colors.transparent));
+  if (!kIsWeb && !Platform.isAndroid) {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, systemNavigationBarColor: Colors.transparent));
+  }
   runApp(const EasyMolkkyApp());
 }
 
@@ -582,7 +603,7 @@ class _SetupScreenState extends State<SetupScreen> {
               OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
               const SizedBox(height: 10),
               if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              const Text('v1.12.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text('v1.13.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         );
@@ -695,7 +716,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 4),
                   if (_firebaseUid.isNotEmpty)
                     Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.center),
-                  const Text('v1.12.0', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
+                  const Text('v1.13.2', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -1686,9 +1707,10 @@ class HistoryPage extends StatelessWidget {
   final List<Player>? players;
   final String? winnerName;
   final bool isSelf5Turn;
+  final bool isSelf6Turn;
   final int consecutiveSuccesses;
   final bool isHyakin;
-  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName, this.isSelf5Turn = false, this.consecutiveSuccesses = 0, this.isHyakin = false});
+  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName, this.isSelf5Turn = false, this.isSelf6Turn = false, this.consecutiveSuccesses = 0, this.isHyakin = false});
 
   Map<String, int> _finalSetWins(List<Player> allPlayers) {
     final wins = <String, int>{for (var p in allPlayers) p.id: 0};
@@ -1810,13 +1832,13 @@ class HistoryPage extends StatelessWidget {
         Text('${t.get('app_title')} Result', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
         Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
         const Divider(height: 30),
-        if (isSelf5Turn)
+        if (isSelf5Turn || isSelf6Turn)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             color: const Color(0xFFE3F2FD),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(t.get('self5turn_mode'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(isSelf5Turn ? t.get('self5turn_mode') : t.get('self6turn_mode'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text(t.get('consecutive_success', args: {'n': '$consecutiveSuccesses'}),
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
@@ -1848,7 +1870,7 @@ class HistoryPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             color: const Color(0xFFE3F2FD),
             child: Text(
-              isSelf5Turn
+              (isSelf5Turn || isSelf6Turn)
                 ? t.get('self5turn_challenge_n', args: {'n': '${set.setNumber}'})
                 : t.get('set_n', args: {'n': '${set.setNumber}'}),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -1873,7 +1895,7 @@ class HistoryPage extends StatelessWidget {
         ...set.turns.map((turn) => DataRow(cells: [DataCell(Text('${turn.turnNumber}')), ...displayOrder.map((p) {
           bool isStarter = p.id == set.starterPlayerId;
           bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
-          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : ""; // 修正：空白化
+          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "";
           return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
         })])),
         DataRow(color: WidgetStateProperty.all(const Color(0xFFFFF8E1)), cells: [DataCell(Text(t.get('total'), style: const TextStyle(fontWeight: FontWeight.bold))), ...displayOrder.map((p) => DataCell(Text('${set.finalCumulativeScores[p.id] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16))))]),
@@ -1890,16 +1912,16 @@ class GlobalHistoryPage extends StatefulWidget {
 }
 
 class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
-  String _filter = 'all'; // 'all', 'normal', 'self5Turn'
-  String _self5TurnSort = 'date_desc'; // 'date_desc', 'date_asc', 'streak_desc'
+  String _filter = 'all'; // 'all', 'normal', 'self5Turn', 'self6Turn'
+  String _selfTurnSort = 'date_desc'; // 'date_desc', 'date_asc', 'streak_desc'
   int _currentPage = 0;
   static const int _pageSize = 50;
 
-  static bool _isSelf5TurnRecord(Map<String, dynamic> data) =>
+  static bool _isSelfTurnRecord(Map<String, dynamic> data) =>
       data['matchType'] == 'MatchType.self5Turn' || data['matchType'] == 'MatchType.self6Turn';
 
   void _setFilter(String v) => setState(() { _filter = v; _currentPage = 0; });
-  void _setSort(String v) => setState(() { _self5TurnSort = v; _currentPage = 0; });
+  void _setSort(String v) => setState(() { _selfTurnSort = v; _currentPage = 0; });
 
   @override
   Widget build(BuildContext context) {
@@ -1918,28 +1940,34 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
           final allDocs = snapshot.data!.docs;
           if (allDocs.isEmpty) return Center(child: Text(t.get('no_history')));
 
-          final hasSelf5Turn = allDocs.any((d) => _isSelf5TurnRecord(d.data() as Map<String, dynamic>));
-          final hasNormal = allDocs.any((d) => !_isSelf5TurnRecord(d.data() as Map<String, dynamic>));
-          final showFilter = hasSelf5Turn && hasNormal;
-          final showingOnlySelf5Turn = _filter == 'self5Turn' || (!showFilter && hasSelf5Turn);
+          final hasSelf5Turn = allDocs.any((d) => (d.data() as Map)['matchType'] == 'MatchType.self5Turn');
+          final hasSelf6Turn = allDocs.any((d) => (d.data() as Map)['matchType'] == 'MatchType.self6Turn');
+          final hasNormal = allDocs.any((d) => !_isSelfTurnRecord(d.data() as Map<String, dynamic>));
+          
+          final selfTurnDocCount = (hasSelf5Turn ? 1 : 0) + (hasSelf6Turn ? 1 : 0);
+          final showFilter = (selfTurnDocCount + (hasNormal ? 1 : 0)) > 1;
+          final showingSelfTurn = _filter == 'self5Turn' || _filter == 'self6Turn' || (!showFilter && (hasSelf5Turn || hasSelf6Turn));
 
           // Filter
           var filtered = showFilter && _filter != 'all'
               ? allDocs.where((d) {
-                  final isSelf = _isSelf5TurnRecord(d.data() as Map<String, dynamic>);
-                  return _filter == 'self5Turn' ? isSelf : !isSelf;
+                  final data = d.data() as Map<String, dynamic>;
+                  final mType = data['matchType'];
+                  if (_filter == 'self5Turn') return mType == 'MatchType.self5Turn';
+                  if (_filter == 'self6Turn') return mType == 'MatchType.self6Turn';
+                  return !_isSelfTurnRecord(data);
                 }).toList()
               : List.from(allDocs);
 
-          // Sort for self5Turn view
-          if (showingOnlySelf5Turn) {
-            if (_self5TurnSort == 'date_asc') {
+          // Sort for selfTurn view
+          if (showingSelfTurn) {
+            if (_selfTurnSort == 'date_asc') {
               filtered.sort((a, b) {
                 final ta = (a.data() as Map)['startTime'] as Timestamp;
                 final tb = (b.data() as Map)['startTime'] as Timestamp;
                 return ta.compareTo(tb);
               });
-            } else if (_self5TurnSort == 'streak_desc') {
+            } else if (_selfTurnSort == 'streak_desc') {
               filtered.sort((a, b) {
                 final sa = ((a.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
                 final sb = ((b.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
@@ -1958,30 +1986,31 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
           final pageDocs = filtered.sublist(pageStart, pageEnd);
 
           return Column(children: [
-            if (showFilter || showingOnlySelf5Turn)
+            if (showFilter || showingSelfTurn)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Row(children: [
                   if (showFilter)
                     Expanded(child: DropdownButtonFormField<String>(
                       value: _filter,
-                      decoration: const InputDecoration(labelText: 'フィルター', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                      items: const [
-                        DropdownMenuItem(value: 'all', child: Text('すべて')),
-                        DropdownMenuItem(value: 'normal', child: Text('通常試合')),
-                        DropdownMenuItem(value: 'self5Turn', child: Text('セルフ5ターン')),
+                      decoration: InputDecoration(labelText: t.get('match_history_filter'), isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      items: [
+                        DropdownMenuItem(value: 'all', child: Text(t.get('filter_all'))),
+                        if (hasNormal) DropdownMenuItem(value: 'normal', child: Text(t.get('filter_normal'))),
+                        if (hasSelf5Turn) DropdownMenuItem(value: 'self5Turn', child: Text(t.get('filter_self5turn'))),
+                        if (hasSelf6Turn) DropdownMenuItem(value: 'self6Turn', child: Text(t.get('filter_self6turn'))),
                       ],
                       onChanged: (v) => _setFilter(v!),
                     )),
-                  if (showFilter && showingOnlySelf5Turn) const SizedBox(width: 8),
-                  if (showingOnlySelf5Turn)
+                  if (showFilter && showingSelfTurn) const SizedBox(width: 8),
+                  if (showingSelfTurn)
                     Expanded(child: DropdownButtonFormField<String>(
-                      value: _self5TurnSort,
-                      decoration: const InputDecoration(labelText: '並び替え', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                      items: const [
-                        DropdownMenuItem(value: 'date_desc', child: Text('日付↓')),
-                        DropdownMenuItem(value: 'date_asc', child: Text('日付↑')),
-                        DropdownMenuItem(value: 'streak_desc', child: Text('連続↓')),
+                      value: _selfTurnSort,
+                      decoration: InputDecoration(labelText: t.get('match_history_sort'), isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      items: [
+                        DropdownMenuItem(value: 'date_desc', child: Text(t.get('sort_date_desc'))),
+                        DropdownMenuItem(value: 'date_asc', child: Text(t.get('sort_date_asc'))),
+                        DropdownMenuItem(value: 'streak_desc', child: Text(t.get('sort_streak_desc'))),
                       ],
                       onChanged: (v) => _setSort(v!),
                     )),
@@ -1991,11 +2020,12 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
               final data = pageDocs[index].data() as Map<String, dynamic>;
               final start = (data['startTime'] as Timestamp).toDate();
               final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
-              if (_isSelf5TurnRecord(data)) {
+              if (_isSelfTurnRecord(data)) {
+                final isS6 = data['matchType'] == 'MatchType.self6Turn';
                 final streak = data['consecutiveSuccesses'] ?? 0;
                 return ListTile(
-                  leading: const Icon(Icons.flag, color: Colors.green),
-                  title: Text("${DateFormat('MM/dd HH:mm').format(start)} ${t.get('self5turn_mode')}"),
+                  leading: Icon(Icons.flag, color: isS6 ? Colors.orange : Colors.green),
+                  title: Text("${DateFormat('MM/dd HH:mm').format(start)} ${isS6 ? t.get('self6turn_mode') : t.get('self5turn_mode')}"),
                   subtitle: Text("${t.get('consecutive_success', args: {'n': '$streak'})} / $playerNames"),
                   onTap: () => _viewDetail(context, data, start),
                 );
@@ -2028,11 +2058,14 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
     final t = L10n.of(context);
     try {
       final List<Player> players = (data['players'] as List).map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0)).toList();
-      final isSelf5Turn = _isSelf5TurnRecord(data);
+      final mType = data['matchType'] ?? '';
+      final isSelf5Turn = mType == 'MatchType.self5Turn';
+      final isSelf6Turn = mType == 'MatchType.self6Turn';
+      final isSelfTurnMode = isSelf5Turn || isSelf6Turn;
       final consecutiveSuccesses = data['consecutiveSuccesses'] as int? ?? 0;
       final List<SetRecord> sets = (data['history'] as List).map((s) {
-        final playerOrder = isSelf5Turn ? players.map((p) => p.id).toList() : List<String>.from(s['playerOrder'] ?? []);
-        final starterId = isSelf5Turn ? players.first.id : (s['starterId'] ?? '');
+        final playerOrder = isSelfTurnMode ? players.map((p) => p.id).toList() : List<String>.from(s['playerOrder'] ?? []);
+        final starterId = isSelfTurnMode ? players.first.id : (s['starterId'] ?? '');
         final set = SetRecord(s['setNumber'], starterId, playerOrder);
         (s['turns'] as List).forEach((t) => set.turns.add(TurnRecord(t['turnNumber'], Map<String, int>.from(t['scores']), systemCalculated: Set<String>.from(t['systemCalculated'] ?? []))));
         (s['finalScores'] as Map).forEach((k, v) => set.finalCumulativeScores[k] = v as int);
@@ -2041,8 +2074,9 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
       final isHyakin = data['matchType'] == 'MatchType.hyakin';
       Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
         sets: sets, startTime: start, players: players,
-        winnerName: isSelf5Turn ? null : data['winner'] as String?,
+        winnerName: isSelfTurnMode ? null : data['winner'] as String?,
         isSelf5Turn: isSelf5Turn,
+        isSelf6Turn: isSelf6Turn,
         isHyakin: isHyakin,
         consecutiveSuccesses: consecutiveSuccesses,
       )));
