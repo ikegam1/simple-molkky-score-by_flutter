@@ -858,15 +858,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       if (_isSelfTurnMode) {
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
         turnInProgressScores.clear(); systemCalculatedIds.clear();
-        bool succeeded = player.currentScore == widget.match.targetScore;
-        bool failed = player.isDisqualified;
+        bool succeeded = player.currentScore == widget.match.targetScore && currentTurnInSet <= _selfTurnLimit;
+        bool failed = player.isDisqualified || (player.currentScore == widget.match.targetScore && currentTurnInSet > _selfTurnLimit);
         if (succeeded) {
           self5TurnSucceeded = true;
           isSetFinished = true;
-          // ターン制限内の場合のみ連続成功にカウント
-          if (currentTurnInSet <= _selfTurnLimit) {
-            widget.match.consecutiveSuccesses++;
-          }
+          widget.match.consecutiveSuccesses++;
           widget.match.finalizeCurrentSetIfNeeded();
         } else if (failed) {
           self5TurnFailed = true;
