@@ -85,6 +85,9 @@ class L10n {
       'self5turn_fail_4_5': 'Seriously!? That\'s amazing! 🤩',
       'self5turn_fail_6_8': 'Incredible! I can\'t believe it! 😱',
       'self5turn_fail_9plus': 'Are you a pro?! The legendary {name}!! 🏆',
+      'self6turn_mode': 'Self 6-Turn (solo)',
+      'self6turn_solo_only': 'Self 6-Turn is solo only (1 player)',
+      'early_end': 'Early End',
       'match_draw': '🤝 Draw!',
       'match_draw_detail': 'Same sets won and total score — it\'s a draw!',
     },
@@ -142,6 +145,9 @@ class L10n {
       'self5turn_fail_4_5': 'マジで！？凄いです！🤩',
       'self5turn_fail_6_8': '凄いです！信じられません！😱',
       'self5turn_fail_9plus': 'プロですか？世界の{name}！！🏆',
+      'self6turn_mode': 'セルフ6ターン（1人用）',
+      'self6turn_solo_only': 'セルフ6ターンは1名専用です',
+      'early_end': '早期終了',
       'match_draw': '🤝 引き分け！',
       'match_draw_detail': 'セット数・合計点数が同じため引き分けです！',
     }
@@ -470,7 +476,7 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
-    // key=-1: self5Turn, key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
+    // key=-1: self5Turn, key=-3: self6Turn, key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
     final Map<int, String> options = {
       1: t.get('sets_count', args: {'n': '1'}),
       2: t.get('sets_count', args: {'n': '2'}),
@@ -482,8 +488,9 @@ class _SetupScreenState extends State<SetupScreen> {
       10: t.get('sets_count', args: {'n': '10'}),
       11: t.get('race_to', args: {'n': '11'}),
       -1: t.get('self5turn_mode'),
+      -3: t.get('self6turn_mode'),
     };
-    final bool self5TurnEnabled = _registeredPlayers.length <= 1;
+    final bool selfTurnEnabled = _registeredPlayers.length <= 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -516,7 +523,7 @@ class _SetupScreenState extends State<SetupScreen> {
       body: LayoutBuilder(builder: (_, constraints) {
         // 高さが500px未満の場合のみ横向きレイアウト（タブレットは縦用を維持）
         if (constraints.maxHeight < 500) {
-          return _buildLandscapeBody(context, t, options, self5TurnEnabled);
+          return _buildLandscapeBody(context, t, options, selfTurnEnabled);
         }
         // --- 縦向き（変更なし）---
         return Padding(
@@ -534,8 +541,8 @@ class _SetupScreenState extends State<SetupScreen> {
               DropdownButtonFormField<int>(
                 value: _selectedModeKey,
                 items: options.entries.map((e) {
-                  final isSelf5Turn = e.key == -1;
-                  final enabled = !isSelf5Turn || self5TurnEnabled;
+                  final isSelfTurnMode = e.key == -1 || e.key == -3;
+                  final enabled = !isSelfTurnMode || selfTurnEnabled;
                   return DropdownMenuItem<int>(
                     value: e.key,
                     enabled: enabled,
@@ -552,10 +559,16 @@ class _SetupScreenState extends State<SetupScreen> {
                     _showError(t.get('self5turn_solo_only'));
                     return;
                   }
+                  if (_selectedModeKey == -3 && _registeredPlayers.length > 1) {
+                    _showError(t.get('self6turn_solo_only'));
+                    return;
+                  }
                   final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
                   MolkkyMatch match;
                   if (_selectedModeKey == -1) {
                     match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+                  } else if (_selectedModeKey == -3) {
+                    match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self6Turn);
                   } else if (_selectedModeKey == -2) {
                     match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
                   } else {
@@ -572,7 +585,7 @@ class _SetupScreenState extends State<SetupScreen> {
               OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
               const SizedBox(height: 10),
               if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              const Text('v1.11.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text('v1.12.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         );
@@ -580,7 +593,7 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildLandscapeBody(BuildContext context, L10n t, Map<int, String> options, bool self5TurnEnabled) {
+  Widget _buildLandscapeBody(BuildContext context, L10n t, Map<int, String> options, bool selfTurnEnabled) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -635,8 +648,8 @@ class _SetupScreenState extends State<SetupScreen> {
                   DropdownButtonFormField<int>(
                     value: _selectedModeKey,
                     items: options.entries.map((e) {
-                      final isSelf5Turn = e.key == -1;
-                      final enabled = !isSelf5Turn || self5TurnEnabled;
+                      final isSelfTurnMode = e.key == -1 || e.key == -3;
+                      final enabled = !isSelfTurnMode || selfTurnEnabled;
                       return DropdownMenuItem<int>(
                         value: e.key,
                         enabled: enabled,
@@ -653,10 +666,16 @@ class _SetupScreenState extends State<SetupScreen> {
                         _showError(t.get('self5turn_solo_only'));
                         return;
                       }
+                      if (_selectedModeKey == -3 && _registeredPlayers.length > 1) {
+                        _showError(t.get('self6turn_solo_only'));
+                        return;
+                      }
                       final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
                       MolkkyMatch match;
                       if (_selectedModeKey == -1) {
                         match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+                      } else if (_selectedModeKey == -3) {
+                        match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self6Turn);
                       } else if (_selectedModeKey == -2) {
                         match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
                       } else {
@@ -679,7 +698,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 4),
                   if (_firebaseUid.isNotEmpty)
                     Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.center),
-                  const Text('v1.11.0', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
+                  const Text('v1.12.0', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -700,7 +719,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateMixin {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
@@ -731,21 +750,44 @@ class _GameScreenState extends State<GameScreen> {
   Timer? _speechConfirmTimer;
   int _listenSessionId = 0; // セッションIDで古い認識結果を除外する
 
+  // 点滅アニメーション (2ミス + 49点)
+  late AnimationController _blinkController;
+  late Animation<double> _blinkOpacity;
+
   @override
   void initState() {
     super.initState();
+    _blinkController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _blinkOpacity = Tween<double>(begin: 0.2, end: 1.0).animate(_blinkController);
     _initSpeech();
     _resetElapsedTimer();
   }
 
   @override
   void dispose() {
+    _blinkController.dispose();
     _autoMicTimer?.cancel();
     _elapsedTimer?.cancel();
     _elapsedStartDelayTimer?.cancel();
     _speechConfirmTimer?.cancel();
     _speech.stop();
     super.dispose();
+  }
+
+  bool get _isSelfTurnMode => widget.match.type == MatchType.self5Turn || widget.match.type == MatchType.self6Turn;
+  int get _selfTurnLimit => widget.match.type == MatchType.self5Turn ? 5 : widget.match.type == MatchType.self6Turn ? 6 : 0;
+
+  bool _shouldShowEarlyEnd() {
+    if (isSetFinished) return false;
+    if (!_isSelfTurnMode) return false;
+    final int limit = _selfTurnLimit;
+    if (currentTurnInSet > limit) return true; // ターン制限を超えた
+    final score = widget.match.players[currentPlayerIndex].currentScore;
+    // 残り3ターン: 最大36点しか取れないので50点未満14点は不可能
+    if (currentTurnInSet == limit - 2 && score < 14) return true;
+    // 残り2ターン: 最大24点しか取れないので50点未満25点は不可能
+    if (currentTurnInSet == limit - 1 && score < 25) return true;
+    return false;
   }
 
   Future<void> _initSpeech() async {
@@ -1192,16 +1234,19 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
 
-      // === Self5Turn mode: 5投制チャレンジ判定 ===
-      if (widget.match.type == MatchType.self5Turn) {
+      // === Self Turn mode (5/6ターンチャレンジ) ===
+      if (_isSelfTurnMode) {
         widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
         turnInProgressScores.clear(); systemCalculatedIds.clear();
         bool succeeded = player.currentScore == widget.match.targetScore;
-        bool failed = player.isDisqualified || (!succeeded && currentTurnInSet >= 5);
+        bool failed = player.isDisqualified;
         if (succeeded) {
           self5TurnSucceeded = true;
           isSetFinished = true;
-          widget.match.consecutiveSuccesses++;
+          // ターン制限内の場合のみ連続成功にカウント
+          if (currentTurnInSet <= _selfTurnLimit) {
+            widget.match.consecutiveSuccesses++;
+          }
           widget.match.finalizeCurrentSetIfNeeded();
         } else if (failed) {
           self5TurnFailed = true;
@@ -1213,7 +1258,7 @@ class _GameScreenState extends State<GameScreen> {
         }
         return; // 通常ロジックをスキップ
       }
-      // === End Self5Turn mode ===
+      // === End Self Turn mode ===
 
       final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
 
@@ -1267,7 +1312,7 @@ class _GameScreenState extends State<GameScreen> {
       }
     });
     // タイマーと音声の管理
-    if (widget.match.type == MatchType.self5Turn) {
+    if (_isSelfTurnMode) {
       if (isSetFinished) {
         _elapsedTimer?.cancel(); _autoMicTimer?.cancel(); _speech.stop();
         if (self5TurnSucceeded) _showSelf5TurnSuccessDialog();
@@ -1307,8 +1352,8 @@ class _GameScreenState extends State<GameScreen> {
         turnInProgressScores.remove(p.id); systemCalculatedIds.remove(p.id);
         if (last == 0 && p.consecutiveMisses > 0) { p.consecutiveMisses--; p.isDisqualified = false; }
       }
-      // self5Turn: TurnRecordも直前分を削除する（各投で即追加しているため）
-      if (widget.match.type == MatchType.self5Turn && widget.match.currentSetRecord.turns.isNotEmpty) {
+      // selfTurnMode: TurnRecordも直前分を削除する（各投で即追加しているため）
+      if (_isSelfTurnMode && widget.match.currentSetRecord.turns.isNotEmpty) {
         widget.match.currentSetRecord.turns.removeLast();
       }
       selectedSkitels.clear();
@@ -1366,7 +1411,7 @@ class _GameScreenState extends State<GameScreen> {
             final newPlayers = widget.match.players.map((p) => Player(id: p.id, name: p.name, initialOrder: p.initialOrder)).toList();
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => GameScreen(
               appUserId: widget.appUserId,
-              match: MolkkyMatch(players: newPlayers, limit: 99, type: MatchType.self5Turn),
+              match: MolkkyMatch(players: newPlayers, limit: 99, type: widget.match.type),
               voiceEnabled: widget.voiceEnabled,
             )));
           },
@@ -1385,6 +1430,19 @@ class _GameScreenState extends State<GameScreen> {
     _resetElapsedTimer();
   }
 
+  void _earlyEnd() {
+    if (isSetFinished) return;
+    setState(() {
+      isSetFinished = true;
+      widget.match.finalizeCurrentSetIfNeeded();
+    });
+    _elapsedTimer?.cancel();
+    _autoMicTimer?.cancel();
+    _speech.stop();
+    _uploadSelf5TurnData();
+    _showSelf5TurnFailureDialog();
+  }
+
   Future<void> _uploadSelf5TurnData() async {
     try {
       final match = widget.match;
@@ -1397,7 +1455,7 @@ class _GameScreenState extends State<GameScreen> {
         'appUserId': widget.appUserId,
         'startTime': match.startTime,
         'endTime': FieldValue.serverTimestamp(),
-        'matchType': 'MatchType.self5Turn',
+        'matchType': widget.match.type.toString(),
         'consecutiveSuccesses': match.consecutiveSuccesses,
         'players': match.players.map((p) => {'id': p.id, 'name': p.name}).toList(),
         'history': setsToUpload.map((s) => {
@@ -1455,7 +1513,7 @@ class _GameScreenState extends State<GameScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
       match: widget.match,
       sets: allSets,
-      isSelf5Turn: widget.match.type == MatchType.self5Turn,
+      isSelf5Turn: _isSelfTurnMode,
       isHyakin: widget.match.type == MatchType.hyakin,
       consecutiveSuccesses: widget.match.consecutiveSuccesses,
       winnerName: resolvedWinnerName,
@@ -1692,7 +1750,19 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
 
-    final isSelf5Turn = widget.match.type == MatchType.self5Turn;
+    final isSelfTurn = _isSelfTurnMode;
+
+    // 2ミス + 49点: プレイヤー名点滅
+    final bool shouldBlink = !isSetFinished &&
+        currentPlayer.consecutiveMisses >= 2 &&
+        currentPlayer.currentScore == 49;
+    if (shouldBlink && !_blinkController.isAnimating) {
+      _blinkController.repeat(reverse: true);
+    } else if (!shouldBlink && _blinkController.isAnimating) {
+      _blinkController.stop();
+      _blinkController.value = 1.0;
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -1718,7 +1788,7 @@ class _GameScreenState extends State<GameScreen> {
       child: Scaffold(
       appBar: AppBar(
         title: Row(children: [
-          Text(isSelf5Turn
+          Text(isSelfTurn
             ? t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})
             : t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
           const SizedBox(width: 8),
@@ -1739,8 +1809,8 @@ class _GameScreenState extends State<GameScreen> {
               Expanded(
                 child: Column(
                   children: [
-                    if (!isSelf5Turn) _buildScoreSummaryRow(),
-                    _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelf5Turn,
+                    if (!isSelfTurn) _buildScoreSummaryRow(),
+                    _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelfTurn, shouldBlink,
                         margin: const EdgeInsets.fromLTRB(8, 4, 4, 4),
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
                     Expanded(child: _buildScoreTable(t, currentPlayer)),
@@ -1792,33 +1862,46 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(8, 4, 8, bottomPad + 6),
-                        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                          Expanded(child: OutlinedButton(
-                            onPressed: _undo,
-                            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 2)),
-                            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 16), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 13))]),
-                          )),
-                          const SizedBox(width: 6),
-                          Expanded(child: ElevatedButton(
-                            onPressed: () {
-                              if (isSetFinished) return;
-                              setState(() => selectedSkitels = []);
-                              _submitThrow();
-                            },
-                            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                            child: const Text('0(fault)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          )),
-                          const SizedBox(width: 6),
-                          GestureDetector(
-                            onTap: _resetElapsedTimer,
-                            child: SizedBox(
-                              width: 72,
-                              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                Text('$_elapsedSeconds', style: TextStyle(fontSize: 26, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
-                                const Text('sec', style: TextStyle(fontSize: 9, color: Colors.grey)),
-                              ]),
+                        child: Column(children: [
+                          if (_shouldShowEarlyEnd()) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _earlyEnd,
+                                style: ElevatedButton.styleFrom(minimumSize: const Size(0, 36), backgroundColor: Colors.orange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 4)),
+                                child: Text(t.get('early_end'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                          ],
+                          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                            Expanded(child: OutlinedButton(
+                              onPressed: _undo,
+                              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 2)),
+                              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 16), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 13))]),
+                            )),
+                            const SizedBox(width: 6),
+                            Expanded(child: ElevatedButton(
+                              onPressed: () {
+                                if (isSetFinished) return;
+                                setState(() => selectedSkitels = []);
+                                _submitThrow();
+                              },
+                              style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                              child: const Text('0(fault)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            )),
+                            const SizedBox(width: 6),
+                            GestureDetector(
+                              onTap: _resetElapsedTimer,
+                              child: SizedBox(
+                                width: 72,
+                                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                  Text('$_elapsedSeconds', style: TextStyle(fontSize: 26, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
+                                  const Text('sec', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                                ]),
+                              ),
+                            ),
+                          ]),
                         ]),
                       ),
                     ],
@@ -1832,8 +1915,8 @@ class _GameScreenState extends State<GameScreen> {
         // ─── 縦向きレイアウト（変更なし）────────────────────────────
         return Column(
           children: [
-            if (!isSelf5Turn) _buildScoreSummaryRow(),
-            _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelf5Turn),
+            if (!isSelfTurn) _buildScoreSummaryRow(),
+            _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelfTurn, shouldBlink),
             Expanded(child: _buildScoreTable(t, currentPlayer)),
             Container(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
@@ -1859,6 +1942,17 @@ class _GameScreenState extends State<GameScreen> {
                   });
                 }),
                 const SizedBox(height: 12),
+                if (_shouldShowEarlyEnd()) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _earlyEnd,
+                      style: ElevatedButton.styleFrom(minimumSize: const Size(0, 48), backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                      child: Text(t.get('early_end'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 4)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 20), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 15))]))),
                   const SizedBox(width: 8),
@@ -1894,7 +1988,12 @@ class _GameScreenState extends State<GameScreen> {
     )); // PopScope
   }
 
-  Widget _buildPlayerInfoCard(L10n t, Player currentPlayer, String missIcons, Color nameColor, String? reachMsg, bool isSelf5Turn, {EdgeInsets margin = const EdgeInsets.all(8), EdgeInsets padding = const EdgeInsets.all(8)}) {
+  Widget _buildPlayerInfoCard(L10n t, Player currentPlayer, String missIcons, Color nameColor, String? reachMsg, bool isSelfTurn, bool shouldBlink, {EdgeInsets margin = const EdgeInsets.all(8), EdgeInsets padding = const EdgeInsets.all(8)}) {
+    final nameWidget = RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
+      TextSpan(text: '${currentPlayer.name} '),
+      TextSpan(text: '(${t.get('turn_n', args: {'n': '$currentTurnInSet'})})'),
+      TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
+    ]));
     return Container(
       width: double.infinity,
       padding: padding,
@@ -1903,15 +2002,18 @@ class _GameScreenState extends State<GameScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isSelf5Turn)
+          if (isSelfTurn)
             Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
           const SizedBox(height: 6),
-          RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
-            TextSpan(text: '${currentPlayer.name} '),
-            TextSpan(text: '(${t.get('turn_n', args: {'n': '$currentTurnInSet'})})'),
-            TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
-          ])),
+          if (shouldBlink)
+            AnimatedBuilder(
+              animation: _blinkOpacity,
+              builder: (_, child) => Opacity(opacity: _blinkOpacity.value, child: child),
+              child: nameWidget,
+            )
+          else
+            nameWidget,
           if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
           if (_speechAvailable && _speech.isListening && _voiceText.isNotEmpty)
             Padding(
@@ -2229,7 +2331,7 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
   static const int _pageSize = 50;
 
   static bool _isSelf5TurnRecord(Map<String, dynamic> data) =>
-      data['matchType'] == 'MatchType.self5Turn';
+      data['matchType'] == 'MatchType.self5Turn' || data['matchType'] == 'MatchType.self6Turn';
 
   void _setFilter(String v) => setState(() { _filter = v; _currentPage = 0; });
   void _setSort(String v) => setState(() { _self5TurnSort = v; _currentPage = 0; });
