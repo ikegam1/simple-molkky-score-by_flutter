@@ -17,6 +17,13 @@ import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
+const String _kAppVersion = '1.13.3+81';
+
+String _getPlatform() {
+  if (kIsWeb) return 'web';
+  return defaultTargetPlatform.toString().split('.').last;
+}
+
 // --- Localization Support ---
 class L10n {
   final Locale locale;
@@ -1090,6 +1097,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         'endTime': FieldValue.serverTimestamp(),
         'matchType': widget.match.type.toString(),
         'consecutiveSuccesses': match.consecutiveSuccesses,
+        'appVersion': _kAppVersion,
+        'platform': _getPlatform(),
         'players': match.players.map((p) => {'id': p.id, 'name': p.name}).toList(),
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber,
@@ -1117,6 +1126,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         'matchType': match.type.toString(),
         'limit': match.limit,
         'winner': finalWinner?.name ?? 'DRAW',
+        'appVersion': _kAppVersion,
+        'platform': _getPlatform(),
         'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber, 'starterId': s.starterPlayerId, 'playerOrder': s.playerOrder, 'finalScores': s.finalCumulativeScores,
