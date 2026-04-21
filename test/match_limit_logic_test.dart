@@ -69,5 +69,16 @@ void main() {
       expect(match.turnLimitPerSet, 10);
       expect(match.matchTimeLimitSeconds, 900);
     });
+
+    test('空の次セットは履歴表示対象にしない判定ができる', () {
+      final set1 = SetRecord(1, 'a', ['a', 'b']);
+      set1.turns.add(TurnRecord(1, {'a': 8, 'b': 6}));
+      set1.finalCumulativeScores.addAll({'a': 50, 'b': 32});
+
+      final set2 = SetRecord(2, 'b', ['b', 'a']);
+
+      expect(set1.hasContent, isTrue);
+      expect(set2.hasContent, isFalse);
+    });
   });
 }

@@ -1348,14 +1348,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   void _goToHistory() {
-    List<SetRecord> allSets = List.from(widget.match.completedSets);
+    List<SetRecord> allSets = List.from(widget.match.completedSets.where((s) => s.hasContent));
     if (!isSetFinished) {
       SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId, widget.match.players.map((p)=>p.id).toList());
       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
       if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
-      allSets.add(ongoing);
+      if (ongoing.hasContent) allSets.add(ongoing);
     } else {
-      if (!allSets.any((s) => s.setNumber == widget.match.currentSetRecord.setNumber)) {
+      if (widget.match.currentSetRecord.hasContent && !allSets.any((s) => s.setNumber == widget.match.currentSetRecord.setNumber)) {
         allSets.add(widget.match.currentSetRecord);
       }
     }
@@ -2137,6 +2137,7 @@ class HistoryPage extends StatelessWidget {
     final t = L10n.of(context);
     final dateFormat = DateFormat('yyyy/MM/dd HH:mm');
     final allPlayers = players ?? match?.players ?? [];
+    final visibleSets = sets.where((s) => s.hasContent).toList();
     return Scaffold(
       appBar: AppBar(title: Text(t.get('history_title'))),
       body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2175,7 +2176,7 @@ class HistoryPage extends StatelessWidget {
             );
           }),
         const SizedBox(height: 12),
-        for (var set in sets) ...[
+        for (var set in visibleSets) ...[
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -2429,127 +2430,115 @@ class HelpPage extends StatelessWidget {
 
   List<Widget> _jaSections(L10n t) => [
     const _HelpSection(
-      title: '1. ゲームの準備',
+      title: '1. はじめ方',
       items: [
-        'プレイヤー名を入力して「追加」→ 最大8人まで登録できます',
-        'リストのハンドル（☰）をドラッグして投げ順を調整できます',
-        '試合形式を選択します（例：2先 ＝ 2本先取）',
-        '「ゲーム開始」を押してスタート！',
+        'プレイヤー名を追加して、試合形式を選びます',
+        '必要ならターン制限や試合時間制限も設定できます',
+        '準備ができたら「ゲーム開始」で始めます',
       ],
     ),
     const _HelpSection(
-      title: '2. スコアの入力',
+      title: '2. 点数の入れ方',
       items: [
-        '倒れたピンの番号（1〜12）をタップすると即座に確定',
-        '複数のピンが倒れた場合は倒れた本数のボタンを1つタップ',
-        'ミスの場合は「0(fault)」ボタンを押す',
-        '間違えた場合は「戻る」で1つ前に戻れます',
+        '1本だけ倒れたらその番号、複数本なら倒れた本数を入力します',
+        'ミスは 0 を入力します',
+        '入力ミスは「戻る」でひとつ前に戻せます',
       ],
     ),
     const _HelpSection(
-      title: '3. 試合の進め方',
+      title: '3. 勝敗の決まり方',
       items: [
-        '誰かがちょうど50点を取るとそのセットが終了',
-        'セット終了後に次のセットの投げ順を変更できます',
-        '設定した試合形式（〇先など）で先に勝ち数に達した人が優勝',
+        '基本ルールは、50点ちょうどでそのセットの勝ちです',
+        'ターン制限がある場合は、上限ターン終了時点で一番点数が高い人が勝ちです',
+        '同点トップならそのセットは引き分けです',
+        '試合形式で決めた条件を先に満たした人が試合の勝者です',
       ],
     ),
     const _HelpSection(
-      title: '4. 戦績を確認する',
+      title: '4. 試合時間制限',
       items: [
-        '画面右上の「戦績確認」からこれまでの試合結果を見られます',
+        '時間制限を設定した場合は、試合開始後にカウントダウンが始まります',
+        '時間切れになったら、そのまま終了するか続けるかを選べます',
       ],
     ),
     const _HelpSection(
-      title: '5. セルフ5/6ターン（1人用練習モード）',
+      title: '5. 1人用モード',
       items: [
-        'プレイヤーが1名の場合のみ「セルフ5ターン」「セルフ6ターン」モードが選べます',
-        '制限ターン（5または6投）以内で50点ちょうどに到達できれば「成功」',
-        '制限ターンを超えても投げ続けられます。50点を目指しましょう！',
-        '数学的に50点到達が不可能になった時点で「早期終了」ボタンが表示されます',
-        '何回連続で成功できるかを競います（連続成功記録を更新しましょう！）',
-        '失敗後は「トップへ」でタイトル画面に戻るか「次のチャレンジへ」で新記録に挑戦',
+        'プレイヤーが1人のときは「セルフ5ターン」「セルフ6ターン」で練習できます',
+        '制限ターン以内に50点ちょうどで成功です',
+        '連続成功回数を伸ばしていくモードです',
       ],
     ),
     const _HelpSection(
-      title: '6. 100均モード（表裏2セット）',
+      title: '6. 100均モード',
       items: [
-        '試合形式で「100均（表裏2セット）」を選択します',
-        '1セット目は通常のモルック（50点ちょうどで勝利）',
-        '2セット目は1セット目との合計が100点ちょうどになれば勝利',
-        '2セット目でバースト（100点超え）した場合は合計が75点に戻ります',
-        '2セット目で3回連続ミスをすると2セット目の得点が0点になります',
-        '上部のスコア表示は合計得点のみ表示されます（カッコ表記なし）',
+        '1セット目は通常ルールです',
+        '2セット目は、1セット目との合計で100点ちょうどを目指します',
+        '合計が100点を超えると75点に戻ります',
       ],
     ),
     const _HelpSection(
-      title: '7. 小ネタ',
+      title: '7. 戦績',
       items: [
-        '秒数の上をタップすると0にリセットできるよ',
+        '戦績ではこれまでの試合結果や各セットの内容を確認できます',
       ],
     ),
   ];
 
   List<Widget> _enSections(L10n t) => [
     const _HelpSection(
-      title: '1. Setup',
+      title: '1. Getting Started',
       items: [
-        'Enter a player name and tap "Add" — up to 8 players',
-        'Drag the handle (☰) to reorder the throwing order',
-        'Select a game mode (e.g. "First to 2 sets")',
-        'Tap "Start Game" to begin!',
+        'Add player names and choose a game mode',
+        'You can also set a turn limit or a match time limit if needed',
+        'Tap "Start Game" when you are ready',
       ],
     ),
     const _HelpSection(
       title: '2. Entering Scores',
       items: [
-        'Tap the pin number (1–12) to instantly submit the score',
-        'If multiple pins fell, tap the count button once',
-        'For a miss, tap the "0(fault)" button',
-        'Tap "Undo" to go back one step',
+        'If one pin falls, enter its number',
+        'If multiple pins fall, enter how many fell',
+        'Use 0 for a miss',
+        'Use "Undo" to go back one step if needed',
       ],
     ),
     const _HelpSection(
-      title: '3. How the Game Progresses',
+      title: '3. How Winning Works',
       items: [
-        'A set ends when someone reaches exactly 50 points',
-        'After each set you can reorder players for the next set',
-        'The first player to reach the target wins the match',
+        'Normally, a set is won by reaching exactly 50 points',
+        'If a turn limit is active, the highest score at the end of the limit wins the set',
+        'If the top score is tied, the set is a draw',
+        'The match winner is decided by the selected game mode',
       ],
     ),
     const _HelpSection(
-      title: '4. Viewing Match History',
+      title: '4. Match Time Limit',
       items: [
-        'Tap the history icon in the top-right corner to view past results',
+        'If a time limit is set, the countdown begins after the match starts',
+        'When time runs out, you can choose to finish the match or continue playing',
       ],
     ),
     const _HelpSection(
-      title: '5. Self 5/6-Turn (Solo Practice Mode)',
+      title: '5. Solo Practice Modes',
       items: [
-        'Available only when 1 player is registered',
-        'Select "Self 5-Turn" or "Self 6-Turn" from the game mode options',
-        'Reach exactly 50 points within the turn limit (5 or 6 throws) to succeed',
-        'You can keep throwing beyond the limit — aim for 50!',
-        'An "Early End" button appears when reaching 50 is mathematically impossible',
-        'Challenge yourself to build the longest success streak!',
-        'After failing, return to the top or start the next challenge',
+        'Self 5-Turn and Self 6-Turn are available when only 1 player is registered',
+        'Reach exactly 50 points within the limit to succeed',
+        'Try to build the longest streak of successes',
       ],
     ),
     const _HelpSection(
-      title: '6. Hyakin Mode (表裏 2 Sets)',
+      title: '6. Hyakin Mode',
       items: [
-        'Select "Hyakin (表裏 2 sets)" from the game mode options',
-        'Set 1 is normal Mölkky — reach exactly 50 to win',
-        'Set 2: reach a combined total (Set 1 + Set 2) of exactly 100 to win',
-        'Going over 100 in Set 2 (burst) resets the combined total back to 75',
-        '3 consecutive misses in Set 2 resets Set 2 score to 0',
-        'The score display shows the combined total only (no parentheses)',
+        'Set 1 uses normal rules',
+        'In Set 2, aim for a combined total of exactly 100',
+        'If you go over 100, the total resets to 75',
       ],
     ),
     const _HelpSection(
-      title: '7. Tips',
+      title: '7. Match History',
       items: [
-        'Tap on the timer to reset it to 0',
+        'You can review past matches and each set from the history screen',
       ],
     ),
   ];
