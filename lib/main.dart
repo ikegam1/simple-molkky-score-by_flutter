@@ -17,7 +17,7 @@ import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
-const String _kAppVersion = '1.13.5+83';
+const String _kAppVersion = '1.14.0+84';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -105,6 +105,19 @@ class L10n {
       'early_end': 'Early End',
       'match_draw': '🤝 Draw!',
       'match_draw_detail': 'Same sets won and total score — it\'s a draw!',
+      'no_limit': 'No limit',
+      'turn_limit_setting': 'Turn limit per set',
+      'time_limit_setting': 'Match time limit',
+      'minutes_suffix': '{n} min',
+      'match_timer_start': 'Start Match',
+      'time_limit_reached': 'Time limit reached.',
+      'end_now': 'End',
+      'continue_game': 'Continue',
+      'time_limit_finish_detail': 'Finish the match with the current score?',
+      'set_draw': 'Set Draw',
+      'set_draw_detail': 'Top score is tied, so this set is a draw.',
+      'turn_limit_win': '{name} wins on score after the turn limit!',
+      'time_up_match_over': 'Match ended due to time limit.',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -173,6 +186,19 @@ class L10n {
       'early_end': '早期終了',
       'match_draw': '🤝 引き分け！',
       'match_draw_detail': 'セット数・合計点数が同じため引き分けです！',
+      'no_limit': '制限無し',
+      'turn_limit_setting': 'ターン制限設定',
+      'time_limit_setting': '試合時間制限',
+      'minutes_suffix': '{n}分',
+      'match_timer_start': '試合開始',
+      'time_limit_reached': '制限時間になりました',
+      'end_now': '終了',
+      'continue_game': '継続',
+      'time_limit_finish_detail': '現在の点数で試合を終了しますか？',
+      'set_draw': 'このセットは引き分け',
+      'set_draw_detail': 'トップの点数が同じため、このセットは引き分けです。',
+      'turn_limit_win': '{name} さん、ターン制限終了時点の最高得点で勝利！',
+      'time_up_match_over': '制限時間のため試合終了です。',
     }
   };
 
@@ -265,6 +291,8 @@ class _SetupScreenState extends State<SetupScreen> {
   final List<Player> _registeredPlayers = [];
   final TextEditingController _nameController = TextEditingController();
   int _selectedModeKey = 3;
+  int _selectedTurnLimit = 0;
+  int _selectedTimeLimitMinutes = 0;
   String _firebaseUid = "";
   final _uuid = const Uuid();
   bool _isGoogleLinked = false;
@@ -498,6 +526,43 @@ class _SetupScreenState extends State<SetupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
   }
 
+  void _startMatch() {
+    final t = L10n.of(context);
+    if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
+      _showError(t.get('self5turn_solo_only'));
+      return;
+    }
+    if (_selectedModeKey == -3 && _registeredPlayers.length > 1) {
+      _showError(t.get('self6turn_solo_only'));
+      return;
+    }
+
+    final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
+    MolkkyMatch match;
+    final turnLimit = _selectedTurnLimit == 0 ? null : _selectedTurnLimit;
+    final matchTimeLimitSeconds = _selectedTimeLimitMinutes == 0 ? null : _selectedTimeLimitMinutes * 60;
+
+    if (_selectedModeKey == -1) {
+      match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+    } else if (_selectedModeKey == -3) {
+      match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self6Turn);
+    } else if (_selectedModeKey == -2) {
+      match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin, matchTimeLimitSeconds: matchTimeLimitSeconds);
+    } else {
+      MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
+      int limit = _selectedModeKey;
+      if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+      match = MolkkyMatch(
+        players: playersForMatch,
+        limit: limit,
+        type: type,
+        turnLimitPerSet: turnLimit,
+        matchTimeLimitSeconds: matchTimeLimitSeconds,
+      );
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, appLocale: Localizations.localeOf(context))));
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
@@ -516,6 +581,8 @@ class _SetupScreenState extends State<SetupScreen> {
       -3: t.get('self6turn_mode'),
     };
     final bool selfTurnEnabled = _registeredPlayers.length <= 1;
+    final turnLimitOptions = [0, ...List<int>.generate(8, (i) => i + 5)];
+    final timeLimitOptions = [0, ...List<int>.generate(56, (i) => i + 5)];
 
     return Scaffold(
       appBar: AppBar(
@@ -579,31 +646,28 @@ class _SetupScreenState extends State<SetupScreen> {
                 decoration: InputDecoration(labelText: t.get('game_mode')),
               ),
               const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: _selectedTurnLimit,
+                items: turnLimitOptions.map((v) => DropdownMenuItem<int>(
+                  value: v,
+                  child: Text(v == 0 ? t.get('no_limit') : '$v'),
+                )).toList(),
+                onChanged: (v) { if (v != null) setState(() => _selectedTurnLimit = v); },
+                decoration: InputDecoration(labelText: t.get('turn_limit_setting')),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: _selectedTimeLimitMinutes,
+                items: timeLimitOptions.map((v) => DropdownMenuItem<int>(
+                  value: v,
+                  child: Text(v == 0 ? t.get('no_limit') : t.get('minutes_suffix', args: {'n': '$v'})),
+                )).toList(),
+                onChanged: (v) { if (v != null) setState(() => _selectedTimeLimitMinutes = v); },
+                decoration: InputDecoration(labelText: t.get('time_limit_setting')),
+              ),
+              const SizedBox(height: 10),
               ElevatedButton(
-                onPressed: _registeredPlayers.isEmpty ? null : () {
-                  if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
-                    _showError(t.get('self5turn_solo_only'));
-                    return;
-                  }
-                  if (_selectedModeKey == -3 && _registeredPlayers.length > 1) {
-                    _showError(t.get('self6turn_solo_only'));
-                    return;
-                  }
-                  final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
-                  MolkkyMatch match;
-                  if (_selectedModeKey == -1) {
-                    match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
-                  } else if (_selectedModeKey == -3) {
-                    match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self6Turn);
-                  } else if (_selectedModeKey == -2) {
-                    match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
-                  } else {
-                    MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
-                    int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                    match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
-                  }
-                  Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, appLocale: Localizations.localeOf(context))));
-                },
+                onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
                 child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
               ),
@@ -611,7 +675,7 @@ class _SetupScreenState extends State<SetupScreen> {
               OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
               const SizedBox(height: 10),
               if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              const Text('v1.13.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text('v1.14.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         );
@@ -620,6 +684,8 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildLandscapeBody(BuildContext context, L10n t, Map<int, String> options, bool selfTurnEnabled) {
+    final turnLimitOptions = [0, ...List<int>.generate(8, (i) => i + 5)];
+    final timeLimitOptions = [0, ...List<int>.generate(56, (i) => i + 5)];
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -686,31 +752,28 @@ class _SetupScreenState extends State<SetupScreen> {
                     decoration: InputDecoration(labelText: t.get('game_mode'), isDense: true),
                   ),
                   const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    value: _selectedTurnLimit,
+                    items: turnLimitOptions.map((v) => DropdownMenuItem<int>(
+                      value: v,
+                      child: Text(v == 0 ? t.get('no_limit') : '$v', style: const TextStyle(fontSize: 13)),
+                    )).toList(),
+                    onChanged: (v) { if (v != null) setState(() => _selectedTurnLimit = v); },
+                    decoration: InputDecoration(labelText: t.get('turn_limit_setting'), isDense: true),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    value: _selectedTimeLimitMinutes,
+                    items: timeLimitOptions.map((v) => DropdownMenuItem<int>(
+                      value: v,
+                      child: Text(v == 0 ? t.get('no_limit') : t.get('minutes_suffix', args: {'n': '$v'}), style: const TextStyle(fontSize: 13)),
+                    )).toList(),
+                    onChanged: (v) { if (v != null) setState(() => _selectedTimeLimitMinutes = v); },
+                    decoration: InputDecoration(labelText: t.get('time_limit_setting'), isDense: true),
+                  ),
+                  const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: _registeredPlayers.isEmpty ? null : () {
-                      if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
-                        _showError(t.get('self5turn_solo_only'));
-                        return;
-                      }
-                      if (_selectedModeKey == -3 && _registeredPlayers.length > 1) {
-                        _showError(t.get('self6turn_solo_only'));
-                        return;
-                      }
-                      final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
-                      MolkkyMatch match;
-                      if (_selectedModeKey == -1) {
-                        match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
-                      } else if (_selectedModeKey == -3) {
-                        match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self6Turn);
-                      } else if (_selectedModeKey == -2) {
-                        match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin);
-                      } else {
-                        MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
-                        int limit = _selectedModeKey; if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
-                        match = MolkkyMatch(players: playersForMatch, limit: limit, type: type);
-                      }
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, appLocale: Localizations.localeOf(context))));
-                    },
+                    onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
                     style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 44), backgroundColor: Colors.blue),
                     child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 16)),
                   ),
@@ -724,7 +787,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 4),
                   if (_firebaseUid.isNotEmpty)
                     Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.center),
-                  const Text('v1.13.5', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
+                  const Text('v1.14.0', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -759,6 +822,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   int _elapsedSeconds = 0;
   Timer? _elapsedTimer;
   Timer? _elapsedStartDelayTimer; // 2秒遅延キャンセル用
+  int? _remainingMatchSeconds;
+  Timer? _matchTimer;
+  bool _matchTimerStarted = false;
+  bool _matchTimeExpired = false;
   // 点滅アニメーション (2ミス + 49点)
   late AnimationController _blinkController;
   late Animation<double> _blinkOpacity;
@@ -768,6 +835,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     super.initState();
     _blinkController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _blinkOpacity = Tween<double>(begin: 0.2, end: 1.0).animate(_blinkController);
+    _remainingMatchSeconds = widget.match.matchTimeLimitSeconds;
     _resetElapsedTimer();
   }
 
@@ -776,11 +844,110 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     _blinkController.dispose();
     _elapsedTimer?.cancel();
     _elapsedStartDelayTimer?.cancel();
+    _matchTimer?.cancel();
     super.dispose();
   }
 
   bool get _isSelfTurnMode => widget.match.type == MatchType.self5Turn || widget.match.type == MatchType.self6Turn;
   int get _selfTurnLimit => widget.match.type == MatchType.self5Turn ? 5 : widget.match.type == MatchType.self6Turn ? 6 : 0;
+  bool get _hasTurnLimit => widget.match.turnLimitPerSet != null;
+  bool get _hasMatchTimeLimit => widget.match.matchTimeLimitSeconds != null;
+
+  void _startMatchCountdown() {
+    if (!_hasMatchTimeLimit || _matchTimerStarted) return;
+    setState(() => _matchTimerStarted = true);
+    _matchTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        _matchTimer?.cancel();
+        return;
+      }
+      final remaining = _remainingMatchSeconds;
+      if (remaining == null || remaining <= 0) {
+        _matchTimer?.cancel();
+        return;
+      }
+      setState(() => _remainingMatchSeconds = remaining - 1);
+      if (_remainingMatchSeconds == 0 && !_matchTimeExpired) {
+        _matchTimer?.cancel();
+        _matchTimeExpired = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showMatchTimeExpiredDialog();
+        });
+      }
+    });
+  }
+
+  void _rollbackCurrentPartialTurn() {
+    if (turnInProgressScores.isEmpty) return;
+    for (final p in widget.match.players) {
+      if (p.scoreHistory.length >= currentTurnInSet) {
+        final last = p.scoreHistory.removeLast();
+        if (p.matchScoreHistory.isNotEmpty) p.matchScoreHistory.removeLast();
+        if (p.scoreSnapshot.isNotEmpty) {
+          p.currentScore = p.scoreSnapshot.removeLast();
+        }
+        if (last == 0) {
+          if (p.consecutiveMisses > 0) p.consecutiveMisses--;
+          if (p.consecutiveMisses < widget.match.maxMisses) p.isDisqualified = false;
+        }
+      }
+    }
+    turnInProgressScores.clear();
+    systemCalculatedIds.clear();
+    selectedSkitels.clear();
+    currentPlayerIndex = 0;
+  }
+
+  void _finishMatchByTimeLimit() {
+    final t = L10n.of(context);
+    setState(() {
+      if (turnInProgressScores.isNotEmpty) {
+        _rollbackCurrentPartialTurn();
+      }
+      isSetFinished = true;
+      widget.match.finalizeCurrentSetIfNeeded();
+    });
+    _elapsedTimer?.cancel();
+    _elapsedStartDelayTimer?.cancel();
+    _matchTimer?.cancel();
+
+    final decision = GameLogic.decideMatchByStandings(widget.match.players);
+    if (decision.isDraw || decision.winner == null) {
+      _uploadMatchData(null);
+      _showMatchDrawDialog(detailOverride: t.get('time_up_match_over'));
+      return;
+    }
+    _uploadMatchData(decision.winner);
+    _showMatchWinnerDialog(decision.winner!, winMsg: t.get('time_up_match_over'));
+  }
+
+  void _showMatchTimeExpiredDialog() {
+    final t = L10n.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.get('time_limit_reached')),
+        content: Text(t.get('time_limit_finish_detail')),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _finishMatchByTimeLimit();
+            },
+            child: Text(t.get('end_now')),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _matchTimeExpired = true);
+            },
+            child: Text(t.get('continue_game')),
+          ),
+        ],
+      ),
+    );
+  }
 
   bool _shouldShowEarlyEnd() {
     if (isSetFinished) return false;
@@ -816,6 +983,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _submitThrow() {
     if (isSetFinished) return;
+    final t = L10n.of(context);
     bool self5TurnSucceeded = false;
     bool self5TurnFailed = false;
     final player = widget.match.players[currentPlayerIndex];
@@ -953,6 +1121,42 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (currentPlayerIndex == widget.match.players.length - 1) {
           widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
           turnInProgressScores.clear(); systemCalculatedIds.clear();
+
+          if (_hasTurnLimit && currentTurnInSet >= widget.match.turnLimitPerSet!) {
+            isSetFinished = true;
+            final decision = GameLogic.decideSetByCurrentScores(widget.match.players);
+            if (decision.winner != null) {
+              decision.winner!.setsWon++;
+            }
+
+            final tempCompleted = List<SetRecord>.from(widget.match.completedSets)..add(widget.match.currentSetRecord);
+            final bool matchTrulyOver = widget.match.type == MatchType.fixedSets
+                ? tempCompleted.length >= widget.match.limit
+                : widget.match.type == MatchType.raceTo && decision.winner != null && widget.match.isMatchOver;
+
+            widget.match.finalizeCurrentSetIfNeeded();
+
+            if (matchTrulyOver) {
+              if (widget.match.isMatchDraw) {
+                _uploadMatchData(null);
+                _showMatchDrawDialog();
+              } else {
+                final finalDecision = GameLogic.decideMatchByStandings(widget.match.players);
+                if (finalDecision.isDraw || finalDecision.winner == null) {
+                  _uploadMatchData(null);
+                  _showMatchDrawDialog();
+                } else {
+                  _uploadMatchData(finalDecision.winner);
+                  _showMatchWinnerDialog(finalDecision.winner!, winMsg: t.get('turn_limit_win', args: {'name': finalDecision.winner!.name}));
+                }
+              }
+            } else if (decision.winner != null) {
+              _showSetWinnerDialog(decision.winner!, winMsg: t.get('turn_limit_win', args: {'name': decision.winner!.name}));
+            } else {
+              _showSetDrawDialog();
+            }
+            return;
+          }
         }
         selectedSkitels.clear(); _nextPlayer();
       }
@@ -1100,6 +1304,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         'consecutiveSuccesses': match.consecutiveSuccesses,
         'appVersion': _kAppVersion,
         'platform': _getPlatform(),
+        if (match.turnLimitPerSet != null) 'turnLimitPerSet': match.turnLimitPerSet,
+        if (match.matchTimeLimitSeconds != null) 'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
         'players': match.players.map((p) => {'id': p.id, 'name': p.name}).toList(),
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber,
@@ -1129,6 +1335,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         'winner': finalWinner?.name ?? 'DRAW',
         'appVersion': _kAppVersion,
         'platform': _getPlatform(),
+        if (match.turnLimitPerSet != null) 'turnLimitPerSet': match.turnLimitPerSet,
+        if (match.matchTimeLimitSeconds != null) 'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
         'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
         'history': setsToUpload.map((s) => {
           'setNumber': s.setNumber, 'starterId': s.starterPlayerId, 'playerOrder': s.playerOrder, 'finalScores': s.finalCumulativeScores,
@@ -1234,7 +1442,51 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
   }
 
-  void _showMatchDrawDialog() {
+  void _showSetDrawDialog() {
+    final t = L10n.of(context);
+    final int finishedSetNum = widget.match.currentSetIndex;
+    widget.match.prepareNextSet(manualOrder: false);
+    List<Player> reorderList = List.from(widget.match.players);
+
+    showDialog(context: context, barrierDismissible: false, barrierColor: Colors.black87, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
+      return AlertDialog(
+        title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('set_draw')}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(t.get('set_draw_detail')),
+            const SizedBox(height: 16),
+            const Divider(),
+            Text(t.get('reorder_hint'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.maxFinite,
+              height: 200,
+              child: ReorderableListView(
+                shrinkWrap: true,
+                onReorder: (o, n) { setDialogState(() { if (o < n) n -= 1; reorderList.insert(n, reorderList.removeAt(o)); }); },
+                children: [ for (var p in reorderList) ListTile(key: Key(p.id), dense: true, leading: const Icon(Icons.drag_handle, size: 20), title: Text(p.name)) ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
+          TextButton(onPressed: () {
+            Navigator.pop(ctx);
+            setState(() {
+              widget.match.applyManualOrder(reorderList);
+              currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
+              _playersBurstedThisSet.clear();
+            });
+            _resetElapsedTimer();
+          }, child: Text(t.get('next_set'))),
+        ],
+      );
+    }));
+  }
+
+  void _showMatchDrawDialog({String? detailOverride}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
@@ -1242,7 +1494,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(t.get('match_draw'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Text(t.get('match_draw_detail'), style: const TextStyle(fontSize: 14, color: Colors.grey)),
+        Text(detailOverride ?? t.get('match_draw_detail'), style: const TextStyle(fontSize: 14, color: Colors.grey)),
       ]),
       actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
   }
@@ -1265,6 +1517,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   String _stars(int setsWon) => setsWon <= 0 ? '' : '⭐' * setsWon;
+
+  Widget _buildMatchTimerWidget(L10n t, {double minuteFontSize = 26, double secondFontSize = 18}) {
+    if (!_hasMatchTimeLimit) return const SizedBox.shrink();
+    if (!_matchTimerStarted) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _startMatchCountdown,
+          style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: Colors.blueGrey),
+          child: Text(t.get('match_timer_start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      );
+    }
+
+    final remaining = _remainingMatchSeconds ?? 0;
+    final color = remaining <= 180 ? Colors.red : Colors.black87;
+    final minutes = (remaining ~/ 60).toString().padLeft(2, '0');
+    final seconds = (remaining % 60).toString().padLeft(2, '0');
+    return Center(
+      child: RichText(
+        text: TextSpan(
+          style: TextStyle(fontFamily: 'Courier', fontWeight: FontWeight.w900, color: color),
+          children: [
+            TextSpan(text: minutes, style: TextStyle(fontSize: minuteFontSize)),
+            TextSpan(text: ':', style: TextStyle(fontSize: minuteFontSize)),
+            TextSpan(text: seconds, style: TextStyle(fontSize: secondFontSize)),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
@@ -1466,6 +1749,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       Padding(
                         padding: EdgeInsets.fromLTRB(8, 4, 8, bottomPad + 6),
                         child: Column(children: [
+                          if (_hasMatchTimeLimit) ...[
+                            _buildMatchTimerWidget(t, minuteFontSize: 24, secondFontSize: 17),
+                            const SizedBox(height: 4),
+                          ],
                           if (_shouldShowEarlyEnd()) ...[
                             SizedBox(
                               width: double.infinity,
@@ -1525,6 +1812,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
               decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
               child: Column(children: [
+                if (_hasMatchTimeLimit) ...[
+                  _buildMatchTimerWidget(t, minuteFontSize: 30, secondFontSize: 21),
+                  const SizedBox(height: 8),
+                ],
                 LayoutBuilder(builder: (_, gc) {
                   // 点数ボタングリッド: 4列×3行（1-12）
                   final maxGridH = MediaQuery.of(context).size.height * 0.392;
@@ -1750,10 +2041,18 @@ class HistoryPage extends StatelessWidget {
       // フォールバック：勝者が特定できない場合は最高スコアで判定
       if (winnerId == null) {
         int best = -1;
+        bool tied = false;
         for (final p in allPlayers) {
           final score = set.finalCumulativeScores[p.id] ?? 0;
-          if (score > best) { best = score; winnerId = p.id; }
+          if (score > best) {
+            best = score;
+            winnerId = p.id;
+            tied = false;
+          } else if (score == best) {
+            tied = true;
+          }
         }
+        if (tied) winnerId = null;
       }
       if (winnerId != null) wins[winnerId] = (wins[winnerId] ?? 0) + 1;
     }

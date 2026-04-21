@@ -51,6 +51,8 @@ class MolkkyMatch {
   final int maxMisses = 3;
   final int limit;
   final MatchType type;
+  final int? turnLimitPerSet;
+  final int? matchTimeLimitSeconds;
   int currentSetIndex = 1;
   final DateTime startTime;
 
@@ -62,6 +64,8 @@ class MolkkyMatch {
     required this.players,
     required this.limit,
     required this.type,
+    this.turnLimitPerSet,
+    this.matchTimeLimitSeconds,
   }) : startTime = DateTime.now(),
        currentSetRecord = SetRecord(1, players.first.id, players.map((p) => p.id).toList());
 

@@ -1,6 +1,15 @@
 
 import '../models/game_models.dart';
 
+class ScoreDecision {
+  final List<Player> leaders;
+
+  const ScoreDecision(this.leaders);
+
+  bool get isDraw => leaders.length != 1;
+  Player? get winner => isDraw ? null : leaders.first;
+}
+
 class GameLogic {
   static void processThrow(Player player, List<int> knockedDownSkitels, MolkkyMatch match) {
     if (player.isDisqualified) return;
@@ -85,5 +94,30 @@ class GameLogic {
     }
 
     player.scoreHistory.add(points);
+  }
+
+  static ScoreDecision decideSetByCurrentScores(List<Player> players) {
+    if (players.isEmpty) return const ScoreDecision([]);
+    int bestScore = players.fold<int>(-1, (best, p) => p.currentScore > best ? p.currentScore : best);
+    final leaders = players.where((p) => p.currentScore == bestScore).toList();
+    return ScoreDecision(leaders);
+  }
+
+  static ScoreDecision decideMatchByStandings(List<Player> players) {
+    if (players.isEmpty) return const ScoreDecision([]);
+
+    final sorted = List<Player>.from(players)
+      ..sort((a, b) {
+        if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
+        if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
+        return a.totalMatchThrows.compareTo(b.totalMatchThrows);
+      });
+
+    final top = sorted.first;
+    final leaders = sorted.where((p) =>
+      p.setsWon == top.setsWon &&
+      p.totalMatchScore == top.totalMatchScore,
+    ).toList();
+    return ScoreDecision(leaders);
   }
 }
