@@ -118,6 +118,7 @@ class L10n {
       'set_draw_detail': 'Top score is tied, so this set is a draw.',
       'turn_limit_win': '{name} wins on score after the turn limit!',
       'time_up_match_over': 'Match ended due to time limit.',
+      'last_turn': 'Last Turn',
     },
     'ja': {
       'app_title': 'Easy Molkky Score',
@@ -199,6 +200,7 @@ class L10n {
       'set_draw_detail': 'トップの点数が同じため、このセットは引き分けです。',
       'turn_limit_win': '{name} さん、ターン制限終了時点の最高得点で勝利！',
       'time_up_match_over': '制限時間のため試合終了です。',
+      'last_turn': 'ラストターン',
     }
   };
 
@@ -853,6 +855,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   int get _selfTurnLimit => widget.match.type == MatchType.self5Turn ? 5 : widget.match.type == MatchType.self6Turn ? 6 : 0;
   bool get _hasTurnLimit => widget.match.turnLimitPerSet != null;
   bool get _hasMatchTimeLimit => widget.match.matchTimeLimitSeconds != null;
+  bool get _isLastLimitedTurn => _hasTurnLimit && currentTurnInSet == widget.match.turnLimitPerSet;
 
   void _startMatchCountdown() {
     if (!_hasMatchTimeLimit || _matchTimerStarted) return;
@@ -1522,7 +1525,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   String _stars(int setsWon) => setsWon <= 0 ? '' : '⭐' * setsWon;
 
-  Widget _buildMatchTimerWidget(L10n t, {double minuteFontSize = 26, double secondFontSize = 18}) {
+  Widget _buildMatchTimerWidget(L10n t, {double fontSize = 26}) {
     if (!_hasMatchTimeLimit) return const SizedBox.shrink();
     if (!_matchTimerStarted) {
       return SizedBox(
@@ -1544,9 +1547,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         text: TextSpan(
           style: TextStyle(fontFamily: 'Courier', fontWeight: FontWeight.w900, color: color),
           children: [
-            TextSpan(text: minutes, style: TextStyle(fontSize: minuteFontSize)),
-            TextSpan(text: ':', style: TextStyle(fontSize: minuteFontSize)),
-            TextSpan(text: seconds, style: TextStyle(fontSize: secondFontSize)),
+            TextSpan(text: minutes, style: TextStyle(fontSize: fontSize)),
+            TextSpan(text: ':', style: TextStyle(fontSize: fontSize)),
+            TextSpan(text: seconds, style: TextStyle(fontSize: fontSize)),
           ],
         ),
       ),
@@ -1754,7 +1757,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         padding: EdgeInsets.fromLTRB(8, 4, 8, bottomPad + 6),
                         child: Column(children: [
                           if (_hasMatchTimeLimit) ...[
-                            _buildMatchTimerWidget(t, minuteFontSize: 24, secondFontSize: 17),
+                            _buildMatchTimerWidget(t, fontSize: 24),
                             const SizedBox(height: 4),
                           ],
                           if (_shouldShowEarlyEnd()) ...[
@@ -1817,7 +1820,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
               child: Column(children: [
                 if (_hasMatchTimeLimit) ...[
-                  _buildMatchTimerWidget(t, minuteFontSize: 30, secondFontSize: 21),
+                  _buildMatchTimerWidget(t, fontSize: 30),
                   const SizedBox(height: 8),
                 ],
                 LayoutBuilder(builder: (_, gc) {
@@ -1887,9 +1890,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildPlayerInfoCard(L10n t, Player currentPlayer, String missIcons, Color nameColor, String? reachMsg, bool isSelfTurn, bool shouldBlink, {EdgeInsets margin = const EdgeInsets.all(8), EdgeInsets padding = const EdgeInsets.all(8)}) {
+    final turnLabel = _isLastLimitedTurn
+        ? t.get('last_turn')
+        : t.get('turn_n', args: {'n': '$currentTurnInSet'});
+    final turnColor = _isLastLimitedTurn ? Colors.orange : nameColor;
     final nameWidget = RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
       TextSpan(text: '${currentPlayer.name} '),
-      TextSpan(text: '(${t.get('turn_n', args: {'n': '$currentTurnInSet'})})'),
+      TextSpan(text: '($turnLabel)', style: TextStyle(color: turnColor)),
       TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
     ]));
     return Container(
