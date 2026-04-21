@@ -80,5 +80,23 @@ void main() {
       expect(set1.hasContent, isTrue);
       expect(set2.hasContent, isFalse);
     });
+
+    test('セルフ5/6ターンは追加制限を使わない前提で生成できる', () {
+      final self5 = MolkkyMatch(
+        players: [_player('a', 'Alice')],
+        limit: 99,
+        type: MatchType.self5Turn,
+      );
+      final self6 = MolkkyMatch(
+        players: [_player('a', 'Alice')],
+        limit: 99,
+        type: MatchType.self6Turn,
+      );
+
+      expect(self5.turnLimitPerSet, isNull);
+      expect(self5.matchTimeLimitSeconds, isNull);
+      expect(self6.turnLimitPerSet, isNull);
+      expect(self6.matchTimeLimitSeconds, isNull);
+    });
   });
 }

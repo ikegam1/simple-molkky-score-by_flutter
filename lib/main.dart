@@ -539,8 +539,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
     final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
     MolkkyMatch match;
-    final turnLimit = _selectedTurnLimit == 0 ? null : _selectedTurnLimit;
-    final matchTimeLimitSeconds = _selectedTimeLimitMinutes == 0 ? null : _selectedTimeLimitMinutes * 60;
+    final isSelfTurnMode = _selectedModeKey == -1 || _selectedModeKey == -3;
+    final turnLimit = isSelfTurnMode || _selectedTurnLimit == 0 ? null : _selectedTurnLimit;
+    final matchTimeLimitSeconds = isSelfTurnMode || _selectedTimeLimitMinutes == 0 ? null : _selectedTimeLimitMinutes * 60;
 
     if (_selectedModeKey == -1) {
       match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
