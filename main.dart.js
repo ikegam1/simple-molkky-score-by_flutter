@@ -95702,7 +95702,7 @@ i=n.r.length===0?m:new A.aAh(n,a)
 i=A.b([k,B.eU,s,B.Hd,A.aM5(B.OM,A.al(b.aC("match_history"),m,m,m,B.nG,m,m),i,A.aiJ(m,m,m,m,m,m,m,m,m,m,m,B.a6S,m,m,m,m,m,m,m,m)),B.ho],j)
 k=n.r
 if(k.length!==0){s=t.N
-i.push(A.al(b.cC("anonymous_id",A.a_(["id",B.c.am(k,0,8)],s,s)),m,m,m,B.HJ,B.da,m))}i.push(B.acW)
+i.push(A.al(b.cC("anonymous_id",A.a_(["id",B.c.am(k,0,8)],s,s)),m,m,m,B.HJ,B.da,m))}i.push(B.ad0)
 return A.Dk(!0,new A.bQ(B.NU,A.eP(A.b([l,B.a6W,A.fB(A.dh(i,B.cu,B.cB,B.Y),2)],j),B.cu,B.M,B.Y,0,m),m),B.aJ,!0)}}
 A.aAj.prototype={
 $1(a){var s=a.a.w
@@ -95729,7 +95729,7 @@ $1(a){var s=t.N
 return B.cO.WR(A.a_(["id",a.a,"name",a.b],s,s),null)},
 $S:48}
 A.aAr.prototype={
-$1(a){return A.to(A.b([A.jq(B.HN,new A.aAp(a),null),A.iZ(B.ad2,new A.aAq(a),null)],t.p),B.acY,B.a4Q)},
+$1(a){return A.to(A.b([A.jq(B.HN,new A.aAp(a),null),A.iZ(B.ad1,new A.aAq(a),null)],t.p),B.acX,B.a4Q)},
 $S:57}
 A.aAp.prototype={
 $0(){A.d_(this.a,!1).lj(!1)
@@ -95795,7 +95795,7 @@ $1(a){return new A.li(this.a.r,null)},
 $S:129}
 A.aAO.prototype={
 $2(a,b){var s,r,q,p,o,n,m,l,k,j,i,h=this,g=null,f=b.d
-if(b.b>f&&f<500)return h.a.a6u(h.b,h.c,h.d,h.e)
+if(b.b>=f*1.25&&f<500)return h.a.a6u(h.b,h.c,h.d,h.e)
 f=h.c
 s=A.al(f.aC("app_title"),g,g,g,B.HI,g,g)
 r=h.a
@@ -95818,7 +95818,7 @@ n=r.r.length===0?g:new A.aAI(r,h.b)
 p=A.b([B.k1,s,B.k1,q,o,m,B.nw,k,B.nw,A.aM5(B.ON,A.al(f.aC("match_history"),g,g,g,g,g,g),n,A.aiJ(g,g,g,g,g,g,g,g,g,g,g,B.a6Q,g,g,g,g,g,g,g,g)),B.nw],p)
 s=r.r
 if(s.length!==0){r=t.N
-p.push(A.al(f.cC("anonymous_id",A.a_(["id",B.c.am(s,0,8)],r,r)),g,g,g,B.HK,g,g))}p.push(B.ad_)
+p.push(A.al(f.cC("anonymous_id",A.a_(["id",B.c.am(s,0,8)],r,r)),g,g,g,B.HK,g,g))}p.push(B.ad2)
 return new A.bQ(B.NY,A.dh(p,B.P,B.M,B.Y),g)},
 $S:595}
 A.aAC.prototype={
@@ -96079,7 +96079,7 @@ b=A.R(new A.U(b,new A.avs(),a),a.i("a9.E"))
 a=m
 a0=A.S(a).i("U<1,av<o,D>>")
 a=A.R(new A.U(a,new A.avt(),a0),a0.i("a9.E"))
-k=A.a_(["appUserId",i,"startTime",h,"endTime",new A.n7(f,f),"matchType",e,"consecutiveSuccesses",d,"appVersion","1.13.4+82","platform",c,"players",b,"history",a],t.N,t.K)
+k=A.a_(["appUserId",i,"startTime",h,"endTime",new A.n7(f,f),"matchType",e,"consecutiveSuccesses",d,"appVersion","1.13.5+83","platform",c,"players",b,"history",a],t.N,t.K)
 i=$.bK
 a1=(i==null?$.bK=$.dV():i).eC("[DEFAULT]")
 A.bY(a1,$.ep(),!0)
@@ -96120,7 +96120,7 @@ a=A.R(new A.U(a,new A.avo(),a0),a0.i("a9.E"))
 a0=m
 a1=A.S(a0).i("U<1,av<o,D>>")
 a0=A.R(new A.U(a0,new A.avp(),a1),a1.i("a9.E"))
-k=A.a_(["appUserId",i,"startTime",h,"endTime",new A.n7(f,f),"matchType",e,"limit",d,"winner",c,"appVersion","1.13.4+82","platform",b,"players",a,"history",a0],t.N,t.K)
+k=A.a_(["appUserId",i,"startTime",h,"endTime",new A.n7(f,f),"matchType",e,"limit",d,"winner",c,"appVersion","1.13.5+83","platform",b,"players",a,"history",a0],t.N,t.K)
 i=$.bK
 a2=(i==null?$.bK=$.dV():i).eC("[DEFAULT]")
 A.bY(a2,$.ep(),!0)
@@ -96644,7 +96644,7 @@ return A.M($async$$2,r)},
 $S:612}
 A.avE.prototype={
 $1(a){var s=null
-return A.to(A.b([A.jq(B.HN,new A.avy(a),s),A.iZ(B.acZ,new A.avz(a),A.n4(s,s,B.bw,s,s,s,s,s,s,B.l,s,s,s,s,s,s,s,s,s,s))],t.p),B.acU,s)},
+return A.to(A.b([A.jq(B.HN,new A.avy(a),s),A.iZ(B.acY,new A.avz(a),A.n4(s,s,B.bw,s,s,s,s,s,s,B.l,s,s,s,s,s,s,s,s,s,s))],t.p),B.acU,s)},
 $S:57}
 A.avy.prototype={
 $0(){A.d_(this.a,!1).lj(!1)
@@ -96659,7 +96659,7 @@ $1(a){return a.gma()},
 $S:97}
 A.avK.prototype={
 $2(a,b){var s,r,q,p,o,n,m,l,k,j=this,i=null,h="early_end",g=b.d
-if(b.b>g&&g<500){g=j.c
+if(b.b>=g*1.25&&g<500){g=j.c
 s=t.l
 r=B.d.d2(A.bE(g,i,s).w.a.a*0.42,200,360)
 s=A.bE(g,i,s).w
@@ -96679,9 +96679,9 @@ p=A.b([],g)
 if(o.SU()){l=A.n4(i,i,B.h3,i,i,i,i,i,i,B.l,i,B.a6H,B.fA,i,i,i,i,i,i,i)
 B.b.Y(p,A.b([A.dA(A.iZ(A.al(n.aC(h),i,i,i,B.HF,i,i),o.gOS(),l),i,1/0),B.ho],g))}l=A.aiJ(i,i,i,i,i,i,i,i,i,B.bw,i,B.H4,B.O4,i,i,i,i,i,i,i)
 l=A.fB(A.aM4(A.eP(A.b([B.OU,A.al(" "+n.aC("undo"),i,i,i,B.nG,i,i)],g),B.P,B.cB,B.Y,0,i),o.gTE(),l),1)
-n=A.fB(A.iZ(B.ad1,new A.avH(o),A.n4(i,i,B.l3,i,i,i,i,i,i,B.bw,i,B.H4,i,i,i,B.ou,i,i,i,i)),1)
+n=A.fB(A.iZ(B.ad_,new A.avH(o),A.n4(i,i,B.l3,i,i,i,i,i,i,B.bw,i,B.H4,i,i,i,B.ou,i,i,i,i)),1)
 k=o.z
-p.push(A.eP(A.b([l,B.Hc,n,B.Hc,A.nf(i,A.dA(A.dh(A.b([A.al(""+k,i,i,i,A.dC(i,i,k>=60?B.bw:B.T,i,i,i,i,i,"Courier",i,i,26,i,i,B.fE,i,i,!0,i,1,i,i,i,i,i,i),i,i),B.acX],g),B.P,B.cB,B.Y),i,72),B.ar,!1,i,i,i,i,i,i,i,i,i,i,i,i,i,i,o.gS3(),i,i,i,i,i,i)],g),B.P,B.M,B.Y,0,i))
+p.push(A.eP(A.b([l,B.Hc,n,B.Hc,A.nf(i,A.dA(A.dh(A.b([A.al(""+k,i,i,i,A.dC(i,i,k>=60?B.bw:B.T,i,i,i,i,i,"Courier",i,i,26,i,i,B.fE,i,i,!0,i,1,i,i,i,i,i,i),i,i),B.acW],g),B.P,B.cB,B.Y),i,72),B.ar,!1,i,i,i,i,i,i,i,i,i,i,i,i,i,i,o.gS3(),i,i,i,i,i,i)],g),B.P,B.M,B.Y,0,i))
 return A.eP(A.b([q,A.dA(A.es(i,A.dh(A.b([m,new A.bQ(new A.ay(8,4,8,s.r.d+6),A.dh(p,B.P,B.M,B.Y),i)],g),B.P,B.M,B.Y),B.x,i,i,B.Jb,i,i,i,i),i,r)],g),B.cu,B.M,B.Y,0,i)}g=t.p
 s=A.b([],g)
 q=j.d
@@ -97180,7 +97180,7 @@ B.b.Y(l,r)}l.push(B.a6Z)
 return A.Do(m,A.U9(A.dh(l,B.bp,B.M,B.Y),B.pD,B.ak),!1)}}
 A.f9.prototype={
 P(a){var s,r,q,p=null,o=t.p,n=A.b([A.al(this.c,p,p,p,B.a8J,p,p),B.eU],o)
-for(s=this.d,r=s.length,q=0;q<r;++q)B.b.Y(n,A.b([new A.bQ(B.O8,A.eP(A.b([B.ad0,new A.Ae(1,B.m4,A.al(s[q],p,p,p,B.nH,p,p),p)],o),B.bp,B.M,B.Y,0,p),p)],o))
+for(s=this.d,r=s.length,q=0;q<r;++q)B.b.Y(n,A.b([new A.bQ(B.O8,A.eP(A.b([B.acZ,new A.Ae(1,B.m4,A.al(s[q],p,p,p,B.nH,p,p),p)],o),B.bp,B.M,B.Y,0,p),p)],o))
 return A.dh(n,B.bp,B.M,B.Y)}}
 A.Jt.prototype={
 l(){var s=this,r=s.c7$
@@ -104278,15 +104278,15 @@ B.abI=new A.k(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,nul
 B.a8z=new A.k(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelSmall",null,null,null,null)
 B.acQ=new A.e7(B.aat,B.a9i,B.aau,B.ab_,B.a8Z,B.a96,B.a9E,B.aaU,B.a9S,B.abn,B.a8s,B.a8L,B.abk,B.abI,B.a8z)
 B.acU=new A.dS("\u8a66\u5408\u304c\u7121\u52b9\u306b\u306a\u3063\u3066\u3057\u307e\u3044\u307e\u3059\u304c\u3001\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u3063\u3066\u826f\u3044\u3067\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
+B.acW=new A.dS("sec",null,B.HJ,null,null,null,null,null,null)
+B.acX=new A.dS("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u3067\u30ed\u30b0\u30a4\u30f3\u3059\u308b\u3068\u3001\u3053\u308c\u307e\u3067\u306e\u6226\u6b74\u304c\u30a2\u30ab\u30a6\u30f3\u30c8\u306b\u7d10\u3065\u304d\u3001\u5225\u7aef\u672b\u3084\u74b0\u5883\u3067\u30ed\u30b0\u30a4\u30f3\u3057\u305f\u5834\u5408\u3082\u4fdd\u6301\u3055\u308c\u308b\u3088\u3046\u306b\u306a\u308a\u307e\u3059\u3002\n\u30ed\u30b0\u30a4\u30f3\u3055\u308c\u307e\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
+B.acY=new A.dS("\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u308b",null,null,null,null,null,null,null,null)
+B.acZ=new A.dS("\u2022 ",null,B.nH,null,null,null,null,null,null)
+B.ad_=new A.dS("0(fault)",null,B.HF,null,null,null,null,null,null)
 B.aaJ=new A.k(!0,B.bx,null,null,null,null,11,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.acW=new A.dS("v1.13.4",null,B.aaJ,B.da,null,null,null,null,null)
-B.acX=new A.dS("sec",null,B.HJ,null,null,null,null,null,null)
-B.acY=new A.dS("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u3067\u30ed\u30b0\u30a4\u30f3\u3059\u308b\u3068\u3001\u3053\u308c\u307e\u3067\u306e\u6226\u6b74\u304c\u30a2\u30ab\u30a6\u30f3\u30c8\u306b\u7d10\u3065\u304d\u3001\u5225\u7aef\u672b\u3084\u74b0\u5883\u3067\u30ed\u30b0\u30a4\u30f3\u3057\u305f\u5834\u5408\u3082\u4fdd\u6301\u3055\u308c\u308b\u3088\u3046\u306b\u306a\u308a\u307e\u3059\u3002\n\u30ed\u30b0\u30a4\u30f3\u3055\u308c\u307e\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
-B.acZ=new A.dS("\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u308b",null,null,null,null,null,null,null,null)
-B.ad_=new A.dS("v1.13.4",null,B.HG,null,null,null,null,null,null)
-B.ad0=new A.dS("\u2022 ",null,B.nH,null,null,null,null,null,null)
-B.ad1=new A.dS("0(fault)",null,B.HF,null,null,null,null,null,null)
-B.ad2=new A.dS("Google\u3067\u30ed\u30b0\u30a4\u30f3",null,null,null,null,null,null,null,null)
+B.ad0=new A.dS("v1.13.5",null,B.aaJ,B.da,null,null,null,null,null)
+B.ad1=new A.dS("Google\u3067\u30ed\u30b0\u30a4\u30f3",null,null,null,null,null,null,null,null)
+B.ad2=new A.dS("v1.13.5",null,B.HG,null,null,null,null,null,null)
 B.ad3=new A.dS("sec",null,B.HK,null,null,null,null,null,null)
 B.HN=new A.dS("\u30ad\u30e3\u30f3\u30bb\u30eb",null,null,null,null,null,null,null,null)
 B.ab6=new A.k(!0,null,null,null,null,null,15,B.aa,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
