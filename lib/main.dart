@@ -17,7 +17,7 @@ import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
-const String _kAppVersion = '1.14.0+85';
+const String _kAppVersion = '1.14.2+87';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -684,7 +684,7 @@ class _SetupScreenState extends State<SetupScreen> {
               OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
               const SizedBox(height: 10),
               if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              const Text('v1.14.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text('v1.14.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         );
@@ -796,7 +796,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 4),
                   if (_firebaseUid.isNotEmpty)
                     Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.center),
-                  const Text('v1.14.0', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
+                  const Text('v1.14.2', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -1222,16 +1222,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   void _undo() {
     if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0)) return;
     setState(() {
-      if (currentPlayerIndex == 0) { currentTurnInSet--; currentPlayerIndex = widget.match.players.length - 1; } else { currentPlayerIndex--; }
-      while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) { currentPlayerIndex--; }
+      if (currentPlayerIndex == 0) {
+        currentTurnInSet--;
+        currentPlayerIndex = widget.match.players.length - 1;
+        // ターンの境界を戻る際、保存済みのターン記録を復元する
+        if (widget.match.currentSetRecord.turns.isNotEmpty) {
+          final lastTurn = widget.match.currentSetRecord.turns.removeLast();
+          turnInProgressScores = Map<String, int>.from(lastTurn.scores);
+          systemCalculatedIds = Set<String>.from(lastTurn.systemCalculatedPlayerIds);
+        }
+      } else {
+        currentPlayerIndex--;
+      }
+
+      while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) {
+        currentPlayerIndex--;
+      }
+
       final p = widget.match.players[currentPlayerIndex];
       if (p.scoreHistory.isNotEmpty) {
-        int last = p.scoreHistory.removeLast(); p.matchScoreHistory.removeLast();
+        int last = p.scoreHistory.removeLast();
+        p.matchScoreHistory.removeLast();
         // scoreSnapshot を使って投擲前スコアを正確に復元（バースト時も正しく戻る）
         if (p.scoreSnapshot.isNotEmpty) p.currentScore = p.scoreSnapshot.removeLast();
-        turnInProgressScores.remove(p.id); systemCalculatedIds.remove(p.id);
-        if (last == 0 && p.consecutiveMisses > 0) { p.consecutiveMisses--; p.isDisqualified = false; }
+        turnInProgressScores.remove(p.id);
+        systemCalculatedIds.remove(p.id);
+        if (last == 0 && p.consecutiveMisses > 0) {
+          p.consecutiveMisses--;
+          p.isDisqualified = false;
+        }
       }
+
       // selfTurnMode: TurnRecordも直前分を削除する（各投で即追加しているため）
       if (_isSelfTurnMode && widget.match.currentSetRecord.turns.isNotEmpty) {
         widget.match.currentSetRecord.turns.removeLast();

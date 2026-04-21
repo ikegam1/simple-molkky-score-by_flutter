@@ -1,7 +1,7 @@
 name: simple_molkky_score
 description: "A simple Molkky scoreboard app."
 publish_to: 'none'
-version: 1.14.0+84
+version: 1.14.2+87
 
 environment:
   sdk: ^3.7.0
