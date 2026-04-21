@@ -95796,7 +95796,7 @@ o=!p||k.r===0?j:k.r
 n=!p||k.w===0?j:k.w*60
 if(q)i.a=A.RM(99,j,r,j,B.ju)
 else if(h===-3)i.a=A.RM(99,j,r,j,B.jv)
-else if(h===-2)i.a=A.RM(2,n,r,j,B.cD)
+else if(h===-2)i.a=A.RM(2,n,r,o,B.cD)
 else{m=B.b.n(A.b([1,2,10],t.t),k.f)?B.dL:B.jt
 l=k.f
 i.a=A.RM(m===B.jt&&l!==11?B.d.lX(l/2):l,n,r,o,m)}h=k.c
@@ -96299,7 +96299,7 @@ h=$.aJ5().CZ()
 J.cw(k,"endTime",new A.n9(h,h))
 J.cw(k,"matchType",o.a.c.f.L())
 J.cw(k,"consecutiveSuccesses",n.as)
-J.cw(k,"appVersion","1.14.0+84")
+J.cw(k,"appVersion","1.14.0+85")
 J.cw(k,"platform",A.aPI())
 if(n.r!=null)J.cw(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cw(k,"matchTimeLimitSeconds",n.w)
@@ -96348,7 +96348,7 @@ J.cw(k,"limit",n.e)
 h=a==null?null:a.b
 if(h==null)h="DRAW"
 J.cw(k,"winner",h)
-J.cw(k,"appVersion","1.14.0+84")
+J.cw(k,"appVersion","1.14.0+85")
 J.cw(k,"platform",A.aPI())
 if(n.r!=null)J.cw(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cw(k,"matchTimeLimitSeconds",n.w)
