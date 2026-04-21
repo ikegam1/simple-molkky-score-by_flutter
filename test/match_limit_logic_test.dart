@@ -126,5 +126,18 @@ void main() {
       expect(self6.turnLimitPerSet, isNull);
       expect(self6.matchTimeLimitSeconds, isNull);
     });
+
+    test('100均モードでもターン制限と時間制限を保持できる', () {
+      final hyakin = MolkkyMatch(
+        players: [_player('a', 'Alice'), _player('b', 'Bob')],
+        limit: 2,
+        type: MatchType.hyakin,
+        turnLimitPerSet: 10,
+        matchTimeLimitSeconds: 600,
+      );
+
+      expect(hyakin.turnLimitPerSet, 10);
+      expect(hyakin.matchTimeLimitSeconds, 600);
+    });
   });
 }

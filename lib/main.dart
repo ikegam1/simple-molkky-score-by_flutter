@@ -17,7 +17,7 @@ import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
-const String _kAppVersion = '1.14.0+84';
+const String _kAppVersion = '1.14.0+85';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -550,7 +550,13 @@ class _SetupScreenState extends State<SetupScreen> {
     } else if (_selectedModeKey == -3) {
       match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self6Turn);
     } else if (_selectedModeKey == -2) {
-      match = MolkkyMatch(players: playersForMatch, limit: 2, type: MatchType.hyakin, matchTimeLimitSeconds: matchTimeLimitSeconds);
+      match = MolkkyMatch(
+        players: playersForMatch,
+        limit: 2,
+        type: MatchType.hyakin,
+        turnLimitPerSet: turnLimit,
+        matchTimeLimitSeconds: matchTimeLimitSeconds,
+      );
     } else {
       MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
       int limit = _selectedModeKey;
