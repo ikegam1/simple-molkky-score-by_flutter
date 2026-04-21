@@ -983,6 +983,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _submitThrow() {
     if (isSetFinished) return;
+    if (_hasMatchTimeLimit && !_matchTimerStarted) {
+      _startMatchCountdown();
+    }
     final t = L10n.of(context);
     bool self5TurnSucceeded = false;
     bool self5TurnFailed = false;
