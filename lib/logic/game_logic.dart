@@ -103,6 +103,20 @@ class GameLogic {
     return ScoreDecision(leaders);
   }
 
+  static ScoreDecision decideHyakinSet2ByCombinedTotals(List<Player> players) {
+    if (players.isEmpty) return const ScoreDecision([]);
+    int bestTotal = -1;
+    final totals = <String, int>{};
+    for (final p in players) {
+      final set1 = p.setFinalScores.isNotEmpty ? p.setFinalScores.first : 0;
+      final total = set1 + p.currentScore;
+      totals[p.id] = total;
+      if (total > bestTotal) bestTotal = total;
+    }
+    final leaders = players.where((p) => totals[p.id] == bestTotal).toList();
+    return ScoreDecision(leaders);
+  }
+
   static ScoreDecision decideMatchByStandings(List<Player> players) {
     if (players.isEmpty) return const ScoreDecision([]);
 

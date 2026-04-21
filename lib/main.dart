@@ -1038,6 +1038,25 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           if (currentPlayerIndex == widget.match.players.length - 1) {
             widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
             turnInProgressScores.clear(); systemCalculatedIds.clear();
+
+            if (_hasTurnLimit && currentTurnInSet >= widget.match.turnLimitPerSet!) {
+              isSetFinished = true;
+              final decision = GameLogic.decideHyakinSet2ByCombinedTotals(widget.match.players);
+              if (decision.winner != null) {
+                decision.winner!.setsWon++;
+              }
+              widget.match.finalizeCurrentSetIfNeeded();
+
+              final finalDecision = GameLogic.decideMatchByStandings(widget.match.players);
+              if (finalDecision.isDraw || finalDecision.winner == null) {
+                _uploadMatchData(null);
+                _showMatchDrawDialog();
+              } else {
+                _uploadMatchData(finalDecision.winner);
+                _showMatchWinnerDialog(finalDecision.winner!, winMsg: t.get('turn_limit_win', args: {'name': finalDecision.winner!.name}));
+              }
+              return;
+            }
           }
           selectedSkitels.clear(); _nextPlayer();
         }

@@ -56,6 +56,34 @@ void main() {
     });
   });
 
+  group('100均モードのターン制限判定', () {
+    test('Set2は合計点が最大のプレイヤーを勝者にする', () {
+      final a = _player('a', 'Alice')
+        ..setFinalScores.add(32)
+        ..currentScore = 30;
+      final b = _player('b', 'Bob')
+        ..setFinalScores.add(40)
+        ..currentScore = 33;
+
+      final decision = GameLogic.decideHyakinSet2ByCombinedTotals([a, b]);
+      expect(decision.isDraw, isFalse);
+      expect(decision.winner?.name, 'Bob'); // 73 vs 62
+    });
+
+    test('Set2の合計点が同点なら引き分け', () {
+      final a = _player('a', 'Alice')
+        ..setFinalScores.add(30)
+        ..currentScore = 40;
+      final b = _player('b', 'Bob')
+        ..setFinalScores.add(38)
+        ..currentScore = 32;
+
+      final decision = GameLogic.decideHyakinSet2ByCombinedTotals([a, b]);
+      expect(decision.isDraw, isTrue);
+      expect(decision.winner, isNull);
+    });
+  });
+
   group('MolkkyMatch に制限設定を保持できる', () {
     test('ターン制限と試合時間制限が保持される', () {
       final match = MolkkyMatch(
