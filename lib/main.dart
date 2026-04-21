@@ -17,7 +17,7 @@ import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 
-const String _kAppVersion = '1.13.4+82';
+const String _kAppVersion = '1.13.5+83';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -546,8 +546,8 @@ class _SetupScreenState extends State<SetupScreen> {
       ),
       extendBodyBehindAppBar: true,
       body: LayoutBuilder(builder: (_, constraints) {
-        // 横長かつ高さが500px未満の場合のみ横向きレイアウト（キーボード表示による縦型での誤判定防止）
-        final isLandscape = constraints.maxWidth > constraints.maxHeight && constraints.maxHeight < 500;
+        // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
+        final isLandscape = constraints.maxWidth >= constraints.maxHeight * 1.25 && constraints.maxHeight < 500;
         if (isLandscape) {
           return _buildLandscapeBody(context, t, options, selfTurnEnabled);
         }
@@ -611,7 +611,7 @@ class _SetupScreenState extends State<SetupScreen> {
               OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
               const SizedBox(height: 10),
               if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              const Text('v1.13.4', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text('v1.13.5', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         );
@@ -724,7 +724,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 4),
                   if (_firebaseUid.isNotEmpty)
                     Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.center),
-                  const Text('v1.13.4', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
+                  const Text('v1.13.5', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -1399,8 +1399,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           : t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
         actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
       body: LayoutBuilder(builder: (_, constraints) {
-        // 横長かつ高さが500px未満の場合のみ横向きレイアウト（キーボード表示による縦型での誤判定防止）
-        final isLandscape = constraints.maxWidth > constraints.maxHeight && constraints.maxHeight < 500;
+        // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
+        final isLandscape = constraints.maxWidth >= constraints.maxHeight * 1.25 && constraints.maxHeight < 500;
         if (isLandscape) {
           // ─── 横向きレイアウト ───────────────────────────────────
           final rightW = (MediaQuery.of(context).size.width * 0.42).clamp(200.0, 360.0);
