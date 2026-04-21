@@ -69,5 +69,34 @@ void main() {
       expect(match.turnLimitPerSet, 10);
       expect(match.matchTimeLimitSeconds, 900);
     });
+
+    test('空の次セットは履歴表示対象にしない判定ができる', () {
+      final set1 = SetRecord(1, 'a', ['a', 'b']);
+      set1.turns.add(TurnRecord(1, {'a': 8, 'b': 6}));
+      set1.finalCumulativeScores.addAll({'a': 50, 'b': 32});
+
+      final set2 = SetRecord(2, 'b', ['b', 'a']);
+
+      expect(set1.hasContent, isTrue);
+      expect(set2.hasContent, isFalse);
+    });
+
+    test('セルフ5/6ターンは追加制限を使わない前提で生成できる', () {
+      final self5 = MolkkyMatch(
+        players: [_player('a', 'Alice')],
+        limit: 99,
+        type: MatchType.self5Turn,
+      );
+      final self6 = MolkkyMatch(
+        players: [_player('a', 'Alice')],
+        limit: 99,
+        type: MatchType.self6Turn,
+      );
+
+      expect(self5.turnLimitPerSet, isNull);
+      expect(self5.matchTimeLimitSeconds, isNull);
+      expect(self6.turnLimitPerSet, isNull);
+      expect(self6.matchTimeLimitSeconds, isNull);
+    });
   });
 }

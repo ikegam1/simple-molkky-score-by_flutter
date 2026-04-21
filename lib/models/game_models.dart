@@ -40,6 +40,8 @@ class SetRecord {
   final List<String> playerOrder; // このセットの実際の投擲順
   final String starterPlayerId;
   SetRecord(this.setNumber, this.starterPlayerId, this.playerOrder);
+
+  bool get hasContent => turns.isNotEmpty || finalCumulativeScores.isNotEmpty;
 }
 
 enum MatchType { raceTo, fixedSets, self5Turn, self6Turn, hyakin }
