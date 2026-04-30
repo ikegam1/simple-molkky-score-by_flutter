@@ -106,6 +106,40 @@
       text-align: center;
       margin-top: 32px;
     }
+    #pre-content .android-promo {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+    #pre-content .android-promo h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1565c0;
+      margin-bottom: 12px;
+    }
+    #pre-content .android-promo-inner {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    #pre-content .android-promo img.qr {
+      width: 110px;
+      height: 110px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    #pre-content .android-promo-text { font-size: 0.85rem; color: #444; }
+    #pre-content .play-btn {
+      display: inline-block;
+      margin-top: 10px;
+      background: #01875f;
+      color: #fff;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
     /* Flutter 起動後は非表示 */
     body.flutter-loaded #pre-content { display: none; }
   </style>
@@ -125,6 +159,23 @@
       <li>日本語・英語対応</li>
     </ul>
     <p class="loading">アプリを読み込み中...</p>
+
+    <div class="android-promo">
+      <h2>Androidアプリ</h2>
+      <div class="android-promo-inner">
+        <img class="qr"
+          src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Djp.ikegam1.simple_molkky_score"
+          alt="Google Play QR コード">
+        <div class="android-promo-text">
+          <p>スマートフォンでも使えるAndroidアプリを公開しています。</p>
+          <a class="play-btn"
+            href="https://play.google.com/store/apps/details?id=jp.ikegam1.simple_molkky_score"
+            target="_blank" rel="noopener">
+            Google Playで入手
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
