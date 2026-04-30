@@ -1,38 +1,138 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="/">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
 
-  <!-- iOS meta tags & icons -->
+  <!-- SEO -->
+  <meta name="description" content="モルック（Mölkky）のスコアをかんたんに管理できる無料Webアプリ。通常試合・サバイバル・百均モード対応。最大8人でスコア入力・失格判定・セット管理が可能。">
+  <meta name="keywords" content="モルック,Mölkky,スコア,計算,アプリ,ゲーム,スポーツ,モルックスコア,モルックアプリ">
+  <meta name="application-name" content="Easy Molkky Score">
+  <link rel="canonical" href="https://easy-molkky-score.ikegam1.com/">
+
+  <!-- OGP -->
+  <meta property="og:site_name" content="Easy Molkky Score">
+  <meta property="og:title" content="Easy Molkky Score - モルックスコア管理アプリ">
+  <meta property="og:description" content="モルックのスコアをかんたんに管理。通常試合・サバイバル・百均モード対応。最大8人、失格判定・セット管理機能付き。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://easy-molkky-score.ikegam1.com">
+  <meta property="og:image" content="https://easy-molkky-score.ikegam1.com/icons/Icon-512.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Easy Molkky Score - モルックスコア管理アプリ">
+  <meta name="twitter:description" content="モルックのスコアをかんたんに管理。通常試合・サバイバル・百均モード対応。無料Webアプリ。">
+  <meta name="twitter:image" content="https://easy-molkky-score.ikegam1.com/icons/Icon-512.png">
+
+  <!-- iOS -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="simple_molkky_score">
+  <meta name="apple-mobile-web-app-title" content="Easy Molkky Score">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>simple_molkky_score</title>
+  <title>Easy Molkky Score - モルックスコア管理アプリ</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- JSON-LD 構造化データ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Easy Molkky Score",
+    "url": "https://easy-molkky-score.ikegam1.com",
+    "description": "モルック（Mölkky）のスコアをかんたんに管理できる無料Webアプリ。通常試合・サバイバル・百均モード対応。最大8人でスコア入力・失格判定・セット管理が可能。",
+    "applicationCategory": "SportsApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "JPY"
+    },
+    "inLanguage": ["ja", "en"],
+    "featureList": [
+      "最大8人のスコア管理",
+      "通常試合・サバイバル・百均モード",
+      "失格判定（3回連続ミス）",
+      "セット制試合（1/2/3/5/7/10/11先取）",
+      "試合結果の履歴保存"
+    ]
+  }
+  </script>
+
+  <!-- Flutter 起動後に #pre-content を非表示にする -->
+  <style>
+    #pre-content {
+      font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      color: #1a1a1a;
+    }
+    #pre-content h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #1565c0;
+      margin-bottom: 8px;
+    }
+    #pre-content .tagline {
+      font-size: 1rem;
+      color: #555;
+      margin-bottom: 24px;
+    }
+    #pre-content ul {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 24px;
+    }
+    #pre-content ul li {
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 0.9rem;
+    }
+    #pre-content ul li::before {
+      content: "✓ ";
+      color: #1565c0;
+      font-weight: bold;
+    }
+    #pre-content .loading {
+      font-size: 0.85rem;
+      color: #999;
+      text-align: center;
+      margin-top: 32px;
+    }
+    /* Flutter 起動後は非表示 */
+    body.flutter-loaded #pre-content { display: none; }
+  </style>
 </head>
 <body>
+
+  <!-- Flutter 起動前にクローラー・ユーザーが見るコンテンツ -->
+  <div id="pre-content">
+    <h1>Easy Molkky Score</h1>
+    <p class="tagline">モルック（Mölkky）のスコアをかんたんに管理できる無料Webアプリ</p>
+    <ul>
+      <li>最大8人のスコアをリアルタイム管理</li>
+      <li>通常試合・サバイバルモード・百均（表裏2セット）モード対応</li>
+      <li>3回連続ミスによる失格判定</li>
+      <li>セット制（1・2・3・5・7・10・11先取など）</li>
+      <li>試合結果の履歴保存（Googleアカウント連携）</li>
+      <li>日本語・英語対応</li>
+    </ul>
+    <p class="loading">アプリを読み込み中...</p>
+  </div>
+
+  <script>
+    // Flutter 起動完了時に pre-content を非表示にする
+    window.addEventListener('flutter-first-frame', function () {
+      document.body.classList.add('flutter-loaded');
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
