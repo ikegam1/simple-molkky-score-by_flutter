@@ -13,6 +13,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
@@ -2541,6 +2542,10 @@ class HelpPage extends StatelessWidget {
               sections[i],
             ],
             const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 16),
+            const _AndroidAppPromoSection(),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -2661,6 +2666,90 @@ class HelpPage extends StatelessWidget {
       ],
     ),
   ];
+}
+
+const _kPlayStoreUrl =
+    'https://play.google.com/store/apps/details?id=jp.ikegam1.simple_molkky_score';
+
+class _AndroidAppPromoSection extends StatelessWidget {
+  const _AndroidAppPromoSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final isJa = Localizations.localeOf(context).languageCode == 'ja';
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isJa ? 'Androidアプリ' : 'Android App',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          isJa
+              ? 'スマートフォンでも使えるAndroidアプリを公開しています。'
+              : 'An Android app is available on the Play Store.',
+          style: const TextStyle(fontSize: 14),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // QR コード
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                'https://api.qrserver.com/v1/create-qr-code/'
+                '?size=120x120&data=${Uri.encodeComponent(_kPlayStoreUrl)}',
+                width: 120,
+                height: 120,
+                errorBuilder: (_, __, ___) => const SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: Icon(Icons.qr_code, size: 80, color: Colors.grey),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isJa ? 'QRコードを読み取るか、下のボタンからダウンロードできます。'
+                        : 'Scan the QR code or tap the button below.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => launchUrl(
+                      Uri.parse(_kPlayStoreUrl),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.android, size: 18),
+                    label: Text(
+                      isJa ? 'Google Playで入手' : 'Get it on Google Play',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF01875F),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _HelpSection extends StatelessWidget {
