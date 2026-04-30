@@ -1569,8 +1569,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     return finalizedIncludesCurrent ? finalizedTotal : finalizedTotal + p.currentScore;
   }
 
-  String _stars(int setsWon) => setsWon <= 0 ? '' : '⭐' * setsWon;
-
   Widget _buildMatchTimerWidget(L10n t, {double fontSize = 26}) {
     if (!_hasMatchTimeLimit) return const SizedBox.shrink();
     if (!_matchTimerStarted) {
@@ -1602,6 +1600,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
     final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
@@ -1631,7 +1630,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (p.name.isNotEmpty) TextSpan(text: '${p.name[0]} ', style: smallStyle),
         TextSpan(text: scoreText, style: bigStyle),
         if (showTotal) TextSpan(text: '(${_runningTotal(p)})', style: smallStyle),
-        if (_stars(p.setsWon).isNotEmpty) TextSpan(text: _stars(p.setsWon), style: smallStyle),
       ];
 
       // 現在の投擲者はアンダーライン強調（2ミス時は赤）
@@ -1643,7 +1641,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               )))
             : null,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: RichText(text: TextSpan(children: spans)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RichText(text: TextSpan(children: spans)),
+            if (p.setsWon > 0) SetStarsDisplay(setsWon: p.setsWon),
+          ],
+        ),
       ));
 
       if (i < players.length - 1) {
@@ -2060,6 +2064,42 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 }
 
+class SetStarsDisplay extends StatelessWidget {
+  const SetStarsDisplay({super.key, required this.setsWon});
+  final int setsWon;
+
+  @override
+  Widget build(BuildContext context) {
+    if (setsWon <= 0) return const SizedBox.shrink();
+    final groups = setsWon ~/ 5;
+    final remaining = setsWon % 5;
+    final List<Widget> children = [];
+    for (int i = 0; i < groups; i++) {
+      if (i > 0) children.add(const SizedBox(width: 2));
+      children.add(Stack(
+        alignment: Alignment.center,
+        children: const [
+          Icon(Icons.star, size: 30, color: Colors.amber),
+          Text(
+            '5',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              shadows: [Shadow(blurRadius: 1, color: Colors.black54)],
+            ),
+          ),
+        ],
+      ));
+    }
+    for (int i = 0; i < remaining; i++) {
+      if (groups > 0 || i > 0) children.add(const SizedBox(width: 1));
+      children.add(const Icon(Icons.star, size: 18, color: Colors.amber));
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
+  }
+}
+
 class HistoryPage extends StatelessWidget {
   final MolkkyMatch? match;
   final List<SetRecord> sets;
@@ -2172,20 +2212,42 @@ class HistoryPage extends StatelessWidget {
   }
 
   Widget _buildHistoryTotalScore(List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+    const scoreStyle = TextStyle(fontSize: 17, fontWeight: FontWeight.w800);
+
+    Widget playerEntry(Player p) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('${p.name} ${totals[p.id] ?? 0}', style: scoreStyle),
+        if ((wins[p.id] ?? 0) > 0) ...[
+          const SizedBox(width: 3),
+          SetStarsDisplay(setsWon: wins[p.id] ?? 0),
+        ],
+      ],
+    );
+
     if (allPlayers.length == 2) {
-      final a = allPlayers[0];
-      final b = allPlayers[1];
-      final aStars = (wins[a.id] ?? 0) > 0 ? '⭐' * (wins[a.id] ?? 0) : '';
-      final bStars = (wins[b.id] ?? 0) > 0 ? '⭐' * (wins[b.id] ?? 0) : '';
-      return Text(
-        '${totals[a.id] ?? 0}$aStars - ${totals[b.id] ?? 0}$bStars',
-        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${totals[allPlayers[0].id] ?? 0}', style: scoreStyle),
+          if ((wins[allPlayers[0].id] ?? 0) > 0) ...[
+            const SizedBox(width: 3),
+            SetStarsDisplay(setsWon: wins[allPlayers[0].id] ?? 0),
+          ],
+          const Text(' - ', style: scoreStyle),
+          Text('${totals[allPlayers[1].id] ?? 0}', style: scoreStyle),
+          if ((wins[allPlayers[1].id] ?? 0) > 0) ...[
+            const SizedBox(width: 3),
+            SetStarsDisplay(setsWon: wins[allPlayers[1].id] ?? 0),
+          ],
+        ],
       );
     }
 
-    return Text(
-      allPlayers.map((p) => '${p.name} ${totals[p.id] ?? 0}${(wins[p.id] ?? 0) > 0 ? ('⭐' * (wins[p.id] ?? 0)) : ''}').join('  -  '),
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: allPlayers.map(playerEntry).toList(),
     );
   }
 
