@@ -118,19 +118,12 @@ class _SummaryTable extends StatelessWidget {
             children: [
               _cell('${i + 1}'),
               _cell(players[i].name, align: TextAlign.left),
-              _cell(_stars(players[i].setsWon)),
+              _cell('${players[i].setsWon}'),
               _cell('${players[i].totalMatchScore}'),
             ],
           ),
       ],
     );
-  }
-
-  String _stars(int n) {
-    if (n <= 0) return '0';
-    final g = n ~/ 5;
-    final r = n % 5;
-    return ('⭐×5 ' * g) + ('⭐' * r);
   }
 
   static Widget _hdr(String t) => Padding(
