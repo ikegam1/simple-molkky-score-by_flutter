@@ -2239,10 +2239,6 @@ class _GameScreenState extends State<GameScreen>
             ),
             actions: [
               TextButton(
-                onPressed: _goToHistory,
-                child: Text(t.get('match_history')),
-              ),
-              TextButton(
                 onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                 child: Text(t.get('finish')),
               ),
@@ -2354,10 +2350,6 @@ class _GameScreenState extends State<GameScreen>
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: _goToHistory,
-                child: Text(t.get('match_history')),
-              ),
               TextButton(
                 onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                 child: Text(t.get('finish')),

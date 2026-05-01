@@ -118,19 +118,12 @@ class _SummaryTable extends StatelessWidget {
             children: [
               _cell('${i + 1}'),
               _cell(players[i].name, align: TextAlign.left),
-              _cell(_stars(players[i].setsWon)),
+              _cell('${players[i].setsWon}'),
               _cell('${players[i].totalMatchScore}'),
             ],
           ),
       ],
     );
-  }
-
-  String _stars(int n) {
-    if (n <= 0) return '0';
-    final g = n ~/ 5;
-    final r = n % 5;
-    return ('⭐×5 ' * g) + ('⭐' * r);
   }
 
   static Widget _hdr(String t) => Padding(
@@ -286,7 +279,11 @@ class _DownloadableMatchResultState extends State<DownloadableMatchResult> {
       final image = await boundary.toImage(pixelRatio: 3.0);
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       if (data == null) return;
-      await downloadPng(Uint8List.view(data.buffer), 'easy_molkky_result.png');
+      final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      await downloadPng(
+        Uint8List.view(data.buffer),
+        'easy_molkky_result_$ts.png',
+      );
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
