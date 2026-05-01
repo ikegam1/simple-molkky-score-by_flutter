@@ -8,16 +8,21 @@ import 'package:intl/intl.dart';
 import '../models/game_models.dart';
 import '../utils/image_downloader.dart';
 
+const _kAppUrl = 'easy-molkky-score.ikegam1.com';
+
+// ── 結果サマリーカード ────────────────────────────────────────────
 class MatchResultCard extends StatelessWidget {
   const MatchResultCard({
     super.key,
     required this.match,
+    required this.sets,
     required this.isMatchDraw,
     required this.winnerName,
     required this.matchTypeName,
   });
 
   final MolkkyMatch match;
+  final List<SetRecord> sets;
   final bool isMatchDraw;
   final String winnerName;
   final String matchTypeName;
@@ -32,16 +37,16 @@ class MatchResultCard extends StatelessWidget {
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ヘッダー
+          // ── ヘッダー ──
           const Text(
             'Easy Molkky Score',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.w900,
               color: Colors.blueAccent,
             ),
@@ -49,103 +54,216 @@ class MatchResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            DateFormat('yyyy/MM/dd HH:mm').format(DateTime.now()),
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
+            '${DateFormat('yyyy/MM/dd HH:mm').format(DateTime.now())}　$matchTypeName',
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
             textAlign: TextAlign.center,
           ),
-          Text(
-            matchTypeName,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-          const Divider(height: 16),
-          // 勝者 / 引き分け
+          const Divider(height: 14),
+
+          // ── 勝者 / 引き分け ──
           Text(
             isMatchDraw ? '🤝 引き分け' : '🏆 $winnerName',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
-          // プレイヤー結果テーブル
-          _ResultTable(players: sorted),
+          const SizedBox(height: 10),
+
+          // ── サマリーテーブル ──
+          _SummaryTable(players: sorted),
+          const SizedBox(height: 16),
+
+          // ── セット詳細 ──
+          for (final set in sets) ...[
+            _SetDetailSection(set: set, players: match.players),
+            const SizedBox(height: 12),
+          ],
+
+          // ── フッター ──
+          const Divider(height: 14),
+          Text(
+            'Easy Molkky Score  $_kAppUrl',
+            style: const TextStyle(fontSize: 9, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
   }
 }
 
-class _ResultTable extends StatelessWidget {
-  const _ResultTable({required this.players});
+// ── サマリーテーブル（順位・名前・セット・合計）────────────────────
+class _SummaryTable extends StatelessWidget {
+  const _SummaryTable({required this.players});
   final List<Player> players;
 
   @override
   Widget build(BuildContext context) {
     return Table(
       columnWidths: const {
-        0: FixedColumnWidth(28),
+        0: FixedColumnWidth(24),
         1: FlexColumnWidth(),
         2: FixedColumnWidth(60),
-        3: FixedColumnWidth(56),
+        3: FixedColumnWidth(52),
       },
       children: [
-        // ヘッダー行
         TableRow(
           decoration: const BoxDecoration(color: Color(0xFFE3F2FD)),
-          children: [
-            _cell('', header: true),
-            _cell('名前', header: true),
-            _cell('セット', header: true),
-            _cell('合計', header: true),
-          ],
+          children: [_hdr(''), _hdr('名前'), _hdr('セット'), _hdr('合計')],
         ),
-        for (int i = 0; i < players.length; i++) ...[
+        for (int i = 0; i < players.length; i++)
           TableRow(
             decoration: BoxDecoration(
               color: i == 0 ? const Color(0xFFFFF9C4) : Colors.white,
             ),
             children: [
               _cell('${i + 1}'),
-              _cell(players[i].name),
-              _cell(_starsText(players[i].setsWon)),
+              _cell(players[i].name, align: TextAlign.left),
+              _cell(_stars(players[i].setsWon)),
               _cell('${players[i].totalMatchScore}'),
             ],
           ),
-        ],
       ],
     );
   }
 
-  String _starsText(int n) {
+  String _stars(int n) {
     if (n <= 0) return '0';
-    final groups = n ~/ 5;
-    final rem = n % 5;
-    return ('⭐×5 ' * groups) + ('⭐' * rem);
+    final g = n ~/ 5;
+    final r = n % 5;
+    return ('⭐×5 ' * g) + ('⭐' * r);
   }
 
-  Widget _cell(String text, {bool header = false}) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+  static Widget _hdr(String t) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
     child: Text(
-      text,
+      t,
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+    ),
+  );
+
+  static Widget _cell(String t, {TextAlign align = TextAlign.center}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Text(t, textAlign: align, style: const TextStyle(fontSize: 11)),
+      );
+}
+
+// ── セット詳細（ターン別スコア）────────────────────────────────────
+class _SetDetailSection extends StatelessWidget {
+  const _SetDetailSection({required this.set, required this.players});
+
+  final SetRecord set;
+  final List<Player> players;
+
+  @override
+  Widget build(BuildContext context) {
+    // 投擲順に並べたプレイヤーリスト
+    final ordered = <Player>[];
+    for (final id in set.playerOrder) {
+      final p = players.firstWhere(
+        (p) => p.id == id,
+        orElse: () => Player(id: id, name: '???', initialOrder: 0),
+      );
+      ordered.add(p);
+    }
+
+    final colWidths = <int, TableColumnWidth>{
+      0: const FixedColumnWidth(28), // ターン番号
+    };
+    for (int i = 0; i < ordered.length; i++) {
+      colWidths[i + 1] = const FlexColumnWidth();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // セットヘッダー
+        Container(
+          color: const Color(0xFFE3F2FD),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(
+            'Set ${set.setNumber}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
+        Table(
+          columnWidths: colWidths,
+          border: TableBorder.all(color: const Color(0xFFE0E0E0), width: 0.5),
+          children: [
+            // 列ヘッダー
+            TableRow(
+              decoration: const BoxDecoration(color: Color(0xFFF5F5F5)),
+              children: [
+                _cell('T', bold: true),
+                ...ordered.map(
+                  (p) => _cell(
+                    p.name.length > 6 ? '${p.name.substring(0, 6)}…' : p.name,
+                    bold: true,
+                  ),
+                ),
+              ],
+            ),
+            // ターン行
+            for (final turn in set.turns)
+              TableRow(
+                children: [
+                  _cell('${turn.turnNumber}'),
+                  ...ordered.map((p) {
+                    final isSys = turn.systemCalculatedPlayerIds.contains(p.id);
+                    final score = turn.scores[p.id];
+                    final txt = isSys ? '-' : (score != null ? '$score' : '');
+                    return _cell(txt);
+                  }),
+                ],
+              ),
+            // 累計行
+            TableRow(
+              decoration: const BoxDecoration(color: Color(0xFFFFF8E1)),
+              children: [
+                _cell('計', bold: true),
+                ...ordered.map(
+                  (p) => _cell(
+                    '${set.finalCumulativeScores[p.id] ?? 0}',
+                    bold: true,
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static Widget _cell(String t, {bool bold = false, Color? color}) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+    child: Text(
+      t,
       textAlign: TextAlign.center,
       style: TextStyle(
-        fontSize: 12,
-        fontWeight: header ? FontWeight.bold : FontWeight.normal,
+        fontSize: 10,
+        fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        color: color,
       ),
     ),
   );
 }
 
-/// ダウンロードボタン付きのラッパー
+// ── ダウンロードボタン付きラッパー ────────────────────────────────
 class DownloadableMatchResult extends StatefulWidget {
   const DownloadableMatchResult({
     super.key,
     required this.match,
+    required this.sets,
     required this.isMatchDraw,
     required this.winnerName,
     required this.matchTypeName,
   });
 
   final MolkkyMatch match;
+  final List<SetRecord> sets;
   final bool isMatchDraw;
   final String winnerName;
   final String matchTypeName;
@@ -168,8 +286,7 @@ class _DownloadableMatchResultState extends State<DownloadableMatchResult> {
       final image = await boundary.toImage(pixelRatio: 3.0);
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       if (data == null) return;
-      final bytes = Uint8List.view(data.buffer);
-      await downloadPng(bytes, 'easy_molkky_result.png');
+      await downloadPng(Uint8List.view(data.buffer), 'easy_molkky_result.png');
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
@@ -184,6 +301,7 @@ class _DownloadableMatchResultState extends State<DownloadableMatchResult> {
           key: _key,
           child: MatchResultCard(
             match: widget.match,
+            sets: widget.sets,
             isMatchDraw: widget.isMatchDraw,
             winnerName: widget.winnerName,
             matchTypeName: widget.matchTypeName,
