@@ -2201,9 +2201,24 @@ class _GameScreenState extends State<GameScreen>
     }
   }
 
+  List<SetRecord> _buildAllSets() {
+    final allSets = List<SetRecord>.from(
+      widget.match.completedSets.where((s) => s.hasContent),
+    );
+    if (!isSetFinished &&
+        widget.match.currentSetRecord.hasContent &&
+        !allSets.any(
+          (s) => s.setNumber == widget.match.currentSetRecord.setNumber,
+        )) {
+      allSets.add(widget.match.currentSetRecord);
+    }
+    return allSets;
+  }
+
   void _showMatchWinnerDialog(Player winner, {required String winMsg}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
+    final allSets = _buildAllSets();
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2216,6 +2231,7 @@ class _GameScreenState extends State<GameScreen>
             content: SingleChildScrollView(
               child: DownloadableMatchResult(
                 match: widget.match,
+                sets: allSets,
                 isMatchDraw: false,
                 winnerName: winner.name,
                 matchTypeName: _matchTypeLabel(),
@@ -2319,6 +2335,7 @@ class _GameScreenState extends State<GameScreen>
   void _showMatchDrawDialog({String? detailOverride}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
+    final allSets = _buildAllSets();
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2330,6 +2347,7 @@ class _GameScreenState extends State<GameScreen>
             content: SingleChildScrollView(
               child: DownloadableMatchResult(
                 match: widget.match,
+                sets: allSets,
                 isMatchDraw: true,
                 winnerName: 'Draw',
                 matchTypeName: _matchTypeLabel(),
