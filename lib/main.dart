@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -17,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
+import 'widgets/match_result_card.dart';
 
 const String _kAppVersion = '1.14.2+87';
 
@@ -202,7 +202,7 @@ class L10n {
       'turn_limit_win': '{name} さん、ターン制限終了時点の最高得点で勝利！',
       'time_up_match_over': '制限時間のため試合終了です。',
       'last_turn': 'ラストターン',
-    }
+    },
   };
 
   String get(String key, {Map<String, String>? args}) {
@@ -227,17 +227,29 @@ class L10nDelegate extends LocalizationsDelegate<L10n> {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try { await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); } catch (e) { debugPrint("Firebase init error: $e"); }
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint("Firebase init error: $e");
+  }
   if (!kIsWeb && !Platform.isAndroid) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, systemNavigationBarColor: Colors.transparent));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+      ),
+    );
   }
   runApp(const EasyMolkkyApp());
 }
 
 class EasyMolkkyApp extends StatefulWidget {
   const EasyMolkkyApp({super.key});
-  
-  static _EasyMolkkyAppState of(BuildContext context) => context.findAncestorStateOfType<_EasyMolkkyAppState>()!;
+
+  static _EasyMolkkyAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<_EasyMolkkyAppState>()!;
 
   @override
   State<EasyMolkkyApp> createState() => _EasyMolkkyAppState();
@@ -256,14 +268,18 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
     final prefs = await SharedPreferences.getInstance();
     final String? langCode = prefs.getString('user_lang');
     if (langCode != null) {
-      setState(() { _locale = Locale(langCode); });
+      setState(() {
+        _locale = Locale(langCode);
+      });
     }
   }
 
   Future<void> setLocale(Locale locale) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_lang', locale.languageCode);
-    setState(() { _locale = locale; });
+    setState(() {
+      _locale = locale;
+    });
   }
 
   @override
@@ -272,11 +288,17 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
       title: 'Easy Molkky Score',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
       locale: _locale,
-      localizationsDelegates: const [L10nDelegate(), GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+      localizationsDelegates: const [
+        L10nDelegate(),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       supportedLocales: const [Locale('ja'), Locale('en')],
       localeResolutionCallback: (locale, supportedLocales) {
         if (_locale != null) return _locale;
-        if (locale != null && locale.languageCode.startsWith('en')) return const Locale('en');
+        if (locale != null && locale.languageCode.startsWith('en'))
+          return const Locale('en');
         return const Locale('ja');
       },
       home: const SetupScreen(),
@@ -310,58 +332,84 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
-        final isGoogle = currentUser.providerData.any((p) => p.providerId == 'google.com');
+        final isGoogle = currentUser.providerData.any(
+          (p) => p.providerId == 'google.com',
+        );
         setState(() {
           _firebaseUid = currentUser.uid;
           _isGoogleLinked = isGoogle;
         });
       } else {
         final userCredential = await FirebaseAuth.instance.signInAnonymously();
-        setState(() { _firebaseUid = userCredential.user!.uid; });
+        setState(() {
+          _firebaseUid = userCredential.user!.uid;
+        });
       }
-    } catch (e) { debugPrint("Auth Error: $e"); }
+    } catch (e) {
+      debugPrint("Auth Error: $e");
+    }
     final prefs = await SharedPreferences.getInstance();
     final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
     if (savedJsonList != null) {
-      final List<Player> loadedPlayers = savedJsonList.map((jsonStr) {
-        final Map<String, dynamic> data = jsonDecode(jsonStr);
-        return Player(id: data['id'], name: data['name'], initialOrder: 0);
-      }).toList();
-      setState(() { _registeredPlayers.addAll(loadedPlayers); });
+      final List<Player> loadedPlayers =
+          savedJsonList.map((jsonStr) {
+            final Map<String, dynamic> data = jsonDecode(jsonStr);
+            return Player(id: data['id'], name: data['name'], initialOrder: 0);
+          }).toList();
+      setState(() {
+        _registeredPlayers.addAll(loadedPlayers);
+      });
     }
   }
 
   Future<void> _savePlayers() async {
     final prefs = await SharedPreferences.getInstance();
-    final List<String> jsonList = _registeredPlayers.map((p) => jsonEncode({'id': p.id, 'name': p.name})).toList();
+    final List<String> jsonList =
+        _registeredPlayers
+            .map((p) => jsonEncode({'id': p.id, 'name': p.name}))
+            .toList();
     await prefs.setStringList('saved_players_v2', jsonList);
   }
 
   Future<void> _showGoogleSignInDialog() async {
     if (_isGoogleLinked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Googleアカウントと連携済みです')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Googleアカウントと連携済みです')));
       return;
     }
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Text('G', style: TextStyle(color: Color(0xFF4285F4), fontWeight: FontWeight.bold, fontSize: 22)),
-            SizedBox(width: 8),
-            Text('Googleアカウント連携'),
-          ],
-        ),
-        content: const Text(
-          'Googleアカウントでログインすると、これまでの戦歴がアカウントに紐づき、別端末や環境でログインした場合も保持されるようになります。\nログインされますか？',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Googleでログイン')),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Text(
+                  'G',
+                  style: TextStyle(
+                    color: Color(0xFF4285F4),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text('Googleアカウント連携'),
+              ],
+            ),
+            content: const Text(
+              'Googleアカウントでログインすると、これまでの戦歴がアカウントに紐づき、別端末や環境でログインした場合も保持されるようになります。\nログインされますか？',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Googleでログイン'),
+              ),
+            ],
+          ),
     );
     if (result == true) {
       await _signInWithGoogle();
@@ -397,7 +445,10 @@ class _SetupScreenState extends State<SetupScreen> {
       setState(() => _isGoogleLinked = true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Googleアカウントと連携しました！'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Googleアカウントと連携しました！'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -410,17 +461,25 @@ class _SetupScreenState extends State<SetupScreen> {
         final oldData = await _fetchAllScoreData(oldUid);
 
         // 2. 既存のcredentialでGoogle認証に切り替え（2回目のポップアップ不要）
-        final result = await FirebaseAuth.instance.signInWithCredential(credential);
+        final result = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
         final newUid = result.user!.uid;
 
         // 3. newUidとして認証された状態で新規ドキュメントを作成
         if (oldUid != newUid && oldData.isNotEmpty) {
           await _writeScoreDataAsNewUid(oldData, newUid);
         }
-        setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
+        setState(() {
+          _firebaseUid = newUid;
+          _isGoogleLinked = true;
+        });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Googleアカウントでログインし、戦歴をマージしました！'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Googleアカウントでログインし、戦歴をマージしました！'),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       } else {
@@ -432,7 +491,8 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _signInWithGoogleMobile(User currentUser, String oldUid) async {
     // Webでは使用しないためmobile専用としてここでインスタンス化
     final googleSignIn = GoogleSignIn(
-      serverClientId: '52196197674-342o533f0npiujhr6u61nlkplko95laa.apps.googleusercontent.com',
+      serverClientId:
+          '52196197674-342o533f0npiujhr6u61nlkplko95laa.apps.googleusercontent.com',
     );
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) return;
@@ -444,10 +504,16 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       final userCredential = await currentUser.linkWithCredential(credential);
       final newUid = userCredential.user!.uid;
-      setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
+      setState(() {
+        _firebaseUid = newUid;
+        _isGoogleLinked = true;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Googleアカウントと連携しました！'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Googleアカウントと連携しました！'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -456,17 +522,25 @@ class _SetupScreenState extends State<SetupScreen> {
         final oldData = await _fetchAllScoreData(oldUid);
 
         // 2. Google認証に切り替え
-        final result = await FirebaseAuth.instance.signInWithCredential(credential);
+        final result = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
         final newUid = result.user!.uid;
 
         // 3. newUidとして認証された状態で新規ドキュメントを作成
         if (oldUid != newUid && oldData.isNotEmpty) {
           await _writeScoreDataAsNewUid(oldData, newUid);
         }
-        setState(() { _firebaseUid = newUid; _isGoogleLinked = true; });
+        setState(() {
+          _firebaseUid = newUid;
+          _isGoogleLinked = true;
+        });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Googleアカウントでログインし、戦歴をマージしました！'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Googleアカウントでログインし、戦歴をマージしました！'),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       } else {
@@ -481,11 +555,12 @@ class _SetupScreenState extends State<SetupScreen> {
     final List<Map<String, dynamic>> all = [];
     const batchSize = 500;
     while (true) {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('scores')
-          .where('appUserId', isEqualTo: uid)
-          .limit(batchSize)
-          .get();
+      final snapshot =
+          await FirebaseFirestore.instance
+              .collection('scores')
+              .where('appUserId', isEqualTo: uid)
+              .limit(batchSize)
+              .get();
       all.addAll(snapshot.docs.map((d) => d.data()));
       if (snapshot.docs.length < batchSize) break;
     }
@@ -514,19 +589,38 @@ class _SetupScreenState extends State<SetupScreen> {
     final t = L10n.of(context);
     String name = _nameController.text.trim();
     if (name.isEmpty) return;
-    if (_registeredPlayers.length >= 8) { _showError(t.get('max_players_reached')); return; }
-    if (name.length > 20) { _showError(t.get('name_too_long')); return; }
-    if (_registeredPlayers.any((p) => p.name.toLowerCase() == name.toLowerCase())) { _showError(t.get('duplicate_name')); return; }
+    if (_registeredPlayers.length >= 8) {
+      _showError(t.get('max_players_reached'));
+      return;
+    }
+    if (name.length > 20) {
+      _showError(t.get('name_too_long'));
+      return;
+    }
+    if (_registeredPlayers.any(
+      (p) => p.name.toLowerCase() == name.toLowerCase(),
+    )) {
+      _showError(t.get('duplicate_name'));
+      return;
+    }
 
     setState(() {
-      _registeredPlayers.add(Player(id: _uuid.v4(), name: name, initialOrder: _registeredPlayers.length));
+      _registeredPlayers.add(
+        Player(
+          id: _uuid.v4(),
+          name: name,
+          initialOrder: _registeredPlayers.length,
+        ),
+      );
       _nameController.clear();
     });
     _savePlayers();
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
   }
 
   void _startMatch() {
@@ -540,16 +634,39 @@ class _SetupScreenState extends State<SetupScreen> {
       return;
     }
 
-    final playersForMatch = _registeredPlayers.asMap().entries.map((e) => Player(id: e.value.id, name: e.value.name, initialOrder: e.key)).toList();
+    final playersForMatch =
+        _registeredPlayers
+            .asMap()
+            .entries
+            .map(
+              (e) => Player(
+                id: e.value.id,
+                name: e.value.name,
+                initialOrder: e.key,
+              ),
+            )
+            .toList();
     MolkkyMatch match;
     final isSelfTurnMode = _selectedModeKey == -1 || _selectedModeKey == -3;
-    final turnLimit = isSelfTurnMode || _selectedTurnLimit == 0 ? null : _selectedTurnLimit;
-    final matchTimeLimitSeconds = isSelfTurnMode || _selectedTimeLimitMinutes == 0 ? null : _selectedTimeLimitMinutes * 60;
+    final turnLimit =
+        isSelfTurnMode || _selectedTurnLimit == 0 ? null : _selectedTurnLimit;
+    final matchTimeLimitSeconds =
+        isSelfTurnMode || _selectedTimeLimitMinutes == 0
+            ? null
+            : _selectedTimeLimitMinutes * 60;
 
     if (_selectedModeKey == -1) {
-      match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self5Turn);
+      match = MolkkyMatch(
+        players: playersForMatch,
+        limit: 99,
+        type: MatchType.self5Turn,
+      );
     } else if (_selectedModeKey == -3) {
-      match = MolkkyMatch(players: playersForMatch, limit: 99, type: MatchType.self6Turn);
+      match = MolkkyMatch(
+        players: playersForMatch,
+        limit: 99,
+        type: MatchType.self6Turn,
+      );
     } else if (_selectedModeKey == -2) {
       match = MolkkyMatch(
         players: playersForMatch,
@@ -559,9 +676,13 @@ class _SetupScreenState extends State<SetupScreen> {
         matchTimeLimitSeconds: matchTimeLimitSeconds,
       );
     } else {
-      MatchType type = [1, 2, 10].contains(_selectedModeKey) ? MatchType.fixedSets : MatchType.raceTo;
+      MatchType type =
+          [1, 2, 10].contains(_selectedModeKey)
+              ? MatchType.fixedSets
+              : MatchType.raceTo;
       int limit = _selectedModeKey;
-      if (type == MatchType.raceTo && _selectedModeKey != 11) limit = (_selectedModeKey / 2).ceil();
+      if (type == MatchType.raceTo && _selectedModeKey != 11)
+        limit = (_selectedModeKey / 2).ceil();
       match = MolkkyMatch(
         players: playersForMatch,
         limit: limit,
@@ -570,7 +691,17 @@ class _SetupScreenState extends State<SetupScreen> {
         matchTimeLimitSeconds: matchTimeLimitSeconds,
       );
     }
-    Navigator.push(context, MaterialPageRoute(builder: (c) => GameScreen(appUserId: _firebaseUid, match: match, appLocale: Localizations.localeOf(context))));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (c) => GameScreen(
+              appUserId: _firebaseUid,
+              match: match,
+              appLocale: Localizations.localeOf(context),
+            ),
+      ),
+    );
   }
 
   @override
@@ -596,13 +727,19 @@ class _SetupScreenState extends State<SetupScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        elevation: 0, backgroundColor: Colors.transparent,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         leading: TextButton(
           onPressed: () {
             final current = Localizations.localeOf(context).languageCode;
-            EasyMolkkyApp.of(context).setLocale(current == 'ja' ? const Locale('en') : const Locale('ja'));
+            EasyMolkkyApp.of(context).setLocale(
+              current == 'ja' ? const Locale('en') : const Locale('ja'),
+            );
           },
-          child: Text(Localizations.localeOf(context).languageCode == 'ja' ? 'EN' : 'JA', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          child: Text(
+            Localizations.localeOf(context).languageCode == 'ja' ? 'EN' : 'JA',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
         actions: [
           IconButton(
@@ -617,83 +754,232 @@ class _SetupScreenState extends State<SetupScreen> {
             onPressed: _showGoogleSignInDialog,
             tooltip: _isGoogleLinked ? 'Google連携済み' : 'Googleアカウント連携',
           ),
-          IconButton(icon: const Icon(Icons.help_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const HelpPage())), tooltip: t.get('help_title')),
-          IconButton(icon: const Icon(Icons.history), onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), tooltip: t.get('match_history')),
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (c) => const HelpPage()),
+                ),
+            tooltip: t.get('help_title'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed:
+                _firebaseUid.isEmpty
+                    ? null
+                    : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (c) => GlobalHistoryPage(uid: _firebaseUid),
+                      ),
+                    ),
+            tooltip: t.get('match_history'),
+          ),
         ],
       ),
       extendBodyBehindAppBar: true,
-      body: LayoutBuilder(builder: (_, constraints) {
-        // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
-        final isLandscape = constraints.maxWidth >= constraints.maxHeight * 1.25 && constraints.maxHeight < 500;
-        if (isLandscape) {
-          return _buildLandscapeBody(context, t, options, selfTurnEnabled);
-        }
-        // --- 縦向き（変更なし）---
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              Text(t.get('app_title'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-              const SizedBox(height: 20),
-              TextField(controller: _nameController, decoration: InputDecoration(labelText: t.get('player_name'), suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add))), onSubmitted: (_) => _add(), maxLength: 20, buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null),
-              Expanded(child: ReorderableListView(
-                onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); },
-                children: [ for (int i = 0; i < _registeredPlayers.length; i++) ListTile(key: Key(_registeredPlayers[i].id), leading: const Icon(Icons.drag_handle), title: Text('${i + 1}. ${_registeredPlayers[i].name}'), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () { setState(() { _registeredPlayers.removeAt(i); }); _savePlayers(); })) ]
-              )),
-              DropdownButtonFormField<int>(
-                value: _selectedModeKey,
-                items: options.entries.map((e) {
-                  final isSelfTurnMode = e.key == -1 || e.key == -3;
-                  final enabled = !isSelfTurnMode || selfTurnEnabled;
-                  return DropdownMenuItem<int>(
-                    value: e.key,
-                    enabled: enabled,
-                    child: Text(e.value, style: TextStyle(color: enabled ? null : Colors.grey)),
-                  );
-                }).toList(),
-                onChanged: (v) { if (v != null) setState(() => _selectedModeKey = v); },
-                decoration: InputDecoration(labelText: t.get('game_mode')),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<int>(
-                value: _selectedTurnLimit,
-                items: turnLimitOptions.map((v) => DropdownMenuItem<int>(
-                  value: v,
-                  child: Text(v == 0 ? t.get('no_limit') : '$v'),
-                )).toList(),
-                onChanged: (v) { if (v != null) setState(() => _selectedTurnLimit = v); },
-                decoration: InputDecoration(labelText: t.get('turn_limit_setting')),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<int>(
-                value: _selectedTimeLimitMinutes,
-                items: timeLimitOptions.map((v) => DropdownMenuItem<int>(
-                  value: v,
-                  child: Text(v == 0 ? t.get('no_limit') : t.get('minutes_suffix', args: {'n': '$v'})),
-                )).toList(),
-                onChanged: (v) { if (v != null) setState(() => _selectedTimeLimitMinutes = v); },
-                decoration: InputDecoration(labelText: t.get('time_limit_setting')),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue),
-                child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 18)),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))), icon: const Icon(Icons.cloud_done), label: Text(t.get('match_history')), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45))),
-              const SizedBox(height: 10),
-              if (_firebaseUid.isNotEmpty) Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              const Text('v1.14.2', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-        );
-      }),
+      body: LayoutBuilder(
+        builder: (_, constraints) {
+          // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
+          final isLandscape =
+              constraints.maxWidth >= constraints.maxHeight * 1.25 &&
+              constraints.maxHeight < 500;
+          if (isLandscape) {
+            return _buildLandscapeBody(context, t, options, selfTurnEnabled);
+          }
+          // --- 縦向き（変更なし）---
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Text(
+                  t.get('app_title'),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: t.get('player_name'),
+                    suffixIcon: IconButton(
+                      onPressed: _add,
+                      icon: const Icon(Icons.add),
+                    ),
+                  ),
+                  onSubmitted: (_) => _add(),
+                  maxLength: 20,
+                  buildCounter:
+                      (
+                        context, {
+                        required currentLength,
+                        required isFocused,
+                        maxLength,
+                      }) => null,
+                ),
+                Expanded(
+                  child: ReorderableListView(
+                    onReorder: (o, n) {
+                      setState(() {
+                        if (o < n) n -= 1;
+                        _registeredPlayers.insert(
+                          n,
+                          _registeredPlayers.removeAt(o),
+                        );
+                      });
+                      _savePlayers();
+                    },
+                    children: [
+                      for (int i = 0; i < _registeredPlayers.length; i++)
+                        ListTile(
+                          key: Key(_registeredPlayers[i].id),
+                          leading: const Icon(Icons.drag_handle),
+                          title: Text(
+                            '${i + 1}. ${_registeredPlayers[i].name}',
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () {
+                              setState(() {
+                                _registeredPlayers.removeAt(i);
+                              });
+                              _savePlayers();
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                DropdownButtonFormField<int>(
+                  value: _selectedModeKey,
+                  items:
+                      options.entries.map((e) {
+                        final isSelfTurnMode = e.key == -1 || e.key == -3;
+                        final enabled = !isSelfTurnMode || selfTurnEnabled;
+                        return DropdownMenuItem<int>(
+                          value: e.key,
+                          enabled: enabled,
+                          child: Text(
+                            e.value,
+                            style: TextStyle(
+                              color: enabled ? null : Colors.grey,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedModeKey = v);
+                  },
+                  decoration: InputDecoration(labelText: t.get('game_mode')),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  value: _selectedTurnLimit,
+                  items:
+                      turnLimitOptions
+                          .map(
+                            (v) => DropdownMenuItem<int>(
+                              value: v,
+                              child: Text(v == 0 ? t.get('no_limit') : '$v'),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedTurnLimit = v);
+                  },
+                  decoration: InputDecoration(
+                    labelText: t.get('turn_limit_setting'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  value: _selectedTimeLimitMinutes,
+                  items:
+                      timeLimitOptions
+                          .map(
+                            (v) => DropdownMenuItem<int>(
+                              value: v,
+                              child: Text(
+                                v == 0
+                                    ? t.get('no_limit')
+                                    : t.get(
+                                      'minutes_suffix',
+                                      args: {'n': '$v'},
+                                    ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (v) {
+                    if (v != null)
+                      setState(() => _selectedTimeLimitMinutes = v);
+                  },
+                  decoration: InputDecoration(
+                    labelText: t.get('time_limit_setting'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: Colors.blue,
+                  ),
+                  child: Text(
+                    t.get('start_game'),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed:
+                      _firebaseUid.isEmpty
+                          ? null
+                          : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (c) => GlobalHistoryPage(uid: _firebaseUid),
+                            ),
+                          ),
+                  icon: const Icon(Icons.cloud_done),
+                  label: Text(t.get('match_history')),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 45),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (_firebaseUid.isNotEmpty)
+                  Text(
+                    t.get(
+                      'anonymous_id',
+                      args: {'id': _firebaseUid.substring(0, 8)},
+                    ),
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                const Text(
+                  'v1.14.2',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildLandscapeBody(BuildContext context, L10n t, Map<int, String> options, bool selfTurnEnabled) {
+  Widget _buildLandscapeBody(
+    BuildContext context,
+    L10n t,
+    Map<int, String> options,
+    bool selfTurnEnabled,
+  ) {
     final turnLimitOptions = [0, ...List<int>.generate(8, (i) => i + 5)];
     final timeLimitOptions = [0, ...List<int>.generate(56, (i) => i + 5)];
     return SafeArea(
@@ -708,29 +994,66 @@ class _SetupScreenState extends State<SetupScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(t.get('app_title'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueAccent), textAlign: TextAlign.center),
+                  Text(
+                    t.get('app_title'),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _nameController,
                     decoration: InputDecoration(
                       labelText: t.get('player_name'),
-                      suffixIcon: IconButton(onPressed: _add, icon: const Icon(Icons.add)),
+                      suffixIcon: IconButton(
+                        onPressed: _add,
+                        icon: const Icon(Icons.add),
+                      ),
                       isDense: true,
                     ),
                     onSubmitted: (_) => _add(),
                     maxLength: 20,
-                    buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                    buildCounter:
+                        (
+                          context, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                   ),
                   Expanded(
                     child: ReorderableListView(
-                      onReorder: (o, n) { setState(() { if (o < n) n -= 1; _registeredPlayers.insert(n, _registeredPlayers.removeAt(o)); }); _savePlayers(); },
+                      onReorder: (o, n) {
+                        setState(() {
+                          if (o < n) n -= 1;
+                          _registeredPlayers.insert(
+                            n,
+                            _registeredPlayers.removeAt(o),
+                          );
+                        });
+                        _savePlayers();
+                      },
                       children: [
                         for (int i = 0; i < _registeredPlayers.length; i++)
                           ListTile(
                             key: Key(_registeredPlayers[i].id),
                             leading: const Icon(Icons.drag_handle, size: 18),
-                            title: Text('${i + 1}. ${_registeredPlayers[i].name}', style: const TextStyle(fontSize: 13)),
-                            trailing: IconButton(icon: const Icon(Icons.delete, size: 18), onPressed: () { setState(() { _registeredPlayers.removeAt(i); }); _savePlayers(); }),
+                            title: Text(
+                              '${i + 1}. ${_registeredPlayers[i].name}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, size: 18),
+                              onPressed: () {
+                                setState(() {
+                                  _registeredPlayers.removeAt(i);
+                                });
+                                _savePlayers();
+                              },
+                            ),
                             dense: true,
                           ),
                       ],
@@ -749,55 +1072,130 @@ class _SetupScreenState extends State<SetupScreen> {
                 children: [
                   DropdownButtonFormField<int>(
                     value: _selectedModeKey,
-                    items: options.entries.map((e) {
-                      final isSelfTurnMode = e.key == -1 || e.key == -3;
-                      final enabled = !isSelfTurnMode || selfTurnEnabled;
-                      return DropdownMenuItem<int>(
-                        value: e.key,
-                        enabled: enabled,
-                        child: Text(e.value, style: TextStyle(color: enabled ? null : Colors.grey, fontSize: 13)),
-                      );
-                    }).toList(),
-                    onChanged: (v) { if (v != null) setState(() => _selectedModeKey = v); },
-                    decoration: InputDecoration(labelText: t.get('game_mode'), isDense: true),
+                    items:
+                        options.entries.map((e) {
+                          final isSelfTurnMode = e.key == -1 || e.key == -3;
+                          final enabled = !isSelfTurnMode || selfTurnEnabled;
+                          return DropdownMenuItem<int>(
+                            value: e.key,
+                            enabled: enabled,
+                            child: Text(
+                              e.value,
+                              style: TextStyle(
+                                color: enabled ? null : Colors.grey,
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedModeKey = v);
+                    },
+                    decoration: InputDecoration(
+                      labelText: t.get('game_mode'),
+                      isDense: true,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     value: _selectedTurnLimit,
-                    items: turnLimitOptions.map((v) => DropdownMenuItem<int>(
-                      value: v,
-                      child: Text(v == 0 ? t.get('no_limit') : '$v', style: const TextStyle(fontSize: 13)),
-                    )).toList(),
-                    onChanged: (v) { if (v != null) setState(() => _selectedTurnLimit = v); },
-                    decoration: InputDecoration(labelText: t.get('turn_limit_setting'), isDense: true),
+                    items:
+                        turnLimitOptions
+                            .map(
+                              (v) => DropdownMenuItem<int>(
+                                value: v,
+                                child: Text(
+                                  v == 0 ? t.get('no_limit') : '$v',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedTurnLimit = v);
+                    },
+                    decoration: InputDecoration(
+                      labelText: t.get('turn_limit_setting'),
+                      isDense: true,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     value: _selectedTimeLimitMinutes,
-                    items: timeLimitOptions.map((v) => DropdownMenuItem<int>(
-                      value: v,
-                      child: Text(v == 0 ? t.get('no_limit') : t.get('minutes_suffix', args: {'n': '$v'}), style: const TextStyle(fontSize: 13)),
-                    )).toList(),
-                    onChanged: (v) { if (v != null) setState(() => _selectedTimeLimitMinutes = v); },
-                    decoration: InputDecoration(labelText: t.get('time_limit_setting'), isDense: true),
+                    items:
+                        timeLimitOptions
+                            .map(
+                              (v) => DropdownMenuItem<int>(
+                                value: v,
+                                child: Text(
+                                  v == 0
+                                      ? t.get('no_limit')
+                                      : t.get(
+                                        'minutes_suffix',
+                                        args: {'n': '$v'},
+                                      ),
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (v) {
+                      if (v != null)
+                        setState(() => _selectedTimeLimitMinutes = v);
+                    },
+                    decoration: InputDecoration(
+                      labelText: t.get('time_limit_setting'),
+                      isDense: true,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 44), backgroundColor: Colors.blue),
-                    child: Text(t.get('start_game'), style: const TextStyle(color: Colors.white, fontSize: 16)),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      backgroundColor: Colors.blue,
+                    ),
+                    child: Text(
+                      t.get('start_game'),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   OutlinedButton.icon(
-                    onPressed: _firebaseUid.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => GlobalHistoryPage(uid: _firebaseUid))),
+                    onPressed:
+                        _firebaseUid.isEmpty
+                            ? null
+                            : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (c) => GlobalHistoryPage(uid: _firebaseUid),
+                              ),
+                            ),
                     icon: const Icon(Icons.cloud_done, size: 16),
-                    label: Text(t.get('match_history'), style: const TextStyle(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
+                    label: Text(
+                      t.get('match_history'),
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 40),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   if (_firebaseUid.isNotEmpty)
-                    Text(t.get('anonymous_id', args: {'id': _firebaseUid.substring(0, 8)}), style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.center),
-                  const Text('v1.14.2', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
+                    Text(
+                      t.get(
+                        'anonymous_id',
+                        args: {'id': _firebaseUid.substring(0, 8)},
+                      ),
+                      style: const TextStyle(fontSize: 9, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                  const Text(
+                    'v1.14.2',
+                    style: TextStyle(color: Colors.grey, fontSize: 11),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -812,12 +1210,18 @@ class GameScreen extends StatefulWidget {
   final MolkkyMatch match;
   final String appUserId;
   final Locale? appLocale;
-  const GameScreen({super.key, required this.match, required this.appUserId, this.appLocale});
+  const GameScreen({
+    super.key,
+    required this.match,
+    required this.appUserId,
+    this.appLocale,
+  });
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateMixin {
+class _GameScreenState extends State<GameScreen>
+    with SingleTickerProviderStateMixin {
   int currentPlayerIndex = 0;
   List<int> selectedSkitels = [];
   int currentTurnInSet = 1;
@@ -843,8 +1247,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _blinkController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
-    _blinkOpacity = Tween<double>(begin: 0.2, end: 1.0).animate(_blinkController);
+    _blinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _blinkOpacity = Tween<double>(
+      begin: 0.2,
+      end: 1.0,
+    ).animate(_blinkController);
     _remainingMatchSeconds = widget.match.matchTimeLimitSeconds;
     _resetElapsedTimer();
   }
@@ -858,11 +1268,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  bool get _isSelfTurnMode => widget.match.type == MatchType.self5Turn || widget.match.type == MatchType.self6Turn;
-  int get _selfTurnLimit => widget.match.type == MatchType.self5Turn ? 5 : widget.match.type == MatchType.self6Turn ? 6 : 0;
+  bool get _isSelfTurnMode =>
+      widget.match.type == MatchType.self5Turn ||
+      widget.match.type == MatchType.self6Turn;
+  int get _selfTurnLimit =>
+      widget.match.type == MatchType.self5Turn
+          ? 5
+          : widget.match.type == MatchType.self6Turn
+          ? 6
+          : 0;
   bool get _hasTurnLimit => widget.match.turnLimitPerSet != null;
   bool get _hasMatchTimeLimit => widget.match.matchTimeLimitSeconds != null;
-  bool get _isLastLimitedTurn => _hasTurnLimit && currentTurnInSet == widget.match.turnLimitPerSet;
+  bool get _isLastLimitedTurn =>
+      _hasTurnLimit && currentTurnInSet == widget.match.turnLimitPerSet;
 
   void _startMatchCountdown() {
     if (!_hasMatchTimeLimit || _matchTimerStarted) return;
@@ -899,7 +1317,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         }
         if (last == 0) {
           if (p.consecutiveMisses > 0) p.consecutiveMisses--;
-          if (p.consecutiveMisses < widget.match.maxMisses) p.isDisqualified = false;
+          if (p.consecutiveMisses < widget.match.maxMisses)
+            p.isDisqualified = false;
         }
       }
     }
@@ -929,7 +1348,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       return;
     }
     _uploadMatchData(decision.winner);
-    _showMatchWinnerDialog(decision.winner!, winMsg: t.get('time_up_match_over'));
+    _showMatchWinnerDialog(
+      decision.winner!,
+      winMsg: t.get('time_up_match_over'),
+    );
   }
 
   void _showMatchTimeExpiredDialog() {
@@ -937,26 +1359,27 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(t.get('time_limit_reached')),
-        content: Text(t.get('time_limit_finish_detail')),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _finishMatchByTimeLimit();
-            },
-            child: Text(t.get('end_now')),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(t.get('time_limit_reached')),
+            content: Text(t.get('time_limit_finish_detail')),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _finishMatchByTimeLimit();
+                },
+                child: Text(t.get('end_now')),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() => _matchTimeExpired = true);
+                },
+                child: Text(t.get('continue_game')),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() => _matchTimeExpired = true);
-            },
-            child: Text(t.get('continue_game')),
-          ),
-        ],
-      ),
     );
   }
 
@@ -982,7 +1405,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     _elapsedStartDelayTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted || isSetFinished) return;
       _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (!mounted) { _elapsedTimer?.cancel(); return; }
+        if (!mounted) {
+          _elapsedTimer?.cancel();
+          return;
+        }
         setState(() => _elapsedSeconds++);
         if (_elapsedSeconds == 60) {
           SystemSound.play(SystemSoundType.alert);
@@ -990,7 +1416,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       });
     });
   }
-
 
   void _submitThrow() {
     if (isSetFinished) return;
@@ -1003,16 +1428,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     final player = widget.match.players[currentPlayerIndex];
     setState(() {
       // === Hyakin Set 2 mode: custom throw processing (must run before normal processThrow) ===
-      if (widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2) {
+      if (widget.match.type == MatchType.hyakin &&
+          widget.match.currentSetIndex == 2) {
         final int hyakinPreMisses = player.consecutiveMisses;
-        final set1Score = player.setFinalScores.isNotEmpty ? player.setFinalScores[0] : 0;
-        GameLogic.processHyakinSet2Throw(player, selectedSkitels, widget.match, set1Score);
+        final set1Score =
+            player.setFinalScores.isNotEmpty ? player.setFinalScores[0] : 0;
+        GameLogic.processHyakinSet2Throw(
+          player,
+          selectedSkitels,
+          widget.match,
+          set1Score,
+        );
         int hyakinPoints = player.scoreHistory.last;
         player.matchScoreHistory.add(hyakinPoints);
         turnInProgressScores[player.id] = hyakinPoints;
 
         // Survivor logic for hyakin Set 2
-        final survivors2 = widget.match.players.where((p) => !p.isDisqualified).toList();
+        final survivors2 =
+            widget.match.players.where((p) => !p.isDisqualified).toList();
         if (widget.match.players.length >= 2 && survivors2.length == 1) {
           final s = survivors2.first;
           final sSet1 = s.setFinalScores.isNotEmpty ? s.setFinalScores[0] : 0;
@@ -1023,49 +1456,81 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           s.matchScoreHistory.add(needed);
           turnInProgressScores[s.id] = needed;
           systemCalculatedIds.add(s.id);
-          for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
+          for (var p in widget.match.players)
+            if (p.isDisqualified) p.currentScore = 0;
         }
 
         // Winner check: anyone who reached their personal target (100 - set1Score)
         Player? hyakinWinner;
         for (var p in widget.match.players) {
           final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-          if (p.currentScore == 100 - pSet1) { hyakinWinner = p; break; }
+          if (p.currentScore == 100 - pSet1) {
+            hyakinWinner = p;
+            break;
+          }
         }
 
         if (hyakinWinner != null) {
           isSetFinished = true;
           hyakinWinner.setsWon++;
-          widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
+          widget.match.currentSetRecord.turns.add(
+            TurnRecord(
+              currentTurnInSet,
+              Map.from(turnInProgressScores),
+              systemCalculated: Set.from(systemCalculatedIds),
+            ),
+          );
           widget.match.finalizeCurrentSetIfNeeded();
           final finalWinner = widget.match.matchWinner ?? hyakinWinner;
           _uploadMatchData(finalWinner);
-          _showMatchWinnerDialog(finalWinner, winMsg: _buildWinMessage(finalWinner, preMisses: hyakinPreMisses));
+          _showMatchWinnerDialog(
+            finalWinner,
+            winMsg: _buildWinMessage(finalWinner, preMisses: hyakinPreMisses),
+          );
         } else {
           if (currentPlayerIndex == widget.match.players.length - 1) {
-            widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
-            turnInProgressScores.clear(); systemCalculatedIds.clear();
+            widget.match.currentSetRecord.turns.add(
+              TurnRecord(
+                currentTurnInSet,
+                Map.from(turnInProgressScores),
+                systemCalculated: Set.from(systemCalculatedIds),
+              ),
+            );
+            turnInProgressScores.clear();
+            systemCalculatedIds.clear();
 
-            if (_hasTurnLimit && currentTurnInSet >= widget.match.turnLimitPerSet!) {
+            if (_hasTurnLimit &&
+                currentTurnInSet >= widget.match.turnLimitPerSet!) {
               isSetFinished = true;
-              final decision = GameLogic.decideHyakinSet2ByCombinedTotals(widget.match.players);
+              final decision = GameLogic.decideHyakinSet2ByCombinedTotals(
+                widget.match.players,
+              );
               if (decision.winner != null) {
                 decision.winner!.setsWon++;
               }
               widget.match.finalizeCurrentSetIfNeeded();
 
-              final finalDecision = GameLogic.decideMatchByStandings(widget.match.players);
+              final finalDecision = GameLogic.decideMatchByStandings(
+                widget.match.players,
+              );
               if (finalDecision.isDraw || finalDecision.winner == null) {
                 _uploadMatchData(null);
                 _showMatchDrawDialog();
               } else {
                 _uploadMatchData(finalDecision.winner);
-                _showMatchWinnerDialog(finalDecision.winner!, winMsg: t.get('turn_limit_win', args: {'name': finalDecision.winner!.name}));
+                _showMatchWinnerDialog(
+                  finalDecision.winner!,
+                  winMsg: t.get(
+                    'turn_limit_win',
+                    args: {'name': finalDecision.winner!.name},
+                  ),
+                );
               }
               return;
             }
           }
-          selectedSkitels.clear(); _nextPlayer();
+          selectedSkitels.clear();
+          _nextPlayer();
         }
         return; // skip normal logic
       }
@@ -1086,10 +1551,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
       // === Self Turn mode (5/6ターンチャレンジ) ===
       if (_isSelfTurnMode) {
-        widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)));
-        turnInProgressScores.clear(); systemCalculatedIds.clear();
-        bool succeeded = player.currentScore == widget.match.targetScore && currentTurnInSet <= _selfTurnLimit;
-        bool failed = player.isDisqualified || (player.currentScore == widget.match.targetScore && currentTurnInSet > _selfTurnLimit);
+        widget.match.currentSetRecord.turns.add(
+          TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)),
+        );
+        turnInProgressScores.clear();
+        systemCalculatedIds.clear();
+        bool succeeded =
+            player.currentScore == widget.match.targetScore &&
+            currentTurnInSet <= _selfTurnLimit;
+        bool failed =
+            player.isDisqualified ||
+            (player.currentScore == widget.match.targetScore &&
+                currentTurnInSet > _selfTurnLimit);
         if (succeeded) {
           self5TurnSucceeded = true;
           isSetFinished = true;
@@ -1107,7 +1580,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       }
       // === End Self Turn mode ===
 
-      final survivors = widget.match.players.where((p) => !p.isDisqualified).toList();
+      final survivors =
+          widget.match.players.where((p) => !p.isDisqualified).toList();
 
       if (widget.match.players.length >= 2 && survivors.length == 1) {
         final s = survivors.first;
@@ -1116,19 +1590,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         s.scoreHistory.add(needed); // セット内スコア表示用（matchScoreHistory と対で必要）
         s.matchScoreHistory.add(needed);
         turnInProgressScores[s.id] = needed;
-        systemCalculatedIds.add(s.id); 
-        for (var p in widget.match.players) if (p.isDisqualified) p.currentScore = 0;
+        systemCalculatedIds.add(s.id);
+        for (var p in widget.match.players)
+          if (p.isDisqualified) p.currentScore = 0;
       }
 
       Player? winner;
-      for (var p in widget.match.players) if (p.currentScore == widget.match.targetScore) { winner = p; break; }
-      
+      for (var p in widget.match.players)
+        if (p.currentScore == widget.match.targetScore) {
+          winner = p;
+          break;
+        }
+
       if (winner != null) {
-        isSetFinished = true; winner.setsWon++;
-        widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
-        
+        isSetFinished = true;
+        winner.setsWon++;
+        widget.match.currentSetRecord.turns.add(
+          TurnRecord(
+            currentTurnInSet,
+            Map.from(turnInProgressScores),
+            systemCalculated: Set.from(systemCalculatedIds),
+          ),
+        );
+
         // 重要：マッチ終了判定を正確に行うために一時的にcompletedSetsに含めてチェック
-        final tempCompleted = List<SetRecord>.from(widget.match.completedSets)..add(widget.match.currentSetRecord);
+        final tempCompleted = List<SetRecord>.from(widget.match.completedSets)
+          ..add(widget.match.currentSetRecord);
         bool matchTrulyOver = false;
         if (widget.match.type == MatchType.fixedSets) {
           matchTrulyOver = tempCompleted.length >= widget.match.limit;
@@ -1138,34 +1625,49 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
         final winMsg = _buildWinMessage(winner, preMisses: preMisses);
         if (matchTrulyOver) {
-           widget.match.finalizeCurrentSetIfNeeded();
-           if (widget.match.isMatchDraw) {
-             _uploadMatchData(null);
-             _showMatchDrawDialog();
-           } else {
-             final finalWinner = widget.match.matchWinner ?? winner;
-             _uploadMatchData(finalWinner);
-             _showMatchWinnerDialog(finalWinner, winMsg: winMsg);
-           }
+          widget.match.finalizeCurrentSetIfNeeded();
+          if (widget.match.isMatchDraw) {
+            _uploadMatchData(null);
+            _showMatchDrawDialog();
+          } else {
+            final finalWinner = widget.match.matchWinner ?? winner;
+            _uploadMatchData(finalWinner);
+            _showMatchWinnerDialog(finalWinner, winMsg: winMsg);
+          }
         } else {
-           _showSetWinnerDialog(winner, winMsg: winMsg);
+          _showSetWinnerDialog(winner, winMsg: winMsg);
         }
       } else {
         if (currentPlayerIndex == widget.match.players.length - 1) {
-          widget.match.currentSetRecord.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
-          turnInProgressScores.clear(); systemCalculatedIds.clear();
+          widget.match.currentSetRecord.turns.add(
+            TurnRecord(
+              currentTurnInSet,
+              Map.from(turnInProgressScores),
+              systemCalculated: Set.from(systemCalculatedIds),
+            ),
+          );
+          turnInProgressScores.clear();
+          systemCalculatedIds.clear();
 
-          if (_hasTurnLimit && currentTurnInSet >= widget.match.turnLimitPerSet!) {
+          if (_hasTurnLimit &&
+              currentTurnInSet >= widget.match.turnLimitPerSet!) {
             isSetFinished = true;
-            final decision = GameLogic.decideSetByCurrentScores(widget.match.players);
+            final decision = GameLogic.decideSetByCurrentScores(
+              widget.match.players,
+            );
             if (decision.winner != null) {
               decision.winner!.setsWon++;
             }
 
-            final tempCompleted = List<SetRecord>.from(widget.match.completedSets)..add(widget.match.currentSetRecord);
-            final bool matchTrulyOver = widget.match.type == MatchType.fixedSets
-                ? tempCompleted.length >= widget.match.limit
-                : widget.match.type == MatchType.raceTo && decision.winner != null && widget.match.isMatchOver;
+            final tempCompleted = List<SetRecord>.from(
+              widget.match.completedSets,
+            )..add(widget.match.currentSetRecord);
+            final bool matchTrulyOver =
+                widget.match.type == MatchType.fixedSets
+                    ? tempCompleted.length >= widget.match.limit
+                    : widget.match.type == MatchType.raceTo &&
+                        decision.winner != null &&
+                        widget.match.isMatchOver;
 
             widget.match.finalizeCurrentSetIfNeeded();
 
@@ -1174,32 +1676,51 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 _uploadMatchData(null);
                 _showMatchDrawDialog();
               } else {
-                final finalDecision = GameLogic.decideMatchByStandings(widget.match.players);
+                final finalDecision = GameLogic.decideMatchByStandings(
+                  widget.match.players,
+                );
                 if (finalDecision.isDraw || finalDecision.winner == null) {
                   _uploadMatchData(null);
                   _showMatchDrawDialog();
                 } else {
                   _uploadMatchData(finalDecision.winner);
-                  _showMatchWinnerDialog(finalDecision.winner!, winMsg: t.get('turn_limit_win', args: {'name': finalDecision.winner!.name}));
+                  _showMatchWinnerDialog(
+                    finalDecision.winner!,
+                    winMsg: t.get(
+                      'turn_limit_win',
+                      args: {'name': finalDecision.winner!.name},
+                    ),
+                  );
                 }
               }
             } else if (decision.winner != null) {
-              _showSetWinnerDialog(decision.winner!, winMsg: t.get('turn_limit_win', args: {'name': decision.winner!.name}));
+              _showSetWinnerDialog(
+                decision.winner!,
+                winMsg: t.get(
+                  'turn_limit_win',
+                  args: {'name': decision.winner!.name},
+                ),
+              );
             } else {
               _showSetDrawDialog();
             }
             return;
           }
         }
-        selectedSkitels.clear(); _nextPlayer();
+        selectedSkitels.clear();
+        _nextPlayer();
       }
     });
     // タイマー管理
     if (_isSelfTurnMode) {
       if (isSetFinished) {
         _elapsedTimer?.cancel();
-        if (self5TurnSucceeded) _showSelf5TurnSuccessDialog();
-        else if (self5TurnFailed) { _uploadSelf5TurnData(); _showSelf5TurnFailureDialog(); }
+        if (self5TurnSucceeded)
+          _showSelf5TurnSuccessDialog();
+        else if (self5TurnFailed) {
+          _uploadSelf5TurnData();
+          _showSelf5TurnFailureDialog();
+        }
       } else {
         _resetElapsedTimer();
       }
@@ -1215,13 +1736,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _nextPlayer() {
     int start = currentPlayerIndex;
-    do { currentPlayerIndex = (currentPlayerIndex + 1) % widget.match.players.length; } while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex != start);
+    do {
+      currentPlayerIndex =
+          (currentPlayerIndex + 1) % widget.match.players.length;
+    } while (widget.match.players[currentPlayerIndex].isDisqualified &&
+        currentPlayerIndex != start);
     // currentPlayerIndex <= start はラップアラウンドを意味する（プレイヤー0が失格でも正しく判定）
     if (currentPlayerIndex <= start) currentTurnInSet++;
   }
 
   void _undo() {
-    if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0)) return;
+    if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0))
+      return;
     setState(() {
       if (currentPlayerIndex == 0) {
         currentTurnInSet--;
@@ -1230,13 +1756,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (widget.match.currentSetRecord.turns.isNotEmpty) {
           final lastTurn = widget.match.currentSetRecord.turns.removeLast();
           turnInProgressScores = Map<String, int>.from(lastTurn.scores);
-          systemCalculatedIds = Set<String>.from(lastTurn.systemCalculatedPlayerIds);
+          systemCalculatedIds = Set<String>.from(
+            lastTurn.systemCalculatedPlayerIds,
+          );
         }
       } else {
         currentPlayerIndex--;
       }
 
-      while (widget.match.players[currentPlayerIndex].isDisqualified && currentPlayerIndex > 0) {
+      while (widget.match.players[currentPlayerIndex].isDisqualified &&
+          currentPlayerIndex > 0) {
         currentPlayerIndex--;
       }
 
@@ -1245,7 +1774,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         int last = p.scoreHistory.removeLast();
         p.matchScoreHistory.removeLast();
         // scoreSnapshot を使って投擲前スコアを正確に復元（バースト時も正しく戻る）
-        if (p.scoreSnapshot.isNotEmpty) p.currentScore = p.scoreSnapshot.removeLast();
+        if (p.scoreSnapshot.isNotEmpty)
+          p.currentScore = p.scoreSnapshot.removeLast();
         turnInProgressScores.remove(p.id);
         systemCalculatedIds.remove(p.id);
         if (last == 0 && p.consecutiveMisses > 0) {
@@ -1265,23 +1795,39 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _showSelf5TurnSuccessDialog() {
     final t = L10n.of(context);
-    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text('${t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})} ${t.get('self5turn_success')}'),
-      content: Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-      actions: [
-        ElevatedButton(
-          onPressed: () { Navigator.pop(ctx); _startNextChallenge(); },
-          child: Text(t.get('next_challenge')),
-        ),
-      ],
-    ));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(
+              '${t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})} ${t.get('self5turn_success')}',
+            ),
+            content: Text(
+              t.get(
+                'consecutive_success',
+                args: {'n': '${widget.match.consecutiveSuccesses}'},
+              ),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _startNextChallenge();
+                },
+                child: Text(t.get('next_challenge')),
+              ),
+            ],
+          ),
+    );
   }
 
   void _showSelf5TurnFailureDialog() {
     final t = L10n.of(context);
     final n = widget.match.consecutiveSuccesses;
-    final playerName = widget.match.players.isNotEmpty ? widget.match.players.first.name : '';
+    final playerName =
+        widget.match.players.isNotEmpty ? widget.match.players.first.name : '';
     String resultMsg;
     if (n == 0) {
       resultMsg = t.get('self5turn_failure');
@@ -1296,37 +1842,77 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     } else {
       resultMsg = t.get('self5turn_fail_9plus', args: {'name': playerName});
     }
-    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text(resultMsg, style: const TextStyle(fontSize: 20)),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(t.get('consecutive_success', args: {'n': '$n'}),
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-      ]),
-      actions: [
-        TextButton(
-          onPressed: () { Navigator.pop(ctx); Navigator.popUntil(context, (r) => r.isFirst); },
-          child: Text(t.get('back_to_top')),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(ctx);
-            final newPlayers = widget.match.players.map((p) => Player(id: p.id, name: p.name, initialOrder: p.initialOrder)).toList();
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => GameScreen(
-              appUserId: widget.appUserId,
-              match: MolkkyMatch(players: newPlayers, limit: 99, type: widget.match.type),
-            )));
-          },
-          child: Text(t.get('next_challenge')),
-        ),
-      ],
-    ));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(resultMsg, style: const TextStyle(fontSize: 20)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  t.get('consecutive_success', args: {'n': '$n'}),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.popUntil(context, (r) => r.isFirst);
+                },
+                child: Text(t.get('back_to_top')),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  final newPlayers =
+                      widget.match.players
+                          .map(
+                            (p) => Player(
+                              id: p.id,
+                              name: p.name,
+                              initialOrder: p.initialOrder,
+                            ),
+                          )
+                          .toList();
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (c) => GameScreen(
+                            appUserId: widget.appUserId,
+                            match: MolkkyMatch(
+                              players: newPlayers,
+                              limit: 99,
+                              type: widget.match.type,
+                            ),
+                          ),
+                    ),
+                  );
+                },
+                child: Text(t.get('next_challenge')),
+              ),
+            ],
+          ),
+    );
   }
 
   void _startNextChallenge() {
     widget.match.prepareNextSet();
     setState(() {
-      currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false;
-      turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
+      currentPlayerIndex = 0;
+      currentTurnInSet = 1;
+      isSetFinished = false;
+      turnInProgressScores.clear();
+      systemCalculatedIds.clear();
+      selectedSkitels.clear();
     });
     _resetElapsedTimer();
   }
@@ -1346,8 +1932,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     try {
       final match = widget.match;
       List<SetRecord> setsToUpload = List.from(match.completedSets);
-      if (!setsToUpload.any((s) => s.setNumber == match.currentSetRecord.setNumber)) {
-        for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+      if (!setsToUpload.any(
+        (s) => s.setNumber == match.currentSetRecord.setNumber,
+      )) {
+        for (var p in match.players)
+          match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
         setsToUpload.add(match.currentSetRecord);
       }
       final data = {
@@ -1358,26 +1947,47 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         'consecutiveSuccesses': match.consecutiveSuccesses,
         'appVersion': _kAppVersion,
         'platform': _getPlatform(),
-        if (match.turnLimitPerSet != null) 'turnLimitPerSet': match.turnLimitPerSet,
-        if (match.matchTimeLimitSeconds != null) 'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
-        'players': match.players.map((p) => {'id': p.id, 'name': p.name}).toList(),
-        'history': setsToUpload.map((s) => {
-          'setNumber': s.setNumber,
-          'turns': s.turns.map((t) => {'turnNumber': t.turnNumber, 'scores': t.scores}).toList(),
-          'finalScores': s.finalCumulativeScores,
-        }).toList(),
+        if (match.turnLimitPerSet != null)
+          'turnLimitPerSet': match.turnLimitPerSet,
+        if (match.matchTimeLimitSeconds != null)
+          'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
+        'players':
+            match.players.map((p) => {'id': p.id, 'name': p.name}).toList(),
+        'history':
+            setsToUpload
+                .map(
+                  (s) => {
+                    'setNumber': s.setNumber,
+                    'turns':
+                        s.turns
+                            .map(
+                              (t) => {
+                                'turnNumber': t.turnNumber,
+                                'scores': t.scores,
+                              },
+                            )
+                            .toList(),
+                    'finalScores': s.finalCumulativeScores,
+                  },
+                )
+                .toList(),
       };
       await FirebaseFirestore.instance.collection('scores').add(data);
-    } catch (e) { debugPrint("Self5Turn Upload Error: $e"); }
+    } catch (e) {
+      debugPrint("Self5Turn Upload Error: $e");
+    }
   }
 
   Future<void> _uploadMatchData(Player? finalWinner) async {
     try {
       final match = widget.match;
       List<SetRecord> setsToUpload = List.from(match.completedSets);
-      if (!setsToUpload.any((s) => s.setNumber == match.currentSetRecord.setNumber)) {
-         for (var p in match.players) match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
-         setsToUpload.add(match.currentSetRecord);
+      if (!setsToUpload.any(
+        (s) => s.setNumber == match.currentSetRecord.setNumber,
+      )) {
+        for (var p in match.players)
+          match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
+        setsToUpload.add(match.currentSetRecord);
       }
 
       final data = {
@@ -1389,48 +1999,104 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         'winner': finalWinner?.name ?? 'DRAW',
         'appVersion': _kAppVersion,
         'platform': _getPlatform(),
-        if (match.turnLimitPerSet != null) 'turnLimitPerSet': match.turnLimitPerSet,
-        if (match.matchTimeLimitSeconds != null) 'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
-        'players': match.players.map((p) => {'id': p.id, 'name': p.name, 'setsWon': p.setsWon, 'totalScore': p.totalMatchScore}).toList(),
-        'history': setsToUpload.map((s) => {
-          'setNumber': s.setNumber, 'starterId': s.starterPlayerId, 'playerOrder': s.playerOrder, 'finalScores': s.finalCumulativeScores,
-          'turns': s.turns.map((t) => {'turnNumber': t.turnNumber, 'scores': t.scores, 'systemCalculated': t.systemCalculatedPlayerIds.toList()}).toList(),
-        }).toList(),
+        if (match.turnLimitPerSet != null)
+          'turnLimitPerSet': match.turnLimitPerSet,
+        if (match.matchTimeLimitSeconds != null)
+          'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
+        'players':
+            match.players
+                .map(
+                  (p) => {
+                    'id': p.id,
+                    'name': p.name,
+                    'setsWon': p.setsWon,
+                    'totalScore': p.totalMatchScore,
+                  },
+                )
+                .toList(),
+        'history':
+            setsToUpload
+                .map(
+                  (s) => {
+                    'setNumber': s.setNumber,
+                    'starterId': s.starterPlayerId,
+                    'playerOrder': s.playerOrder,
+                    'finalScores': s.finalCumulativeScores,
+                    'turns':
+                        s.turns
+                            .map(
+                              (t) => {
+                                'turnNumber': t.turnNumber,
+                                'scores': t.scores,
+                                'systemCalculated':
+                                    t.systemCalculatedPlayerIds.toList(),
+                              },
+                            )
+                            .toList(),
+                  },
+                )
+                .toList(),
       };
       await FirebaseFirestore.instance.collection('scores').add(data);
-    } catch (e) { debugPrint("Upload Error: $e"); }
+    } catch (e) {
+      debugPrint("Upload Error: $e");
+    }
   }
 
   void _goToHistory() {
-    List<SetRecord> allSets = List.from(widget.match.completedSets.where((s) => s.hasContent));
+    List<SetRecord> allSets = List.from(
+      widget.match.completedSets.where((s) => s.hasContent),
+    );
     if (!isSetFinished) {
-      SetRecord ongoing = SetRecord(widget.match.currentSetRecord.setNumber, widget.match.currentSetRecord.starterPlayerId, widget.match.players.map((p)=>p.id).toList());
+      SetRecord ongoing = SetRecord(
+        widget.match.currentSetRecord.setNumber,
+        widget.match.currentSetRecord.starterPlayerId,
+        widget.match.players.map((p) => p.id).toList(),
+      );
       ongoing.turns.addAll(widget.match.currentSetRecord.turns);
-      if (turnInProgressScores.isNotEmpty) ongoing.turns.add(TurnRecord(currentTurnInSet, Map.from(turnInProgressScores), systemCalculated: Set.from(systemCalculatedIds)));
+      if (turnInProgressScores.isNotEmpty)
+        ongoing.turns.add(
+          TurnRecord(
+            currentTurnInSet,
+            Map.from(turnInProgressScores),
+            systemCalculated: Set.from(systemCalculatedIds),
+          ),
+        );
       if (ongoing.hasContent) allSets.add(ongoing);
     } else {
-      if (widget.match.currentSetRecord.hasContent && !allSets.any((s) => s.setNumber == widget.match.currentSetRecord.setNumber)) {
+      if (widget.match.currentSetRecord.hasContent &&
+          !allSets.any(
+            (s) => s.setNumber == widget.match.currentSetRecord.setNumber,
+          )) {
         allSets.add(widget.match.currentSetRecord);
       }
     }
     String? resolvedWinnerName;
     if (widget.match.isMatchOver) {
-      resolvedWinnerName = widget.match.isMatchDraw ? 'DRAW' : widget.match.matchWinner?.name;
+      resolvedWinnerName =
+          widget.match.isMatchDraw ? 'DRAW' : widget.match.matchWinner?.name;
     }
-    Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
-      match: widget.match,
-      sets: allSets,
-      isSelf5Turn: _isSelfTurnMode,
-      isHyakin: widget.match.type == MatchType.hyakin,
-      consecutiveSuccesses: widget.match.consecutiveSuccesses,
-      winnerName: resolvedWinnerName,
-    )));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (c) => HistoryPage(
+              match: widget.match,
+              sets: allSets,
+              isSelf5Turn: _isSelfTurnMode,
+              isHyakin: widget.match.type == MatchType.hyakin,
+              consecutiveSuccesses: widget.match.consecutiveSuccesses,
+              winnerName: resolvedWinnerName,
+            ),
+      ),
+    );
   }
 
   String _buildWinMessage(Player winner, {required int preMisses}) {
     final t = L10n.of(context);
     final name = winner.name;
-    final isLast = widget.match.players.indexOf(winner) == widget.match.players.length - 1;
+    final isLast =
+        widget.match.players.indexOf(winner) == widget.match.players.length - 1;
     final hadBurst = _playersBurstedThisSet.contains(winner.id);
     if (currentTurnInSet == 5) return t.get('win_5turns', args: {'name': name});
     if (isLast) return t.get('win_last', args: {'name': name});
@@ -1445,55 +2111,128 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     widget.match.prepareNextSet(manualOrder: false);
     List<Player> reorderList = List.from(widget.match.players);
 
-    showDialog(context: context, barrierDismissible: false, barrierColor: Colors.black87, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
-      return AlertDialog(
-        title: Text(t.get('set_n', args: {'n': '$finishedSetNum'})), // 修正：終わったセットの番号を表示
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(winMsg),
-            const SizedBox(height: 16),
-            const Divider(),
-            Text(t.get('reorder_hint'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 8),
-            Container(
-              width: double.maxFinite,
-              height: 200,
-              child: ReorderableListView(
-                shrinkWrap: true,
-                onReorder: (o, n) { setDialogState(() { if (o < n) n -= 1; reorderList.insert(n, reorderList.removeAt(o)); }); },
-                children: [ for (var p in reorderList) ListTile(key: Key(p.id), dense: true, leading: const Icon(Icons.drag_handle, size: 20), title: Text(p.name)) ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
-          TextButton(onPressed: () {
-            Navigator.pop(ctx);
-            setState(() {
-              widget.match.applyManualOrder(reorderList);
-              currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
-              _playersBurstedThisSet.clear();
-            });
-            _resetElapsedTimer();
-          }, child: Text(t.get('next_set'))),
-        ],
-      );
-    }));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(
+                  t.get('set_n', args: {'n': '$finishedSetNum'}),
+                ), // 修正：終わったセットの番号を表示
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(winMsg),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    Text(
+                      t.get('reorder_hint'),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.maxFinite,
+                      height: 200,
+                      child: ReorderableListView(
+                        shrinkWrap: true,
+                        onReorder: (o, n) {
+                          setDialogState(() {
+                            if (o < n) n -= 1;
+                            reorderList.insert(n, reorderList.removeAt(o));
+                          });
+                        },
+                        children: [
+                          for (var p in reorderList)
+                            ListTile(
+                              key: Key(p.id),
+                              dense: true,
+                              leading: const Icon(Icons.drag_handle, size: 20),
+                              title: Text(p.name),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: _goToHistory,
+                    child: Text(t.get('match_history')),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        widget.match.applyManualOrder(reorderList);
+                        currentPlayerIndex = 0;
+                        currentTurnInSet = 1;
+                        isSetFinished = false;
+                        turnInProgressScores.clear();
+                        systemCalculatedIds.clear();
+                        selectedSkitels.clear();
+                        _playersBurstedThisSet.clear();
+                      });
+                      _resetElapsedTimer();
+                    },
+                    child: Text(t.get('next_set')),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
+  String _matchTypeLabel() {
+    switch (widget.match.type) {
+      case MatchType.raceTo:
+        return '${widget.match.limit}先取';
+      case MatchType.fixedSets:
+        return '${widget.match.limit}セット';
+      case MatchType.hyakin:
+        return '百均モード';
+      case MatchType.self5Turn:
+        return 'セルフ5ターン';
+      case MatchType.self6Turn:
+        return 'セルフ6ターン';
+    }
   }
 
   void _showMatchWinnerDialog(Player winner, {required String winMsg}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
-    showDialog(context: context, barrierDismissible: false, barrierColor: Colors.black87, builder: (ctx) => AlertDialog(
-      title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(winMsg),
-        const SizedBox(height: 8),
-        Text(t.get('winner_crown', args: {'name': winner.name}), style: const TextStyle(fontSize: 13, color: Colors.grey)),
-      ]),
-      actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(
+              '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}',
+            ),
+            content: SingleChildScrollView(
+              child: DownloadableMatchResult(
+                match: widget.match,
+                isMatchDraw: false,
+                winnerName: winner.name,
+                matchTypeName: _matchTypeLabel(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: _goToHistory,
+                child: Text(t.get('match_history')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+                child: Text(t.get('finish')),
+              ),
+            ],
+          ),
+    );
   }
 
   void _showSetDrawDialog() {
@@ -1502,59 +2241,119 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     widget.match.prepareNextSet(manualOrder: false);
     List<Player> reorderList = List.from(widget.match.players);
 
-    showDialog(context: context, barrierDismissible: false, barrierColor: Colors.black87, builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
-      return AlertDialog(
-        title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('set_draw')}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(t.get('set_draw_detail')),
-            const SizedBox(height: 16),
-            const Divider(),
-            Text(t.get('reorder_hint'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.maxFinite,
-              height: 200,
-              child: ReorderableListView(
-                shrinkWrap: true,
-                onReorder: (o, n) { setDialogState(() { if (o < n) n -= 1; reorderList.insert(n, reorderList.removeAt(o)); }); },
-                children: [ for (var p in reorderList) ListTile(key: Key(p.id), dense: true, leading: const Icon(Icons.drag_handle, size: 20), title: Text(p.name)) ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))),
-          TextButton(onPressed: () {
-            Navigator.pop(ctx);
-            setState(() {
-              widget.match.applyManualOrder(reorderList);
-              currentPlayerIndex = 0; currentTurnInSet = 1; isSetFinished = false; turnInProgressScores.clear(); systemCalculatedIds.clear(); selectedSkitels.clear();
-              _playersBurstedThisSet.clear();
-            });
-            _resetElapsedTimer();
-          }, child: Text(t.get('next_set'))),
-        ],
-      );
-    }));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(
+                  '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('set_draw')}',
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(t.get('set_draw_detail')),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    Text(
+                      t.get('reorder_hint'),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.maxFinite,
+                      height: 200,
+                      child: ReorderableListView(
+                        shrinkWrap: true,
+                        onReorder: (o, n) {
+                          setDialogState(() {
+                            if (o < n) n -= 1;
+                            reorderList.insert(n, reorderList.removeAt(o));
+                          });
+                        },
+                        children: [
+                          for (var p in reorderList)
+                            ListTile(
+                              key: Key(p.id),
+                              dense: true,
+                              leading: const Icon(Icons.drag_handle, size: 20),
+                              title: Text(p.name),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: _goToHistory,
+                    child: Text(t.get('match_history')),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        widget.match.applyManualOrder(reorderList);
+                        currentPlayerIndex = 0;
+                        currentTurnInSet = 1;
+                        isSetFinished = false;
+                        turnInProgressScores.clear();
+                        systemCalculatedIds.clear();
+                        selectedSkitels.clear();
+                        _playersBurstedThisSet.clear();
+                      });
+                      _resetElapsedTimer();
+                    },
+                    child: Text(t.get('next_set')),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
   }
 
   void _showMatchDrawDialog({String? detailOverride}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
-    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: Text('${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(t.get('match_draw'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Text(detailOverride ?? t.get('match_draw_detail'), style: const TextStyle(fontSize: 14, color: Colors.grey)),
-      ]),
-      actions: [TextButton(onPressed: _goToHistory, child: Text(t.get('match_history'))), TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: Text(t.get('finish')))]));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(
+              '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}',
+            ),
+            content: SingleChildScrollView(
+              child: DownloadableMatchResult(
+                match: widget.match,
+                isMatchDraw: true,
+                winnerName: 'Draw',
+                matchTypeName: _matchTypeLabel(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: _goToHistory,
+                child: Text(t.get('match_history')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+                child: Text(t.get('finish')),
+              ),
+            ],
+          ),
+    );
   }
 
   TextStyle _setCountStyle(Player player) {
-    final maxSets = widget.match.players.fold<int>(0, (m, p) => p.setsWon > m ? p.setsWon : m);
+    final maxSets = widget.match.players.fold<int>(
+      0,
+      (m, p) => p.setsWon > m ? p.setsWon : m,
+    );
     final isLeader = player.setsWon == maxSets && maxSets > 0;
     return TextStyle(
       fontSize: 16,
@@ -1564,10 +2363,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   int _runningTotal(Player p) {
-    final finalizedIncludesCurrent =
-        widget.match.completedSets.any((s) => s.setNumber == widget.match.currentSetRecord.setNumber);
+    final finalizedIncludesCurrent = widget.match.completedSets.any(
+      (s) => s.setNumber == widget.match.currentSetRecord.setNumber,
+    );
     final finalizedTotal = p.setFinalScores.fold(0, (a, b) => a + b);
-    return finalizedIncludesCurrent ? finalizedTotal : finalizedTotal + p.currentScore;
+    return finalizedIncludesCurrent
+        ? finalizedTotal
+        : finalizedTotal + p.currentScore;
   }
 
   Widget _buildMatchTimerWidget(L10n t, {double fontSize = 26}) {
@@ -1577,8 +2379,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         width: double.infinity,
         child: ElevatedButton(
           onPressed: _startMatchCountdown,
-          style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: Colors.blueGrey),
-          child: Text(t.get('match_timer_start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(0, 40),
+            backgroundColor: Colors.blueGrey,
+          ),
+          child: Text(
+            t.get('match_timer_start'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       );
     }
@@ -1590,7 +2401,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     return Center(
       child: RichText(
         text: TextSpan(
-          style: TextStyle(fontFamily: 'Courier', fontWeight: FontWeight.w900, color: color),
+          style: TextStyle(
+            fontFamily: 'Courier',
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
           children: [
             TextSpan(text: minutes, style: TextStyle(fontSize: fontSize)),
             TextSpan(text: ':', style: TextStyle(fontSize: fontSize)),
@@ -1601,16 +2416,34 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
-
   Widget _buildScoreSummaryRow() {
     final players = widget.match.players;
-    final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
+    final isHyakinSet2 =
+        widget.match.type == MatchType.hyakin &&
+        widget.match.currentSetIndex == 2;
     final showTotal = !isHyakinSet2 && widget.match.currentSetIndex > 1;
 
     const neonGreen = Color(0xFF39FF14);
-    const bigStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.w900, fontFamily: 'Courier', color: neonGreen, letterSpacing: 1.5);
-    const smallStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Courier', color: neonGreen, letterSpacing: 1.0);
-    const sepStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Courier', color: neonGreen);
+    const bigStyle = TextStyle(
+      fontSize: 48,
+      fontWeight: FontWeight.w900,
+      fontFamily: 'Courier',
+      color: neonGreen,
+      letterSpacing: 1.5,
+    );
+    const smallStyle = TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w700,
+      fontFamily: 'Courier',
+      color: neonGreen,
+      letterSpacing: 1.0,
+    );
+    const sepStyle = TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w800,
+      fontFamily: 'Courier',
+      color: neonGreen,
+    );
 
     final List<Widget> cells = [];
     for (int i = 0; i < players.length; i++) {
@@ -1628,28 +2461,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       }
 
       final List<InlineSpan> spans = [
-        if (p.name.isNotEmpty) TextSpan(text: '${p.name[0]} ', style: smallStyle),
+        if (p.name.isNotEmpty)
+          TextSpan(text: '${p.name[0]} ', style: smallStyle),
         TextSpan(text: scoreText, style: bigStyle),
-        if (showTotal) TextSpan(text: '(${_runningTotal(p)})', style: smallStyle),
+        if (showTotal)
+          TextSpan(text: '(${_runningTotal(p)})', style: smallStyle),
       ];
 
       // 現在の投擲者はアンダーライン強調（2ミス時は赤）
-      cells.add(Container(
-        decoration: isCurrent
-            ? BoxDecoration(border: Border(bottom: BorderSide(
-                color: is2Miss ? Colors.red : Colors.white,
-                width: 3.0,
-              )))
-            : null,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RichText(text: TextSpan(children: spans)),
-            if (p.setsWon > 0) SetStarsDisplay(setsWon: p.setsWon),
-          ],
+      cells.add(
+        Container(
+          decoration:
+              isCurrent
+                  ? BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: is2Miss ? Colors.red : Colors.white,
+                        width: 3.0,
+                      ),
+                    ),
+                  )
+                  : null,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RichText(text: TextSpan(children: spans)),
+              if (p.setsWon > 0) SetStarsDisplay(setsWon: p.setsWon),
+            ],
+          ),
         ),
-      ));
+      );
 
       if (i < players.length - 1) {
         cells.add(Text(' - ', style: sepStyle));
@@ -1675,33 +2517,51 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
-    if (widget.match.players.isEmpty) return Scaffold(body: Center(child: Text(t.get('error', args: {'msg': 'No players'}))));
+    if (widget.match.players.isEmpty)
+      return Scaffold(
+        body: Center(child: Text(t.get('error', args: {'msg': 'No players'}))),
+      );
     final currentPlayer = widget.match.players[currentPlayerIndex];
-    
+
     // ミスを☠で表現する文字列作成
     String missIcons = '';
     if (currentPlayer.consecutiveMisses == 1) missIcons = ' ☠';
     if (currentPlayer.consecutiveMisses == 2) missIcons = ' ☠☠';
-    Color nameColor = currentPlayer.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
+    Color nameColor =
+        currentPlayer.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
 
     // アガリガイドメッセージ
     String? reachMsg;
     if (!isSetFinished) {
-      if (widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2) {
-        final set1 = currentPlayer.setFinalScores.isNotEmpty ? currentPlayer.setFinalScores[0] : 0;
+      if (widget.match.type == MatchType.hyakin &&
+          widget.match.currentSetIndex == 2) {
+        final set1 =
+            currentPlayer.setFinalScores.isNotEmpty
+                ? currentPlayer.setFinalScores[0]
+                : 0;
         final remaining = (100 - set1) - currentPlayer.currentScore;
         if (remaining <= 12 && remaining > 0) {
-          reachMsg = t.get('reach_msg', args: {'name': currentPlayer.name, 'n': '$remaining'});
+          reachMsg = t.get(
+            'reach_msg',
+            args: {'name': currentPlayer.name, 'n': '$remaining'},
+          );
         }
       } else if (currentPlayer.currentScore >= 38) {
-        reachMsg = t.get('reach_msg', args: {'name': currentPlayer.name, 'n': '${50 - currentPlayer.currentScore}'});
+        reachMsg = t.get(
+          'reach_msg',
+          args: {
+            'name': currentPlayer.name,
+            'n': '${50 - currentPlayer.currentScore}',
+          },
+        );
       }
     }
 
     final isSelfTurn = _isSelfTurnMode;
 
     // 2ミス + 49点: プレイヤー名点滅
-    final bool shouldBlink = !isSetFinished &&
+    final bool shouldBlink =
+        !isSetFinished &&
         currentPlayer.consecutiveMisses >= 2 &&
         currentPlayer.currentScore == 49;
     if (shouldBlink && !_blinkController.isAnimating) {
@@ -1717,351 +2577,801 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (didPop) return;
         final confirmed = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            content: const Text('試合が無効になってしまいますが、最初の画面に戻って良いですか？'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                child: const Text('最初の画面に戻る'),
+          builder:
+              (ctx) => AlertDialog(
+                content: const Text('試合が無効になってしまいますが、最初の画面に戻って良いですか？'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('キャンセル'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('最初の画面に戻る'),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
         if (confirmed == true && context.mounted) {
           Navigator.popUntil(context, (r) => r.isFirst);
         }
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(isSelfTurn
-          ? t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})
-          : t.get('set_n', args: {'n': '${widget.match.currentSetIndex}'})),
-        actions: [TextButton.icon(onPressed: _goToHistory, icon: const Icon(Icons.list_alt, size: 18), label: Text(t.get('match_history')))]),
-      body: LayoutBuilder(builder: (_, constraints) {
-        // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
-        final isLandscape = constraints.maxWidth >= constraints.maxHeight * 1.25 && constraints.maxHeight < 500;
-        if (isLandscape) {
-          // ─── 横向きレイアウト ───────────────────────────────────
-          final rightW = (MediaQuery.of(context).size.width * 0.42).clamp(200.0, 360.0);
-          final bottomPad = MediaQuery.of(context).padding.bottom;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 左パネル: スコア表示 + プレイヤー情報 + スコアテーブル
-              Expanded(
-                child: Column(
-                  children: [
-                    if (!isSelfTurn) _buildScoreSummaryRow(),
-                    _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelfTurn, shouldBlink,
-                        margin: const EdgeInsets.fromLTRB(8, 4, 4, 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-                    Expanded(child: _buildScoreTable(t, currentPlayer)),
-                  ],
+        appBar: AppBar(
+          title: Text(
+            isSelfTurn
+                ? t.get(
+                  'self5turn_challenge_n',
+                  args: {'n': '${widget.match.currentSetIndex}'},
+                )
+                : t.get(
+                  'set_n',
+                  args: {'n': '${widget.match.currentSetIndex}'},
                 ),
-              ),
-              // 右パネル: ピンボタン + コントロール
-              SizedBox(
-                width: rightW,
-                child: Container(
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: _goToHistory,
+              icon: const Icon(Icons.list_alt, size: 18),
+              label: Text(t.get('match_history')),
+            ),
+          ],
+        ),
+        body: LayoutBuilder(
+          builder: (_, constraints) {
+            // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
+            final isLandscape =
+                constraints.maxWidth >= constraints.maxHeight * 1.25 &&
+                constraints.maxHeight < 500;
+            if (isLandscape) {
+              // ─── 横向きレイアウト ───────────────────────────────────
+              final rightW = (MediaQuery.of(context).size.width * 0.42).clamp(
+                200.0,
+                360.0,
+              );
+              final bottomPad = MediaQuery.of(context).padding.bottom;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 左パネル: スコア表示 + プレイヤー情報 + スコアテーブル
+                  Expanded(
+                    child: Column(
+                      children: [
+                        if (!isSelfTurn) _buildScoreSummaryRow(),
+                        _buildPlayerInfoCard(
+                          t,
+                          currentPlayer,
+                          missIcons,
+                          nameColor,
+                          reachMsg,
+                          isSelfTurn,
+                          shouldBlink,
+                          margin: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                        ),
+                        Expanded(child: _buildScoreTable(t, currentPlayer)),
+                      ],
+                    ),
+                  ),
+                  // 右パネル: ピンボタン + コントロール
+                  SizedBox(
+                    width: rightW,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(-2, 0),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                              child: LayoutBuilder(
+                                builder: (_, gc) {
+                                  final cellH = (gc.maxHeight - 6.0 * 2) / 3;
+                                  final cellW = (gc.maxWidth - 6.0 * 3) / 4;
+                                  final aspectRatio = (cellW / cellH).clamp(
+                                    0.8,
+                                    double.infinity,
+                                  );
+                                  return GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 4,
+                                          mainAxisSpacing: 6,
+                                          crossAxisSpacing: 6,
+                                          childAspectRatio: aspectRatio,
+                                        ),
+                                    itemCount: 12,
+                                    itemBuilder: (c, i) {
+                                      final num = i + 1;
+                                      return ElevatedButton(
+                                        onPressed: () {
+                                          if (isSetFinished) return;
+                                          setState(
+                                            () => selectedSkitels = [num],
+                                          );
+                                          _submitThrow();
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          foregroundColor: Colors.black,
+                                          side: BorderSide(
+                                            color: Colors.grey[300]!,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: Text(
+                                          '$num',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              8,
+                              4,
+                              8,
+                              bottomPad + 6,
+                            ),
+                            child: Column(
+                              children: [
+                                if (_hasMatchTimeLimit) ...[
+                                  _buildMatchTimerWidget(t, fontSize: 24),
+                                  const SizedBox(height: 4),
+                                ],
+                                if (_shouldShowEarlyEnd()) ...[
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: _earlyEnd,
+                                      style: ElevatedButton.styleFrom(
+                                        minimumSize: const Size(0, 36),
+                                        backgroundColor: Colors.orange,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        t.get('early_end'),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: _undo,
+                                        style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(0, 40),
+                                          foregroundColor: Colors.red,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 2,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(Icons.undo, size: 16),
+                                            Text(
+                                              ' ${t.get('undo')}',
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          if (isSetFinished) return;
+                                          setState(() => selectedSkitels = []);
+                                          _submitThrow();
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: const Size(0, 40),
+                                          backgroundColor: Colors.red[50],
+                                          foregroundColor: Colors.red,
+                                          side: const BorderSide(
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          '0(fault)',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: _resetElapsedTimer,
+                                      child: SizedBox(
+                                        width: 72,
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '$_elapsedSeconds',
+                                              style: TextStyle(
+                                                fontSize: 26,
+                                                fontFamily: 'Courier',
+                                                fontWeight: FontWeight.w900,
+                                                color:
+                                                    _elapsedSeconds >= 60
+                                                        ? Colors.red
+                                                        : Colors.black87,
+                                                letterSpacing: 1,
+                                              ),
+                                            ),
+                                            const Text(
+                                              'sec',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // ─── 縦向きレイアウト（変更なし）────────────────────────────
+            return Column(
+              children: [
+                if (!isSelfTurn) _buildScoreSummaryRow(),
+                _buildPlayerInfoCard(
+                  t,
+                  currentPlayer,
+                  missIcons,
+                  nameColor,
+                  reachMsg,
+                  isSelfTurn,
+                  shouldBlink,
+                ),
+                Expanded(child: _buildScoreTable(t, currentPlayer)),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(-2, 0))],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 4,
+                        offset: Offset(0, -2),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                          child: LayoutBuilder(builder: (_, gc) {
-                            final cellH = (gc.maxHeight - 6.0 * 2) / 3;
-                            final cellW = (gc.maxWidth - 6.0 * 3) / 4;
-                            final aspectRatio = (cellW / cellH).clamp(0.8, double.infinity);
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 4, mainAxisSpacing: 6, crossAxisSpacing: 6, childAspectRatio: aspectRatio),
-                              itemCount: 12,
-                              itemBuilder: (c, i) {
-                                final num = i + 1;
-                                return ElevatedButton(
-                                  onPressed: () {
-                                    if (isSetFinished) return;
-                                    setState(() => selectedSkitels = [num]);
-                                    _submitThrow();
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white, foregroundColor: Colors.black,
-                                      side: BorderSide(color: Colors.grey[300]!),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                      padding: EdgeInsets.zero),
-                                  child: Text('$num', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                                );
-                              },
-                            );
-                          }),
-                        ),
+                      if (_hasMatchTimeLimit) ...[
+                        _buildMatchTimerWidget(t, fontSize: 30),
+                        const SizedBox(height: 8),
+                      ],
+                      LayoutBuilder(
+                        builder: (_, gc) {
+                          // 点数ボタングリッド: 4列×3行（1-12）
+                          final maxGridH =
+                              MediaQuery.of(context).size.height * 0.392;
+                          final cellH = (maxGridH - 8.0 * 2) / 3;
+                          final cellW = (gc.maxWidth - 8.0 * 3) / 4;
+                          final aspectRatio = (cellW / cellH).clamp(
+                            1.5,
+                            double.infinity,
+                          );
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 4,
+                                  mainAxisSpacing: 8,
+                                  crossAxisSpacing: 8,
+                                  childAspectRatio: aspectRatio,
+                                ),
+                            itemCount: 12,
+                            itemBuilder: (c, i) {
+                              final num = i + 1;
+                              return ElevatedButton(
+                                onPressed: () {
+                                  if (isSetFinished) return;
+                                  setState(() => selectedSkitels = [num]);
+                                  _submitThrow();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                  side: BorderSide(color: Colors.grey[300]!),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  '$num',
+                                  style: const TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(8, 4, 8, bottomPad + 6),
-                        child: Column(children: [
-                          if (_hasMatchTimeLimit) ...[
-                            _buildMatchTimerWidget(t, fontSize: 24),
-                            const SizedBox(height: 4),
-                          ],
-                          if (_shouldShowEarlyEnd()) ...[
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _earlyEnd,
-                                style: ElevatedButton.styleFrom(minimumSize: const Size(0, 36), backgroundColor: Colors.orange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 4)),
-                                child: Text(t.get('early_end'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      if (_shouldShowEarlyEnd()) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _earlyEnd,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(0, 48),
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: Text(
+                              t.get('early_end'),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                          ],
-                          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                            Expanded(child: OutlinedButton(
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
                               onPressed: _undo,
-                              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 2)),
-                              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 16), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 13))]),
-                            )),
-                            const SizedBox(width: 6),
-                            Expanded(child: ElevatedButton(
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 50),
+                                foregroundColor: Colors.red,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.undo, size: 20),
+                                  Text(
+                                    ' ${t.get('undo')}',
+                                    style: const TextStyle(fontSize: 15),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
                               onPressed: () {
                                 if (isSetFinished) return;
                                 setState(() => selectedSkitels = []);
                                 _submitThrow();
                               },
-                              style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                              child: const Text('0(fault)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                            )),
-                            const SizedBox(width: 6),
-                            GestureDetector(
-                              onTap: _resetElapsedTimer,
-                              child: SizedBox(
-                                width: 72,
-                                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                  Text('$_elapsedSeconds', style: TextStyle(fontSize: 26, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
-                                  const Text('sec', style: TextStyle(fontSize: 9, color: Colors.grey)),
-                                ]),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 50),
+                                backgroundColor: Colors.red[50],
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red),
+                              ),
+                              child: const Text(
+                                '0(fault)',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ]),
-                        ]),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: _resetElapsedTimer,
+                            child: SizedBox(
+                              width: 100,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '$_elapsedSeconds',
+                                    style: TextStyle(
+                                      fontSize: 32,
+                                      fontFamily: 'Courier',
+                                      fontWeight: FontWeight.w900,
+                                      color:
+                                          _elapsedSeconds >= 60
+                                              ? Colors.red
+                                              : Colors.black87,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'sec',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 12),
+                      Text(
+                        t.get('app_title'),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.black26,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                     ],
                   ),
                 ),
-              ),
-            ],
-          );
-        }
-
-        // ─── 縦向きレイアウト（変更なし）────────────────────────────
-        return Column(
-          children: [
-            if (!isSelfTurn) _buildScoreSummaryRow(),
-            _buildPlayerInfoCard(t, currentPlayer, missIcons, nameColor, reachMsg, isSelfTurn, shouldBlink),
-            Expanded(child: _buildScoreTable(t, currentPlayer)),
-            Container(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
-              decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]),
-              child: Column(children: [
-                if (_hasMatchTimeLimit) ...[
-                  _buildMatchTimerWidget(t, fontSize: 30),
-                  const SizedBox(height: 8),
-                ],
-                LayoutBuilder(builder: (_, gc) {
-                  // 点数ボタングリッド: 4列×3行（1-12）
-                  final maxGridH = MediaQuery.of(context).size.height * 0.392;
-                  final cellH = (maxGridH - 8.0 * 2) / 3;
-                  final cellW = (gc.maxWidth - 8.0 * 3) / 4;
-                  final aspectRatio = (cellW / cellH).clamp(1.5, double.infinity);
-                  return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: aspectRatio), itemCount: 12, itemBuilder: (c, i) {
-                    final num = i + 1;
-                    return ElevatedButton(
-                      onPressed: () {
-                        if (isSetFinished) return;
-                        setState(() => selectedSkitels = [num]);
-                        _submitThrow();
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, side: BorderSide(color: Colors.grey[300]!), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: Text('$num', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                    );
-                  });
-                }),
-                const SizedBox(height: 12),
-                if (_shouldShowEarlyEnd()) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _earlyEnd,
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(0, 48), backgroundColor: Colors.orange, foregroundColor: Colors.white),
-                      child: Text(t.get('early_end'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                  Expanded(child: OutlinedButton(onPressed: _undo, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 4)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.undo, size: 20), Text(' ${t.get('undo')}', style: const TextStyle(fontSize: 15))]))),
-                  const SizedBox(width: 8),
-                  Expanded(child: ElevatedButton(
-                    onPressed: () {
-                      if (isSetFinished) return;
-                      setState(() => selectedSkitels = []);
-                      _submitThrow();
-                    },
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50), backgroundColor: Colors.red[50], foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                    child: const Text('0(fault)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  )),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _resetElapsedTimer,
-                    child: SizedBox(
-                      width: 100,
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text('$_elapsedSeconds', style: TextStyle(fontSize: 32, fontFamily: 'Courier', fontWeight: FontWeight.w900, color: _elapsedSeconds >= 60 ? Colors.red : Colors.black87, letterSpacing: 1)),
-                        const Text('sec', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                      ]),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 12),
-                Text(t.get('app_title'), style: const TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.w300)),
-                const SizedBox(height: 12),
-              ]),
-            ),
-          ],
-        );
-      }),
-    )); // PopScope
+              ],
+            );
+          },
+        ),
+      ),
+    ); // PopScope
   }
 
-  Widget _buildPlayerInfoCard(L10n t, Player currentPlayer, String missIcons, Color nameColor, String? reachMsg, bool isSelfTurn, bool shouldBlink, {EdgeInsets margin = const EdgeInsets.all(8), EdgeInsets padding = const EdgeInsets.all(8)}) {
-    final turnLabel = _isLastLimitedTurn
-        ? t.get('last_turn')
-        : t.get('turn_n', args: {'n': '$currentTurnInSet'});
+  Widget _buildPlayerInfoCard(
+    L10n t,
+    Player currentPlayer,
+    String missIcons,
+    Color nameColor,
+    String? reachMsg,
+    bool isSelfTurn,
+    bool shouldBlink, {
+    EdgeInsets margin = const EdgeInsets.all(8),
+    EdgeInsets padding = const EdgeInsets.all(8),
+  }) {
+    final turnLabel =
+        _isLastLimitedTurn
+            ? t.get('last_turn')
+            : t.get('turn_n', args: {'n': '$currentTurnInSet'});
     final turnColor = _isLastLimitedTurn ? Colors.orange : nameColor;
-    final nameWidget = RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: nameColor), children: [
-      TextSpan(text: '${currentPlayer.name} '),
-      TextSpan(text: '($turnLabel)', style: TextStyle(color: turnColor)),
-      TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
-    ]));
+    final nameWidget = RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: nameColor,
+        ),
+        children: [
+          TextSpan(text: '${currentPlayer.name} '),
+          TextSpan(text: '($turnLabel)', style: TextStyle(color: turnColor)),
+          TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
+        ],
+      ),
+    );
     return Container(
       width: double.infinity,
       padding: padding,
-      decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.blue[100]!), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.blue[100]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
       margin: margin,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isSelfTurn)
-            Text(t.get('consecutive_success', args: {'n': '${widget.match.consecutiveSuccesses}'}),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+            Text(
+              t.get(
+                'consecutive_success',
+                args: {'n': '${widget.match.consecutiveSuccesses}'},
+              ),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
           const SizedBox(height: 6),
           if (shouldBlink)
             AnimatedBuilder(
               animation: _blinkOpacity,
-              builder: (_, child) => Opacity(opacity: _blinkOpacity.value, child: child),
+              builder:
+                  (_, child) =>
+                      Opacity(opacity: _blinkOpacity.value, child: child),
               child: nameWidget,
             )
           else
             nameWidget,
-          if (reachMsg != null) Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(reachMsg, style: const TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold))),
+          if (reachMsg != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                reachMsg,
+                style: const TextStyle(
+                  color: Colors.blue,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildScoreTable(L10n t, Player currentPlayer) {
-    return LayoutBuilder(builder: (ctx, constraints) {
-      const turnColW = 44.0;
-      const dtHMargin = 24.0;
-      const containerMargin = 16.0;
-      const colSpacing = 10.0;
-      final numPlayers = widget.match.players.length;
-      final available = constraints.maxWidth - containerMargin;
-      final playerColW = ((available - 2 * dtHMargin - turnColW - colSpacing * numPlayers) / numPlayers).clamp(60.0, 200.0);
-      final cellW = (playerColW / 2).floorToDouble();
-      final headerNameSize = (cellW * 0.14).clamp(9.0, 13.0);
-      final headerSubSize = (cellW * 0.11).clamp(8.0, 10.0);
-      return Container(margin: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!)),
-        child: SingleChildScrollView(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-          child: DataTable(columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 30, dataRowMaxHeight: 40, border: TableBorder.all(color: Colors.grey[300]!), headingRowColor: WidgetStateProperty.all(const Color(0xFFE3F2FD)),
-            columns: [DataColumn(label: SizedBox(width: turnColW, child: Text(t.get('turn_label')))), ...widget.match.players.expand((p) {
-              final isCurrentCol = p == currentPlayer;
-              final Color colNameColor;
-              if (p.isDisqualified) {
-                colNameColor = Colors.grey;
-              } else if (isCurrentCol) {
-                colNameColor = p.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
-              } else {
-                colNameColor = Colors.black;
-              }
-              return [DataColumn(label: Container(
-                width: playerColW,
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(p.name, style: TextStyle(fontSize: headerNameSize, color: colNameColor, fontWeight: FontWeight.bold)),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                    Text(t.get('points'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
-                    Text(t.get('total'), style: TextStyle(fontSize: headerSubSize, color: p.isDisqualified ? Colors.grey : null)),
-                  ]),
-                ]),
-              ))];
-            })],
-            rows: List.generate(currentTurnInSet, (i) {
-              int turn = currentTurnInSet - i;
-              final isCurrent = i == 0;
-              return DataRow(
-                color: isCurrent ? WidgetStateProperty.all(const Color(0xFFFFF9C4)) : null,
-                cells: [DataCell(Center(child: Text('$turn'))), ...widget.match.players.expand((p) {
-                  int score = 0, total = 0;
-                  bool hasScore = p.scoreHistory.length >= turn;
-                  final isHyakinSet2 = widget.match.type == MatchType.hyakin && widget.match.currentSetIndex == 2;
-                  if (hasScore) {
-                    score = p.scoreHistory[turn - 1];
-                    if (isHyakinSet2) {
-                      final pSet1 = p.setFinalScores.isNotEmpty ? p.setFinalScores[0] : 0;
-                      final pTarget = 100 - pSet1;
-                      final pBurst = 75 - pSet1;
-                      int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > pTarget) tmp = pBurst; }
-                      total = pSet1 + tmp;
-                    } else {
-                      int tmp = 0; for (int k = 0; k < turn; k++) { tmp += p.scoreHistory[k]; if (tmp > 50) tmp = 25; }
-                      total = tmp;
-                    }
-                  }
-                  final fontSize = (cellW * 0.35).clamp(11.0, isCurrent ? 17.0 : 15.0);
-                  final isFault = hasScore && score == 0;
-                  final isNextThrow = isCurrent && p == currentPlayer && !hasScore;
-                  final Color nextThrowBorderColor;
-                  if (p.consecutiveMisses >= 2) {
-                    nextThrowBorderColor = Colors.red;
-                  } else if (p.consecutiveMisses == 1) {
-                    nextThrowBorderColor = Colors.orange;
-                  } else {
-                    nextThrowBorderColor = Colors.yellow[700]!;
-                  }
-                  final Color? textColor = p.isDisqualified ? Colors.grey : (isFault ? Colors.red : null);
-                  final Color totalTextColor = p.isDisqualified ? Colors.grey : Colors.black;
-                  return [DataCell(Row(children: [
-                    Container(
-                      width: cellW, alignment: Alignment.center,
-                      decoration: isNextThrow ? BoxDecoration(border: Border.all(color: nextThrowBorderColor, width: 2)) : null,
-                      child: Text(isFault ? '―' : (hasScore ? '$score' : ''),
-                          style: TextStyle(fontSize: fontSize, color: textColor, fontWeight: isFault ? FontWeight.bold : null)),
-                    ),
-                    Container(width: cellW, alignment: Alignment.center, color: const Color(0xFFE3F2FD),
-                        child: Text(hasScore ? '$total' : '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize, color: totalTextColor))),
-                  ]))];
-                })]);
-            }),
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        const turnColW = 44.0;
+        const dtHMargin = 24.0;
+        const containerMargin = 16.0;
+        const colSpacing = 10.0;
+        final numPlayers = widget.match.players.length;
+        final available = constraints.maxWidth - containerMargin;
+        final playerColW = ((available -
+                    2 * dtHMargin -
+                    turnColW -
+                    colSpacing * numPlayers) /
+                numPlayers)
+            .clamp(60.0, 200.0);
+        final cellW = (playerColW / 2).floorToDouble();
+        final headerNameSize = (cellW * 0.14).clamp(9.0, 13.0);
+        final headerSubSize = (cellW * 0.11).clamp(8.0, 10.0);
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
           ),
-        )));
-    });
+          child: SingleChildScrollView(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 10,
+                headingRowHeight: 40,
+                dataRowMinHeight: 30,
+                dataRowMaxHeight: 40,
+                border: TableBorder.all(color: Colors.grey[300]!),
+                headingRowColor: WidgetStateProperty.all(
+                  const Color(0xFFE3F2FD),
+                ),
+                columns: [
+                  DataColumn(
+                    label: SizedBox(
+                      width: turnColW,
+                      child: Text(t.get('turn_label')),
+                    ),
+                  ),
+                  ...widget.match.players.expand((p) {
+                    final isCurrentCol = p == currentPlayer;
+                    final Color colNameColor;
+                    if (p.isDisqualified) {
+                      colNameColor = Colors.grey;
+                    } else if (isCurrentCol) {
+                      colNameColor =
+                          p.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
+                    } else {
+                      colNameColor = Colors.black;
+                    }
+                    return [
+                      DataColumn(
+                        label: Container(
+                          width: playerColW,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                p.name,
+                                style: TextStyle(
+                                  fontSize: headerNameSize,
+                                  color: colNameColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  Text(
+                                    t.get('points'),
+                                    style: TextStyle(
+                                      fontSize: headerSubSize,
+                                      color:
+                                          p.isDisqualified ? Colors.grey : null,
+                                    ),
+                                  ),
+                                  Text(
+                                    t.get('total'),
+                                    style: TextStyle(
+                                      fontSize: headerSubSize,
+                                      color:
+                                          p.isDisqualified ? Colors.grey : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ];
+                  }),
+                ],
+                rows: List.generate(currentTurnInSet, (i) {
+                  int turn = currentTurnInSet - i;
+                  final isCurrent = i == 0;
+                  return DataRow(
+                    color:
+                        isCurrent
+                            ? WidgetStateProperty.all(const Color(0xFFFFF9C4))
+                            : null,
+                    cells: [
+                      DataCell(Center(child: Text('$turn'))),
+                      ...widget.match.players.expand((p) {
+                        int score = 0, total = 0;
+                        bool hasScore = p.scoreHistory.length >= turn;
+                        final isHyakinSet2 =
+                            widget.match.type == MatchType.hyakin &&
+                            widget.match.currentSetIndex == 2;
+                        if (hasScore) {
+                          score = p.scoreHistory[turn - 1];
+                          if (isHyakinSet2) {
+                            final pSet1 =
+                                p.setFinalScores.isNotEmpty
+                                    ? p.setFinalScores[0]
+                                    : 0;
+                            final pTarget = 100 - pSet1;
+                            final pBurst = 75 - pSet1;
+                            int tmp = 0;
+                            for (int k = 0; k < turn; k++) {
+                              tmp += p.scoreHistory[k];
+                              if (tmp > pTarget) tmp = pBurst;
+                            }
+                            total = pSet1 + tmp;
+                          } else {
+                            int tmp = 0;
+                            for (int k = 0; k < turn; k++) {
+                              tmp += p.scoreHistory[k];
+                              if (tmp > 50) tmp = 25;
+                            }
+                            total = tmp;
+                          }
+                        }
+                        final fontSize = (cellW * 0.35).clamp(
+                          11.0,
+                          isCurrent ? 17.0 : 15.0,
+                        );
+                        final isFault = hasScore && score == 0;
+                        final isNextThrow =
+                            isCurrent && p == currentPlayer && !hasScore;
+                        final Color nextThrowBorderColor;
+                        if (p.consecutiveMisses >= 2) {
+                          nextThrowBorderColor = Colors.red;
+                        } else if (p.consecutiveMisses == 1) {
+                          nextThrowBorderColor = Colors.orange;
+                        } else {
+                          nextThrowBorderColor = Colors.yellow[700]!;
+                        }
+                        final Color? textColor =
+                            p.isDisqualified
+                                ? Colors.grey
+                                : (isFault ? Colors.red : null);
+                        final Color totalTextColor =
+                            p.isDisqualified ? Colors.grey : Colors.black;
+                        return [
+                          DataCell(
+                            Row(
+                              children: [
+                                Container(
+                                  width: cellW,
+                                  alignment: Alignment.center,
+                                  decoration:
+                                      isNextThrow
+                                          ? BoxDecoration(
+                                            border: Border.all(
+                                              color: nextThrowBorderColor,
+                                              width: 2,
+                                            ),
+                                          )
+                                          : null,
+                                  child: Text(
+                                    isFault ? '―' : (hasScore ? '$score' : ''),
+                                    style: TextStyle(
+                                      fontSize: fontSize,
+                                      color: textColor,
+                                      fontWeight:
+                                          isFault ? FontWeight.bold : null,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: cellW,
+                                  alignment: Alignment.center,
+                                  color: const Color(0xFFE3F2FD),
+                                  child: Text(
+                                    hasScore ? '$total' : '',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: fontSize,
+                                      color: totalTextColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ];
+                      }),
+                    ],
+                  );
+                }),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -2077,21 +3387,23 @@ class SetStarsDisplay extends StatelessWidget {
     final List<Widget> children = [];
     for (int i = 0; i < groups; i++) {
       if (i > 0) children.add(const SizedBox(width: 2));
-      children.add(Stack(
-        alignment: Alignment.center,
-        children: const [
-          Icon(Icons.star, size: 30, color: Colors.amber),
-          Text(
-            '5',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: [Shadow(blurRadius: 1, color: Colors.black54)],
+      children.add(
+        Stack(
+          alignment: Alignment.center,
+          children: const [
+            Icon(Icons.star, size: 30, color: Colors.amber),
+            Text(
+              '5',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                shadows: [Shadow(blurRadius: 1, color: Colors.black54)],
+              ),
             ),
-          ),
-        ],
-      ));
+          ],
+        ),
+      );
     }
     for (int i = 0; i < remaining; i++) {
       if (groups > 0 || i > 0) children.add(const SizedBox(width: 1));
@@ -2111,7 +3423,18 @@ class HistoryPage extends StatelessWidget {
   final bool isSelf6Turn;
   final int consecutiveSuccesses;
   final bool isHyakin;
-  const HistoryPage({super.key, this.match, required this.sets, this.startTime, this.players, this.winnerName, this.isSelf5Turn = false, this.isSelf6Turn = false, this.consecutiveSuccesses = 0, this.isHyakin = false});
+  const HistoryPage({
+    super.key,
+    this.match,
+    required this.sets,
+    this.startTime,
+    this.players,
+    this.winnerName,
+    this.isSelf5Turn = false,
+    this.isSelf6Turn = false,
+    this.consecutiveSuccesses = 0,
+    this.isHyakin = false,
+  });
 
   Map<String, int> _finalSetWins(List<Player> allPlayers) {
     final wins = <String, int>{for (var p in allPlayers) p.id: 0};
@@ -2120,11 +3443,17 @@ class HistoryPage extends StatelessWidget {
       String? winnerId;
       // 100均モードのSet2: 合計(set1+set2)==100 で勝利
       if (isHyakin && set.setNumber == 2 && sets.length >= 2) {
-        final set1 = sets.firstWhere((s) => s.setNumber == 1, orElse: () => set);
+        final set1 = sets.firstWhere(
+          (s) => s.setNumber == 1,
+          orElse: () => set,
+        );
         for (final p in allPlayers) {
           final s1 = set1.finalCumulativeScores[p.id] ?? 0;
           final s2 = set.finalCumulativeScores[p.id] ?? 0;
-          if (s1 + s2 == 100) { winnerId = p.id; break; }
+          if (s1 + s2 == 100) {
+            winnerId = p.id;
+            break;
+          }
         }
       } else {
         // モルックの勝利条件は50点ちょうど。サバイバー自動完了も50点に設定されるため、
@@ -2162,7 +3491,8 @@ class HistoryPage extends StatelessWidget {
 
     for (final set in sets) {
       for (final p in allPlayers) {
-        totals[p.id] = (totals[p.id] ?? 0) + (set.finalCumulativeScores[p.id] ?? 0);
+        totals[p.id] =
+            (totals[p.id] ?? 0) + (set.finalCumulativeScores[p.id] ?? 0);
       }
     }
     return totals;
@@ -2180,9 +3510,32 @@ class HistoryPage extends StatelessWidget {
       return RichText(
         text: TextSpan(
           children: [
-            TextSpan(text: '${wins[a.id] ?? 0}', style: TextStyle(fontSize: 16, fontWeight: (wins[a.id] ?? 0) == maxWins && maxWins > 0 ? FontWeight.w800 : FontWeight.w500, color: Colors.indigo)),
-            const TextSpan(text: ' - ', style: TextStyle(fontSize: 16, color: Colors.black87)),
-            TextSpan(text: '${wins[b.id] ?? 0}', style: TextStyle(fontSize: 16, fontWeight: (wins[b.id] ?? 0) == maxWins && maxWins > 0 ? FontWeight.w800 : FontWeight.w500, color: Colors.indigo)),
+            TextSpan(
+              text: '${wins[a.id] ?? 0}',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight:
+                    (wins[a.id] ?? 0) == maxWins && maxWins > 0
+                        ? FontWeight.w800
+                        : FontWeight.w500,
+                color: Colors.indigo,
+              ),
+            ),
+            const TextSpan(
+              text: ' - ',
+              style: TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+            TextSpan(
+              text: '${wins[b.id] ?? 0}',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight:
+                    (wins[b.id] ?? 0) == maxWins && maxWins > 0
+                        ? FontWeight.w800
+                        : FontWeight.w500,
+                color: Colors.indigo,
+              ),
+            ),
           ],
         ),
       );
@@ -2190,15 +3543,35 @@ class HistoryPage extends StatelessWidget {
 
     return Wrap(
       spacing: 10,
-      children: allPlayers
-          .map((p) => Text('${p.name}:${wins[p.id] ?? 0}', style: TextStyle(fontSize: 14, fontWeight: (wins[p.id] ?? 0) == maxWins && maxWins > 0 ? FontWeight.w800 : FontWeight.w500)))
-          .toList(),
+      children:
+          allPlayers
+              .map(
+                (p) => Text(
+                  '${p.name}:${wins[p.id] ?? 0}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                        (wins[p.id] ?? 0) == maxWins && maxWins > 0
+                            ? FontWeight.w800
+                            : FontWeight.w500,
+                  ),
+                ),
+              )
+              .toList(),
     );
   }
 
-  String _resolveWinnerName(BuildContext context, List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+  String _resolveWinnerName(
+    BuildContext context,
+    List<Player> allPlayers,
+    Map<String, int> totals,
+    Map<String, int> wins,
+  ) {
     if (winnerName == 'DRAW') return L10n.of(context).get('match_draw');
-    if (winnerName != null && winnerName!.trim().isNotEmpty && winnerName != 'None') return winnerName!;
+    if (winnerName != null &&
+        winnerName!.trim().isNotEmpty &&
+        winnerName != 'None')
+      return winnerName!;
     if (match?.matchWinner != null) return match!.matchWinner!.name;
 
     final sorted = List<Player>.from(allPlayers);
@@ -2212,7 +3585,11 @@ class HistoryPage extends StatelessWidget {
     return sorted.isNotEmpty ? sorted.first.name : '???';
   }
 
-  Widget _buildHistoryTotalScore(List<Player> allPlayers, Map<String, int> totals, Map<String, int> wins) {
+  Widget _buildHistoryTotalScore(
+    List<Player> allPlayers,
+    Map<String, int> totals,
+    Map<String, int> wins,
+  ) {
     const scoreStyle = TextStyle(fontSize: 17, fontWeight: FontWeight.w800);
 
     Widget playerEntry(Player p) => Row(
@@ -2260,79 +3637,207 @@ class HistoryPage extends StatelessWidget {
     final visibleSets = sets.where((s) => s.hasContent).toList();
     return Scaffold(
       appBar: AppBar(title: Text(t.get('history_title'))),
-      body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('${t.get('app_title')} Result', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-        Text('Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}', style: const TextStyle(color: Colors.grey)),
-        const Divider(height: 30),
-        if (isSelf5Turn || isSelf6Turn)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            color: const Color(0xFFE3F2FD),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(isSelf5Turn ? t.get('self5turn_mode') : t.get('self6turn_mode'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text(t.get('consecutive_success', args: {'n': '$consecutiveSuccesses'}),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
-            ]),
-          )
-        else
-          Builder(builder: (context) {
-            final wins = _finalSetWins(allPlayers);
-            final totals = _finalTotals(allPlayers);
-            final winner = _resolveWinnerName(context, allPlayers, totals, wins);
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              color: const Color(0xFFE3F2FD),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Winner : $winner', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  _buildHistoryTotalScore(allPlayers, totals, wins),
-                ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${t.get('app_title')} Result',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.blueAccent,
               ),
-            );
-          }),
-        const SizedBox(height: 12),
-        for (var set in visibleSets) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            color: const Color(0xFFE3F2FD),
-            child: Text(
-              (isSelf5Turn || isSelf6Turn)
-                ? t.get('self5turn_challenge_n', args: {'n': '${set.setNumber}'})
-                : t.get('set_n', args: {'n': '${set.setNumber}'}),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
-          _buildSetTable(context, set, allPlayers),
-          const SizedBox(height: 20),
-        ],
-      ])),
+            ),
+            Text(
+              'Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const Divider(height: 30),
+            if (isSelf5Turn || isSelf6Turn)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
+                color: const Color(0xFFE3F2FD),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSelf5Turn
+                          ? t.get('self5turn_mode')
+                          : t.get('self6turn_mode'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      t.get(
+                        'consecutive_success',
+                        args: {'n': '$consecutiveSuccesses'},
+                      ),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Builder(
+                builder: (context) {
+                  final wins = _finalSetWins(allPlayers);
+                  final totals = _finalTotals(allPlayers);
+                  final winner = _resolveWinnerName(
+                    context,
+                    allPlayers,
+                    totals,
+                    wins,
+                  );
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 12,
+                    ),
+                    color: const Color(0xFFE3F2FD),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Winner : $winner',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _buildHistoryTotalScore(allPlayers, totals, wins),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 12),
+            for (var set in visibleSets) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
+                color: const Color(0xFFE3F2FD),
+                child: Text(
+                  (isSelf5Turn || isSelf6Turn)
+                      ? t.get(
+                        'self5turn_challenge_n',
+                        args: {'n': '${set.setNumber}'},
+                      )
+                      : t.get('set_n', args: {'n': '${set.setNumber}'}),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              _buildSetTable(context, set, allPlayers),
+              const SizedBox(height: 20),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildSetTable(BuildContext context, SetRecord set, List<Player> allPlayers) {
+  Widget _buildSetTable(
+    BuildContext context,
+    SetRecord set,
+    List<Player> allPlayers,
+  ) {
     final t = L10n.of(context);
     List<Player> displayOrder = [];
     for (var id in set.playerOrder) {
-      final p = allPlayers.firstWhere((player) => player.id == id, orElse: () => Player(id: id, name: "???", initialOrder: 0));
+      final p = allPlayers.firstWhere(
+        (player) => player.id == id,
+        orElse: () => Player(id: id, name: "???", initialOrder: 0),
+      );
       displayOrder.add(p);
     }
-    return SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(columnSpacing: 20, headingRowHeight: 40,
-      columns: [DataColumn(label: Text(t.get('turn_label'))), ...displayOrder.map((p) => DataColumn(label: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))))],
-      rows: [
-        ...set.turns.map((turn) => DataRow(cells: [DataCell(Text('${turn.turnNumber}')), ...displayOrder.map((p) {
-          bool isStarter = p.id == set.starterPlayerId;
-          bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
-          String txt = turn.scores.containsKey(p.id) ? (isSys ? "-" : "${turn.scores[p.id]}") : "";
-          return DataCell(Text(txt, style: TextStyle(fontWeight: isStarter ? FontWeight.bold : FontWeight.normal, fontSize: 16)));
-        })])),
-        DataRow(color: WidgetStateProperty.all(const Color(0xFFFFF8E1)), cells: [DataCell(Text(t.get('total'), style: const TextStyle(fontWeight: FontWeight.bold))), ...displayOrder.map((p) => DataCell(Text('${set.finalCumulativeScores[p.id] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16))))]),
-      ],
-    ));
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columnSpacing: 20,
+        headingRowHeight: 40,
+        columns: [
+          DataColumn(label: Text(t.get('turn_label'))),
+          ...displayOrder.map(
+            (p) => DataColumn(
+              label: Text(
+                p.name,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+        rows: [
+          ...set.turns.map(
+            (turn) => DataRow(
+              cells: [
+                DataCell(Text('${turn.turnNumber}')),
+                ...displayOrder.map((p) {
+                  bool isStarter = p.id == set.starterPlayerId;
+                  bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
+                  String txt =
+                      turn.scores.containsKey(p.id)
+                          ? (isSys ? "-" : "${turn.scores[p.id]}")
+                          : "";
+                  return DataCell(
+                    Text(
+                      txt,
+                      style: TextStyle(
+                        fontWeight:
+                            isStarter ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 16,
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          DataRow(
+            color: WidgetStateProperty.all(const Color(0xFFFFF8E1)),
+            cells: [
+              DataCell(
+                Text(
+                  t.get('total'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              ...displayOrder.map(
+                (p) => DataCell(
+                  Text(
+                    '${set.finalCumulativeScores[p.id] ?? 0}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -2350,10 +3855,17 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
   static const int _pageSize = 50;
 
   static bool _isSelfTurnRecord(Map<String, dynamic> data) =>
-      data['matchType'] == 'MatchType.self5Turn' || data['matchType'] == 'MatchType.self6Turn';
+      data['matchType'] == 'MatchType.self5Turn' ||
+      data['matchType'] == 'MatchType.self6Turn';
 
-  void _setFilter(String v) => setState(() { _filter = v; _currentPage = 0; });
-  void _setSort(String v) => setState(() { _selfTurnSort = v; _currentPage = 0; });
+  void _setFilter(String v) => setState(() {
+    _filter = v;
+    _currentPage = 0;
+  });
+  void _setSort(String v) => setState(() {
+    _selfTurnSort = v;
+    _currentPage = 0;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2361,35 +3873,65 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
     return Scaffold(
       appBar: AppBar(title: Text(t.get('match_history'))),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('scores').where('appUserId', isEqualTo: widget.uid).orderBy('startTime', descending: true).snapshots(),
+        stream:
+            FirebaseFirestore.instance
+                .collection('scores')
+                .where('appUserId', isEqualTo: widget.uid)
+                .orderBy('startTime', descending: true)
+                .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             final error = snapshot.error.toString();
-            if (error.contains("FAILED_PRECONDITION") || error.contains("index")) return Center(child: Padding(padding: const EdgeInsets.all(24.0), child: Text(t.get('loading_history'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey))));
+            if (error.contains("FAILED_PRECONDITION") ||
+                error.contains("index"))
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Text(
+                    t.get('loading_history'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+              );
             return Center(child: Text(t.get('error', args: {'msg': error})));
           }
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting)
+            return const Center(child: CircularProgressIndicator());
           final allDocs = snapshot.data!.docs;
           if (allDocs.isEmpty) return Center(child: Text(t.get('no_history')));
 
-          final hasSelf5Turn = allDocs.any((d) => (d.data() as Map)['matchType'] == 'MatchType.self5Turn');
-          final hasSelf6Turn = allDocs.any((d) => (d.data() as Map)['matchType'] == 'MatchType.self6Turn');
-          final hasNormal = allDocs.any((d) => !_isSelfTurnRecord(d.data() as Map<String, dynamic>));
-          
-          final selfTurnDocCount = (hasSelf5Turn ? 1 : 0) + (hasSelf6Turn ? 1 : 0);
+          final hasSelf5Turn = allDocs.any(
+            (d) => (d.data() as Map)['matchType'] == 'MatchType.self5Turn',
+          );
+          final hasSelf6Turn = allDocs.any(
+            (d) => (d.data() as Map)['matchType'] == 'MatchType.self6Turn',
+          );
+          final hasNormal = allDocs.any(
+            (d) => !_isSelfTurnRecord(d.data() as Map<String, dynamic>),
+          );
+
+          final selfTurnDocCount =
+              (hasSelf5Turn ? 1 : 0) + (hasSelf6Turn ? 1 : 0);
           final showFilter = (selfTurnDocCount + (hasNormal ? 1 : 0)) > 1;
-          final showingSelfTurn = _filter == 'self5Turn' || _filter == 'self6Turn' || (!showFilter && (hasSelf5Turn || hasSelf6Turn));
+          final showingSelfTurn =
+              _filter == 'self5Turn' ||
+              _filter == 'self6Turn' ||
+              (!showFilter && (hasSelf5Turn || hasSelf6Turn));
 
           // Filter
-          var filtered = showFilter && _filter != 'all'
-              ? allDocs.where((d) {
-                  final data = d.data() as Map<String, dynamic>;
-                  final mType = data['matchType'];
-                  if (_filter == 'self5Turn') return mType == 'MatchType.self5Turn';
-                  if (_filter == 'self6Turn') return mType == 'MatchType.self6Turn';
-                  return !_isSelfTurnRecord(data);
-                }).toList()
-              : List.from(allDocs);
+          var filtered =
+              showFilter && _filter != 'all'
+                  ? allDocs.where((d) {
+                    final data = d.data() as Map<String, dynamic>;
+                    final mType = data['matchType'];
+                    if (_filter == 'self5Turn')
+                      return mType == 'MatchType.self5Turn';
+                    if (_filter == 'self6Turn')
+                      return mType == 'MatchType.self6Turn';
+                    return !_isSelfTurnRecord(data);
+                  }).toList()
+                  : List.from(allDocs);
 
           // Sort for selfTurn view
           if (showingSelfTurn) {
@@ -2401,8 +3943,10 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
               });
             } else if (_selfTurnSort == 'streak_desc') {
               filtered.sort((a, b) {
-                final sa = ((a.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
-                final sb = ((b.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
+                final sa =
+                    ((a.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
+                final sb =
+                    ((b.data() as Map)['consecutiveSuccesses'] as int?) ?? 0;
                 return sb.compareTo(sa);
               });
             }
@@ -2411,108 +3955,231 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
 
           // Pagination
           final totalDocs = filtered.length;
-          final totalPages = (totalDocs / _pageSize).ceil().clamp(1, double.maxFinite).toInt();
+          final totalPages =
+              (totalDocs / _pageSize).ceil().clamp(1, double.maxFinite).toInt();
           final safePage = _currentPage.clamp(0, totalPages - 1);
           final pageStart = safePage * _pageSize;
           final pageEnd = (pageStart + _pageSize).clamp(0, totalDocs);
           final pageDocs = filtered.sublist(pageStart, pageEnd);
 
-          return Column(children: [
-            if (showFilter || showingSelfTurn)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Row(children: [
-                  if (showFilter)
-                    Expanded(child: DropdownButtonFormField<String>(
-                      value: _filter,
-                      decoration: InputDecoration(labelText: t.get('match_history_filter'), isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                      items: [
-                        DropdownMenuItem(value: 'all', child: Text(t.get('filter_all'))),
-                        if (hasNormal) DropdownMenuItem(value: 'normal', child: Text(t.get('filter_normal'))),
-                        if (hasSelf5Turn) DropdownMenuItem(value: 'self5Turn', child: Text(t.get('filter_self5turn'))),
-                        if (hasSelf6Turn) DropdownMenuItem(value: 'self6Turn', child: Text(t.get('filter_self6turn'))),
-                      ],
-                      onChanged: (v) => _setFilter(v!),
-                    )),
-                  if (showFilter && showingSelfTurn) const SizedBox(width: 8),
-                  if (showingSelfTurn)
-                    Expanded(child: DropdownButtonFormField<String>(
-                      value: _selfTurnSort,
-                      decoration: InputDecoration(labelText: t.get('match_history_sort'), isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                      items: [
-                        DropdownMenuItem(value: 'date_desc', child: Text(t.get('sort_date_desc'))),
-                        DropdownMenuItem(value: 'date_asc', child: Text(t.get('sort_date_asc'))),
-                        DropdownMenuItem(value: 'streak_desc', child: Text(t.get('sort_streak_desc'))),
-                      ],
-                      onChanged: (v) => _setSort(v!),
-                    )),
-                ]),
+          return Column(
+            children: [
+              if (showFilter || showingSelfTurn)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Row(
+                    children: [
+                      if (showFilter)
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _filter,
+                            decoration: InputDecoration(
+                              labelText: t.get('match_history_filter'),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: [
+                              DropdownMenuItem(
+                                value: 'all',
+                                child: Text(t.get('filter_all')),
+                              ),
+                              if (hasNormal)
+                                DropdownMenuItem(
+                                  value: 'normal',
+                                  child: Text(t.get('filter_normal')),
+                                ),
+                              if (hasSelf5Turn)
+                                DropdownMenuItem(
+                                  value: 'self5Turn',
+                                  child: Text(t.get('filter_self5turn')),
+                                ),
+                              if (hasSelf6Turn)
+                                DropdownMenuItem(
+                                  value: 'self6Turn',
+                                  child: Text(t.get('filter_self6turn')),
+                                ),
+                            ],
+                            onChanged: (v) => _setFilter(v!),
+                          ),
+                        ),
+                      if (showFilter && showingSelfTurn)
+                        const SizedBox(width: 8),
+                      if (showingSelfTurn)
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _selfTurnSort,
+                            decoration: InputDecoration(
+                              labelText: t.get('match_history_sort'),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: [
+                              DropdownMenuItem(
+                                value: 'date_desc',
+                                child: Text(t.get('sort_date_desc')),
+                              ),
+                              DropdownMenuItem(
+                                value: 'date_asc',
+                                child: Text(t.get('sort_date_asc')),
+                              ),
+                              DropdownMenuItem(
+                                value: 'streak_desc',
+                                child: Text(t.get('sort_streak_desc')),
+                              ),
+                            ],
+                            onChanged: (v) => _setSort(v!),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: pageDocs.length,
+                  itemBuilder: (context, index) {
+                    final data = pageDocs[index].data() as Map<String, dynamic>;
+                    final start = (data['startTime'] as Timestamp).toDate();
+                    final playerNames = (data['players'] as List)
+                        .map((p) => p['name'])
+                        .join(", ");
+                    if (_isSelfTurnRecord(data)) {
+                      final isS6 = data['matchType'] == 'MatchType.self6Turn';
+                      final streak = data['consecutiveSuccesses'] ?? 0;
+                      return ListTile(
+                        leading: Icon(
+                          Icons.flag,
+                          color: isS6 ? Colors.orange : Colors.green,
+                        ),
+                        title: Text(
+                          "${DateFormat('MM/dd HH:mm').format(start)} ${isS6 ? t.get('self6turn_mode') : t.get('self5turn_mode')}",
+                        ),
+                        subtitle: Text(
+                          "${t.get('consecutive_success', args: {'n': '$streak'})} / $playerNames",
+                        ),
+                        onTap: () => _viewDetail(context, data, start),
+                      );
+                    }
+                    final winner = data['winner'] ?? "???";
+                    final isDraw = winner == 'DRAW';
+                    return ListTile(
+                      leading: Icon(
+                        isDraw ? Icons.handshake : Icons.cloud_done,
+                        color: isDraw ? Colors.orange : Colors.blue,
+                      ),
+                      title: Text(
+                        "${DateFormat('MM/dd HH:mm').format(start)} ${isDraw ? t.get('match_draw') : 'Win: $winner'}",
+                      ),
+                      subtitle: Text("Players: $playerNames"),
+                      onTap: () => _viewDetail(context, data, start),
+                    );
+                  },
+                ),
               ),
-            Expanded(child: ListView.builder(itemCount: pageDocs.length, itemBuilder: (context, index) {
-              final data = pageDocs[index].data() as Map<String, dynamic>;
-              final start = (data['startTime'] as Timestamp).toDate();
-              final playerNames = (data['players'] as List).map((p) => p['name']).join(", ");
-              if (_isSelfTurnRecord(data)) {
-                final isS6 = data['matchType'] == 'MatchType.self6Turn';
-                final streak = data['consecutiveSuccesses'] ?? 0;
-                return ListTile(
-                  leading: Icon(Icons.flag, color: isS6 ? Colors.orange : Colors.green),
-                  title: Text("${DateFormat('MM/dd HH:mm').format(start)} ${isS6 ? t.get('self6turn_mode') : t.get('self5turn_mode')}"),
-                  subtitle: Text("${t.get('consecutive_success', args: {'n': '$streak'})} / $playerNames"),
-                  onTap: () => _viewDetail(context, data, start),
-                );
-              }
-              final winner = data['winner'] ?? "???";
-              final isDraw = winner == 'DRAW';
-              return ListTile(
-                leading: Icon(isDraw ? Icons.handshake : Icons.cloud_done, color: isDraw ? Colors.orange : Colors.blue),
-                title: Text("${DateFormat('MM/dd HH:mm').format(start)} ${isDraw ? t.get('match_draw') : 'Win: $winner'}"),
-                subtitle: Text("Players: $playerNames"),
-                onTap: () => _viewDetail(context, data, start),
-              );
-            })),
-            if (totalPages > 1)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  IconButton(icon: const Icon(Icons.chevron_left), onPressed: safePage > 0 ? () => setState(() => _currentPage = safePage - 1) : null),
-                  Text('${safePage + 1} / $totalPages', style: const TextStyle(fontSize: 14)),
-                  IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages - 1 ? () => setState(() => _currentPage = safePage + 1) : null),
-                ]),
-              ),
-          ]);
+              if (totalPages > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        onPressed:
+                            safePage > 0
+                                ? () =>
+                                    setState(() => _currentPage = safePage - 1)
+                                : null,
+                      ),
+                      Text(
+                        '${safePage + 1} / $totalPages',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed:
+                            safePage < totalPages - 1
+                                ? () =>
+                                    setState(() => _currentPage = safePage + 1)
+                                : null,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
         },
       ),
     );
   }
 
-  void _viewDetail(BuildContext context, Map<String, dynamic> data, DateTime start) {
+  void _viewDetail(
+    BuildContext context,
+    Map<String, dynamic> data,
+    DateTime start,
+  ) {
     final t = L10n.of(context);
     try {
-      final List<Player> players = (data['players'] as List).map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0)).toList();
+      final List<Player> players =
+          (data['players'] as List)
+              .map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0))
+              .toList();
       final mType = data['matchType'] ?? '';
       final isSelf5Turn = mType == 'MatchType.self5Turn';
       final isSelf6Turn = mType == 'MatchType.self6Turn';
       final isSelfTurnMode = isSelf5Turn || isSelf6Turn;
       final consecutiveSuccesses = data['consecutiveSuccesses'] as int? ?? 0;
-      final List<SetRecord> sets = (data['history'] as List).map((s) {
-        final playerOrder = isSelfTurnMode ? players.map((p) => p.id).toList() : List<String>.from(s['playerOrder'] ?? []);
-        final starterId = isSelfTurnMode ? players.first.id : (s['starterId'] ?? '');
-        final set = SetRecord(s['setNumber'], starterId, playerOrder);
-        (s['turns'] as List).forEach((t) => set.turns.add(TurnRecord(t['turnNumber'], Map<String, int>.from(t['scores']), systemCalculated: Set<String>.from(t['systemCalculated'] ?? []))));
-        (s['finalScores'] as Map).forEach((k, v) => set.finalCumulativeScores[k] = v as int);
-        return set;
-      }).toList();
+      final List<SetRecord> sets =
+          (data['history'] as List).map((s) {
+            final playerOrder =
+                isSelfTurnMode
+                    ? players.map((p) => p.id).toList()
+                    : List<String>.from(s['playerOrder'] ?? []);
+            final starterId =
+                isSelfTurnMode ? players.first.id : (s['starterId'] ?? '');
+            final set = SetRecord(s['setNumber'], starterId, playerOrder);
+            (s['turns'] as List).forEach(
+              (t) => set.turns.add(
+                TurnRecord(
+                  t['turnNumber'],
+                  Map<String, int>.from(t['scores']),
+                  systemCalculated: Set<String>.from(
+                    t['systemCalculated'] ?? [],
+                  ),
+                ),
+              ),
+            );
+            (s['finalScores'] as Map).forEach(
+              (k, v) => set.finalCumulativeScores[k] = v as int,
+            );
+            return set;
+          }).toList();
       final isHyakin = data['matchType'] == 'MatchType.hyakin';
-      Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryPage(
-        sets: sets, startTime: start, players: players,
-        winnerName: isSelfTurnMode ? null : data['winner'] as String?,
-        isSelf5Turn: isSelf5Turn,
-        isSelf6Turn: isSelf6Turn,
-        isHyakin: isHyakin,
-        consecutiveSuccesses: consecutiveSuccesses,
-      )));
-    } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.get('error', args: {'msg': '$e'})))); }
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (c) => HistoryPage(
+                sets: sets,
+                startTime: start,
+                players: players,
+                winnerName: isSelfTurnMode ? null : data['winner'] as String?,
+                isSelf5Turn: isSelf5Turn,
+                isSelf6Turn: isSelf6Turn,
+                isHyakin: isHyakin,
+                consecutiveSuccesses: consecutiveSuccesses,
+              ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.get('error', args: {'msg': '$e'}))),
+      );
+    }
   }
 }
 
@@ -2601,12 +4268,7 @@ class HelpPage extends StatelessWidget {
         '合計が100点を超えると75点に戻ります',
       ],
     ),
-    const _HelpSection(
-      title: '7. 戦績',
-      items: [
-        '戦績ではこれまでの試合結果や各セットの内容を確認できます',
-      ],
-    ),
+    const _HelpSection(title: '7. 戦績', items: ['戦績ではこれまでの試合結果や各セットの内容を確認できます']),
   ];
 
   List<Widget> _enSections(L10n t) => [
@@ -2709,11 +4371,12 @@ class _AndroidAppPromoSection extends StatelessWidget {
                 '?size=120x120&data=${Uri.encodeComponent(_kPlayStoreUrl)}',
                 width: 120,
                 height: 120,
-                errorBuilder: (_, __, ___) => const SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: Icon(Icons.qr_code, size: 80, color: Colors.grey),
-                ),
+                errorBuilder:
+                    (_, __, ___) => const SizedBox(
+                      width: 120,
+                      height: 120,
+                      child: Icon(Icons.qr_code, size: 80, color: Colors.grey),
+                    ),
               ),
             ),
             const SizedBox(width: 16),
@@ -2722,16 +4385,18 @@ class _AndroidAppPromoSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isJa ? 'QRコードを読み取るか、下のボタンからダウンロードできます。'
+                    isJa
+                        ? 'QRコードを読み取るか、下のボタンからダウンロードできます。'
                         : 'Scan the QR code or tap the button below.',
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed: () => launchUrl(
-                      Uri.parse(_kPlayStoreUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
+                    onPressed:
+                        () => launchUrl(
+                          Uri.parse(_kPlayStoreUrl),
+                          mode: LaunchMode.externalApplication,
+                        ),
                     icon: const Icon(Icons.android, size: 18),
                     label: Text(
                       isJa ? 'Google Playで入手' : 'Get it on Google Play',
@@ -2756,17 +4421,21 @@ class _HelpSection extends StatelessWidget {
   final String title;
   final List<String> items;
 
-  const _HelpSection({
-    required this.title,
-    this.items = const [],
-  });
+  const _HelpSection({required this.title, this.items = const []});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.blue)),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
         const SizedBox(height: 8),
         for (final item in items) ...[
           Padding(
@@ -2775,7 +4444,9 @@ class _HelpSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('• ', style: TextStyle(fontSize: 14)),
-                Expanded(child: Text(item, style: const TextStyle(fontSize: 14))),
+                Expanded(
+                  child: Text(item, style: const TextStyle(fontSize: 14)),
+                ),
               ],
             ),
           ),
