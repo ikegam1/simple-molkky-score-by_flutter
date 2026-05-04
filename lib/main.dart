@@ -1764,8 +1764,13 @@ class _GameScreenState extends State<GameScreen>
         currentPlayerIndex--;
       }
 
+      // 失格済みのプレイヤーをスキップするが、今ターンで実際に投擲して
+      // 失格になったプレイヤー（turnInProgressScores に含まれる）はスキップしない
       while (widget.match.players[currentPlayerIndex].isDisqualified &&
-          currentPlayerIndex > 0) {
+          currentPlayerIndex > 0 &&
+          !turnInProgressScores.containsKey(
+            widget.match.players[currentPlayerIndex].id,
+          )) {
         currentPlayerIndex--;
       }
 
@@ -2448,6 +2453,13 @@ class _GameScreenState extends State<GameScreen>
       color: neonGreen,
       letterSpacing: 1.0,
     );
+    const totalStyle = TextStyle(
+      fontSize: 21, // smallStyle の 1.5 倍
+      fontWeight: FontWeight.w700,
+      fontFamily: 'Courier',
+      color: neonGreen,
+      letterSpacing: 1.0,
+    );
     const sepStyle = TextStyle(
       fontSize: 20,
       fontWeight: FontWeight.w800,
@@ -2475,7 +2487,7 @@ class _GameScreenState extends State<GameScreen>
           TextSpan(text: '${p.name[0]} ', style: smallStyle),
         TextSpan(text: scoreText, style: bigStyle),
         if (showTotal)
-          TextSpan(text: '(${_runningTotal(p)})', style: smallStyle),
+          TextSpan(text: '(${_runningTotal(p)})', style: totalStyle),
       ];
 
       // 現在の投擲者はアンダーライン強調（2ミス時は赤）
