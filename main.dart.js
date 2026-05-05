@@ -101098,7 +101098,7 @@ k.ml()
 if(k.gBH())return
 s=k.x+1
 r=k.f
-if(r===B.jD)q=s>=k.a.length*(k.e-1)+1
+if(r===B.jD&&k.e!==11)q=s>=k.a.length*(k.e-1)+1
 else q=!1
 if(q)B.b.ev(k.a,new A.ak2())
 else{if(!(r===B.dR&&k.e===2&&s===2))r=r===B.cE&&s===2
