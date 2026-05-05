@@ -18,7 +18,7 @@ import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 import 'widgets/match_result_card.dart';
 
-const String _kAppVersion = '1.14.2+87';
+const String _kAppVersion = '1.14.6+91';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -963,7 +963,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     style: const TextStyle(fontSize: 10, color: Colors.grey),
                   ),
                 const Text(
-                  'v1.14.2',
+                  'v1.14.6',
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
@@ -1192,7 +1192,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       textAlign: TextAlign.center,
                     ),
                   const Text(
-                    'v1.14.2',
+                    'v1.14.6',
                     style: TextStyle(color: Colors.grey, fontSize: 11),
                     textAlign: TextAlign.center,
                   ),
