@@ -29,7 +29,7 @@ class TurnRecord {
   final int turnNumber;
   final Map<String, int> scores;
   final Set<String> systemCalculatedPlayerIds;
-  TurnRecord(this.turnNumber, this.scores, {Set<String>? systemCalculated}) 
+  TurnRecord(this.turnNumber, this.scores, {Set<String>? systemCalculated})
     : systemCalculatedPlayerIds = systemCalculated ?? {};
 }
 
@@ -69,7 +69,11 @@ class MolkkyMatch {
     this.turnLimitPerSet,
     this.matchTimeLimitSeconds,
   }) : startTime = DateTime.now(),
-       currentSetRecord = SetRecord(1, players.first.id, players.map((p) => p.id).toList());
+       currentSetRecord = SetRecord(
+         1,
+         players.first.id,
+         players.map((p) => p.id).toList(),
+       );
 
   bool get _isCurrentSetAlreadyFinalized =>
       completedSets.any((s) => s.setNumber == currentSetRecord.setNumber);
@@ -85,7 +89,8 @@ class MolkkyMatch {
   }
 
   bool get isMatchOver {
-    if (type == MatchType.self5Turn || type == MatchType.self6Turn) return false; // managed explicitly in GameScreen
+    if (type == MatchType.self5Turn || type == MatchType.self6Turn)
+      return false; // managed explicitly in GameScreen
     if (type == MatchType.hyakin) return completedSets.length >= 2;
     // 修正: completedSets.length で判定することで、指定セット数が「完了」するまで終わらないようにする
     if (type == MatchType.fixedSets) return completedSets.length >= limit;
@@ -104,12 +109,11 @@ class MolkkyMatch {
     if (limit != 2 && limit != 10) return false;
     if (completedSets.length < limit) return false;
     if (players.length < 2) return false;
-    final sorted = List<Player>.from(players)
-      ..sort((a, b) {
-        final sc = b.setsWon.compareTo(a.setsWon);
-        if (sc != 0) return sc;
-        return b.totalMatchScore.compareTo(a.totalMatchScore);
-      });
+    final sorted = List<Player>.from(players)..sort((a, b) {
+      final sc = b.setsWon.compareTo(a.setsWon);
+      if (sc != 0) return sc;
+      return b.totalMatchScore.compareTo(a.totalMatchScore);
+    });
     return sorted[0].setsWon == sorted[1].setsWon &&
         sorted[0].totalMatchScore == sorted[1].totalMatchScore;
   }
@@ -119,7 +123,8 @@ class MolkkyMatch {
       if (completedSets.length < 2) return null;
       final sorted = List<Player>.from(players);
       sorted.sort((a, b) {
-        if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
+        if (b.totalMatchScore != a.totalMatchScore)
+          return b.totalMatchScore.compareTo(a.totalMatchScore);
         return a.totalMatchThrows.compareTo(b.totalMatchThrows);
       });
       return sorted.first;
@@ -132,7 +137,8 @@ class MolkkyMatch {
       final sorted = List<Player>.from(players);
       sorted.sort((a, b) {
         if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
-        if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
+        if (b.totalMatchScore != a.totalMatchScore)
+          return b.totalMatchScore.compareTo(a.totalMatchScore);
         return a.totalMatchThrows.compareTo(b.totalMatchThrows);
       });
       return sorted.first;
@@ -141,7 +147,9 @@ class MolkkyMatch {
         if (p.setsWon >= limit) {
           if (limit == 11) {
             int secondMax = 0;
-            for (var other in players) if (other != p && other.setsWon > secondMax) secondMax = other.setsWon;
+            for (var other in players)
+              if (other != p && other.setsWon > secondMax)
+                secondMax = other.setsWon;
             if (p.setsWon >= 10 && secondMax >= 10) {
               if (p.setsWon - secondMax >= 2) return p;
               return null;
@@ -163,18 +171,21 @@ class MolkkyMatch {
     if (isMatchOver) return;
 
     int nextIndex = currentSetIndex + 1;
-    
+
     if (!manualOrder) {
       bool shouldSortByScore = false;
-      if (type == MatchType.raceTo) {
+      // 11先はデュース後も投げ順を変えない（合計点による並び替えなし）
+      if (type == MatchType.raceTo && limit != 11) {
         int decidingSetThreshold = (players.length * (limit - 1)) + 1;
         if (nextIndex >= decidingSetThreshold) shouldSortByScore = true;
       }
 
       if (shouldSortByScore) {
         players.sort((a, b) {
-          if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
-          if (a.totalMatchThrows != b.totalMatchThrows) return a.totalMatchThrows.compareTo(b.totalMatchThrows);
+          if (b.totalMatchScore != a.totalMatchScore)
+            return b.totalMatchScore.compareTo(a.totalMatchScore);
+          if (a.totalMatchThrows != b.totalMatchThrows)
+            return a.totalMatchThrows.compareTo(b.totalMatchThrows);
           return a.initialOrder.compareTo(b.initialOrder);
         });
       } else {
@@ -191,7 +202,11 @@ class MolkkyMatch {
     }
 
     currentSetIndex = nextIndex;
-    currentSetRecord = SetRecord(currentSetIndex, players.first.id, players.map((p) => p.id).toList());
+    currentSetRecord = SetRecord(
+      currentSetIndex,
+      players.first.id,
+      players.map((p) => p.id).toList(),
+    );
     for (var p in players) p.resetForNewSet();
   }
 
@@ -199,6 +214,10 @@ class MolkkyMatch {
   void applyManualOrder(List<Player> newOrder) {
     players = List.from(newOrder);
     // prepareNextSet で作成された currentSetRecord を新しい順序で更新
-    currentSetRecord = SetRecord(currentSetIndex, players.first.id, players.map((p) => p.id).toList());
+    currentSetRecord = SetRecord(
+      currentSetIndex,
+      players.first.id,
+      players.map((p) => p.id).toList(),
+    );
   }
 }
