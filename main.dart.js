@@ -99288,7 +99288,7 @@ f=j.x.length===0?i:new A.aDO(j,a)
 f=A.b([q,B.cJ,g,B.cJ,h,B.cJ,o,B.HV,A.aQ7(B.PS,A.a1(b.ag("match_history"),i,i,i,B.f7,i,i),f,A.alb(i,i,i,i,i,i,i,i,i,i,i,B.a8K,i,i,i,i,i,i,i,i)),B.f3],p)
 h=j.x
 if(h.length!==0){g=t.N
-f.push(A.a1(b.cg("anonymous_id",A.X(["id",B.c.ae(h,0,8)],g,g)),i,i,i,B.o9,B.aQ,i))}f.push(B.af3)
+f.push(A.a1(b.cg("anonymous_id",A.X(["id",B.c.ae(h,0,8)],g,g)),i,i,i,B.o9,B.aQ,i))}f.push(B.af_)
 return A.Ei(!0,new A.bw(B.OS,A.dP(A.b([r,B.a8O,A.fq(A.cK(f,B.c3,B.cC,B.R),2)],p),B.c3,B.B,B.R,0,i),i),B.aL,!0)}}
 A.aDQ.prototype={
 $1(a){var s=a.a.w
@@ -99315,7 +99315,7 @@ $1(a){var s=t.N
 return B.cV.Yy(A.X(["id",a.a,"name",a.b],s,s),null)},
 $S:45}
 A.aDY.prototype={
-$1(a){return A.lk(A.b([A.hu(B.Ir,new A.aDW(a),null),A.hO(B.af_,new A.aDX(a),null)],t.p),B.aeW,B.a6E)},
+$1(a){return A.lk(A.b([A.hu(B.Ir,new A.aDW(a),null),A.hO(B.aeZ,new A.aDX(a),null)],t.p),B.aeV,B.a6E)},
 $S:46}
 A.aDW.prototype={
 $0(){A.cy(this.a,!1).hX(!1)
@@ -99424,7 +99424,7 @@ n=r.x.length===0?d:new A.aEl(r,e.b)
 p=A.b([B.kd,s,B.kd,q,o,m,B.f2,k,B.f2,i,B.f2,h,B.f2,A.aQ7(B.PU,A.a1(c.ag("match_history"),d,d,d,d,d,d),n,A.alb(d,d,d,d,d,d,d,d,d,d,d,B.a8I,d,d,d,d,d,d,d,d)),B.f2],p)
 s=r.x
 if(s.length!==0){r=t.N
-p.push(A.a1(c.cg("anonymous_id",A.X(["id",B.c.ae(s,0,8)],r,r)),d,d,d,B.oa,d,d))}p.push(B.aeR)
+p.push(A.a1(c.cg("anonymous_id",A.X(["id",B.c.ae(s,0,8)],r,r)),d,d,d,B.oa,d,d))}p.push(B.af2)
 return new A.bw(B.OW,A.cK(p,B.J,B.B,B.R),d)},
 $S:623}
 A.aEa.prototype={
@@ -99738,7 +99738,7 @@ h=$.aMw().DL()
 J.cD(k,"endTime",new A.nC(h,h))
 J.cD(k,"matchType",o.a.c.f.K())
 J.cD(k,"consecutiveSuccesses",n.as)
-J.cD(k,"appVersion","1.14.7+92")
+J.cD(k,"appVersion","1.14.8+93")
 J.cD(k,"platform",A.aTk())
 if(n.r!=null)J.cD(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cD(k,"matchTimeLimitSeconds",n.w)
@@ -99787,7 +99787,7 @@ J.cD(k,"limit",n.e)
 h=a==null?null:a.b
 if(h==null)h="DRAW"
 J.cD(k,"winner",h)
-J.cD(k,"appVersion","1.14.7+92")
+J.cD(k,"appVersion","1.14.8+93")
 J.cD(k,"platform",A.aTk())
 if(n.r!=null)J.cD(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cD(k,"matchTimeLimitSeconds",n.w)
@@ -100554,7 +100554,7 @@ return A.G($async$$2,r)},
 $S:639}
 A.ayO.prototype={
 $1(a){var s=null
-return A.lk(A.b([A.hu(B.Ir,new A.ayI(a),s),A.hO(B.aeX,new A.ayJ(a),A.jk(s,s,B.bk,s,s,s,s,s,s,B.l,s,s,s,s,s,s,s,s,s,s))],t.p),B.aeS,s)},
+return A.lk(A.b([A.hu(B.Ir,new A.ayI(a),s),A.hO(B.aeW,new A.ayJ(a),A.jk(s,s,B.bk,s,s,s,s,s,s,B.l,s,s,s,s,s,s,s,s,s,s))],t.p),B.aeR,s)},
 $S:46}
 A.ayI.prototype={
 $0(){A.cy(this.a,!1).hX(!1)
@@ -100590,9 +100590,9 @@ if(o.a.c.w!=null)B.b.U(p,A.b([o.OT(n,24),B.f3],g))
 if(o.Uv()){l=A.jk(i,i,B.eH,i,i,i,i,i,i,B.l,i,B.a8z,B.fL,i,i,i,i,i,i,i)
 B.b.U(p,A.b([A.da(A.hO(A.a1(n.ag(h),i,i,i,B.In,i,i),o.gQg(),l),i,1/0),B.f3],g))}l=A.alb(i,i,i,i,i,i,i,i,i,B.bk,i,B.nX,B.P2,i,i,i,i,i,i,i)
 l=A.fq(A.aQ6(A.dP(A.b([B.Q1,A.a1(" "+n.ag("undo"),i,i,i,B.f7,i,i)],g),B.J,B.cC,B.R,0,i),o.gVk(),l),1)
-n=A.fq(A.hO(B.aeZ,new A.ayR(o),A.jk(i,i,B.lm,i,i,i,i,i,i,B.bk,i,B.nX,i,i,i,B.oX,i,i,i,i)),1)
+n=A.fq(A.hO(B.aeY,new A.ayR(o),A.jk(i,i,B.lm,i,i,i,i,i,i,B.bk,i,B.nX,i,i,i,B.oX,i,i,i,i)),1)
 k=o.z
-p.push(A.dP(A.b([l,B.HS,n,B.HS,A.nN(i,A.da(A.cK(A.b([A.a1(""+k,i,i,i,A.cQ(i,i,k>=60?B.bk:B.O,i,i,i,i,i,"Courier",i,i,26,i,i,B.dD,i,i,!0,i,1,i,i,i,i,i,i),i,i),B.aeV],g),B.J,B.cC,B.R),i,72),B.au,!1,i,i,i,i,i,i,i,i,i,i,i,i,i,i,o.gTC(),i,i,i,i,i,i)],g),B.J,B.B,B.R,0,i))
+p.push(A.dP(A.b([l,B.HS,n,B.HS,A.nN(i,A.da(A.cK(A.b([A.a1(""+k,i,i,i,A.cQ(i,i,k>=60?B.bk:B.O,i,i,i,i,i,"Courier",i,i,26,i,i,B.dD,i,i,!0,i,1,i,i,i,i,i,i),i,i),B.aeU],g),B.J,B.cC,B.R),i,72),B.au,!1,i,i,i,i,i,i,i,i,i,i,i,i,i,i,o.gTC(),i,i,i,i,i,i)],g),B.J,B.B,B.R,0,i))
 return A.dP(A.b([q,A.da(A.e7(i,A.cK(A.b([m,new A.bw(new A.az(8,4,8,s.r.d+6),A.cK(p,B.J,B.B,B.R),i)],g),B.J,B.B,B.R),B.w,i,i,B.JS,i,i,i,i),i,r)],g),B.c3,B.B,B.R,0,i)}g=t.p
 s=A.b([],g)
 q=j.d
@@ -101124,7 +101124,7 @@ $0(){return A.aM5(A.iW(u.r,0,null),B.QW)},
 $S:0}
 A.fl.prototype={
 N(a){var s,r,q,p=null,o=t.p,n=A.b([A.a1(this.c,p,p,p,B.Il,p,p),B.cJ],o)
-for(s=this.d,r=s.length,q=0;q<r;++q)B.b.U(n,A.b([new A.bw(B.P6,A.dP(A.b([B.aeY,new A.B9(1,B.mo,A.a1(s[q],p,p,p,B.kj,p,p),p)],o),B.b3,B.B,B.R,0,p),p)],o))
+for(s=this.d,r=s.length,q=0;q<r;++q)B.b.U(n,A.b([new A.bw(B.P6,A.dP(A.b([B.aeX,new A.B9(1,B.mo,A.a1(s[q],p,p,p,B.kj,p,p),p)],o),B.b3,B.B,B.R,0,p),p)],o))
 return A.cK(n,B.b3,B.B,B.R)}}
 A.Ky.prototype={
 l(){var s=this,r=s.ce$
@@ -101283,7 +101283,7 @@ N(a){var s,r,q,p,o,n=this,m=null,l=n.c,k=A.ce(l.a,!0,t.Uo)
 B.b.ej(k,new A.ah6())
 s=A.a1(A.uE("yyyy/MM/dd HH:mm",m).ll(new A.dx(Date.now(),0,!1))+"\u3000"+n.r,m,m,m,B.oa,B.aQ,m)
 r=t.p
-s=A.b([B.aeU,B.a8T,s,B.q_,A.a1(n.e?"\ud83e\udd1d \u5f15\u304d\u5206\u3051":"\ud83c\udfc6 "+n.f,m,m,m,B.abp,B.aQ,m),B.f2,new A.a4o(k,m),B.hx],r)
+s=A.b([B.aeT,B.a8T,s,B.q_,A.a1(n.e?"\ud83e\udd1d \u5f15\u304d\u5206\u3051":"\ud83c\udfc6 "+n.f,m,m,m,B.abp,B.aQ,m),B.f2,new A.a4o(k,m),B.hx],r)
 for(q=n.d,p=q.length,o=0;o<q.length;q.length===p||(0,A.v)(q),++o)B.b.U(s,A.b([new A.a3X(q[o],l.a,m),B.e_],r))
 s.push(B.q_)
 s.push(A.a1("Easy Molkky Score  easy-molkky-score.ikegam1.com",m,m,m,B.o9,B.aQ,m))
@@ -107902,10 +107902,10 @@ B.GZ=new A.ww(2,"bubble")
 B.nq=new A.jH(null,null)
 B.cQ=new A.atl(1,"down")
 B.acf=new A.l(!0,B.pL,null,null,null,null,22,B.Z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aeT=new A.dt("G",null,B.acf,null,null,null,null,null,null)
+B.aeS=new A.dt("G",null,B.acf,null,null,null,null,null,null)
 B.kc=new A.d9(8,null,null,null)
-B.af2=new A.dt("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u9023\u643a",null,null,null,null,null,null,null,null)
-B.VU=s([B.aeT,B.kc,B.af2],t.p)
+B.af3=new A.dt("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u9023\u643a",null,null,null,null,null,null,null,null)
+B.VU=s([B.aeS,B.kc,B.af3],t.p)
 B.a6E=new A.Eh(B.aC,B.B,B.R,B.J,null,B.cQ,null,0,B.VU,null)
 B.a6F=new A.Ek(1333)
 B.nr=new A.Ek(2222)
@@ -108594,20 +108594,20 @@ B.adf=new A.l(!0,B.O,null,".AppleSystemUIFont",null,null,null,null,null,null,nul
 B.adE=new A.l(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelMedium",null,null,null,null)
 B.aat=new A.l(!0,B.o,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelSmall",null,null,null,null)
 B.aeN=new A.ei(B.acn,B.abb,B.aco,B.acV,B.aaS,B.ab_,B.aby,B.acQ,B.abL,B.adi,B.aam,B.aaE,B.adf,B.adE,B.aat)
-B.aeR=new A.dt("v1.14.7",null,B.o8,null,null,null,null,null,null)
-B.aeS=new A.dt("\u8a66\u5408\u304c\u7121\u52b9\u306b\u306a\u3063\u3066\u3057\u307e\u3044\u307e\u3059\u304c\u3001\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u3063\u3066\u826f\u3044\u3067\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
+B.aeR=new A.dt("\u8a66\u5408\u304c\u7121\u52b9\u306b\u306a\u3063\u3066\u3057\u307e\u3044\u307e\u3059\u304c\u3001\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u3063\u3066\u826f\u3044\u3067\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
 B.abW=new A.l(!0,B.hd,null,null,null,null,16,B.dD,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aeU=new A.dt("Easy Molkky Score",null,B.abW,B.aQ,null,null,null,null,null)
-B.aeV=new A.dt("sec",null,B.o9,null,null,null,null,null,null)
-B.aeW=new A.dt("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u3067\u30ed\u30b0\u30a4\u30f3\u3059\u308b\u3068\u3001\u3053\u308c\u307e\u3067\u306e\u6226\u6b74\u304c\u30a2\u30ab\u30a6\u30f3\u30c8\u306b\u7d10\u3065\u304d\u3001\u5225\u7aef\u672b\u3084\u74b0\u5883\u3067\u30ed\u30b0\u30a4\u30f3\u3057\u305f\u5834\u5408\u3082\u4fdd\u6301\u3055\u308c\u308b\u3088\u3046\u306b\u306a\u308a\u307e\u3059\u3002\n\u30ed\u30b0\u30a4\u30f3\u3055\u308c\u307e\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
-B.aeX=new A.dt("\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u308b",null,null,null,null,null,null,null,null)
-B.aeY=new A.dt("\u2022 ",null,B.kj,null,null,null,null,null,null)
-B.aeZ=new A.dt("0(fault)",null,B.In,null,null,null,null,null,null)
-B.af_=new A.dt("Google\u3067\u30ed\u30b0\u30a4\u30f3",null,null,null,null,null,null,null,null)
-B.af0=new A.dt("sec",null,B.oa,null,null,null,null,null,null)
-B.Ir=new A.dt("\u30ad\u30e3\u30f3\u30bb\u30eb",null,null,null,null,null,null,null,null)
+B.aeT=new A.dt("Easy Molkky Score",null,B.abW,B.aQ,null,null,null,null,null)
+B.aeU=new A.dt("sec",null,B.o9,null,null,null,null,null,null)
+B.aeV=new A.dt("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u3067\u30ed\u30b0\u30a4\u30f3\u3059\u308b\u3068\u3001\u3053\u308c\u307e\u3067\u306e\u6226\u6b74\u304c\u30a2\u30ab\u30a6\u30f3\u30c8\u306b\u7d10\u3065\u304d\u3001\u5225\u7aef\u672b\u3084\u74b0\u5883\u3067\u30ed\u30b0\u30a4\u30f3\u3057\u305f\u5834\u5408\u3082\u4fdd\u6301\u3055\u308c\u308b\u3088\u3046\u306b\u306a\u308a\u307e\u3059\u3002\n\u30ed\u30b0\u30a4\u30f3\u3055\u308c\u307e\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
+B.aeW=new A.dt("\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u308b",null,null,null,null,null,null,null,null)
+B.aeX=new A.dt("\u2022 ",null,B.kj,null,null,null,null,null,null)
+B.aeY=new A.dt("0(fault)",null,B.In,null,null,null,null,null,null)
+B.aeZ=new A.dt("Google\u3067\u30ed\u30b0\u30a4\u30f3",null,null,null,null,null,null,null,null)
 B.acE=new A.l(!0,B.bK,null,null,null,null,11,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.af3=new A.dt("v1.14.7",null,B.acE,B.aQ,null,null,null,null,null)
+B.af_=new A.dt("v1.14.8",null,B.acE,B.aQ,null,null,null,null,null)
+B.af0=new A.dt("sec",null,B.oa,null,null,null,null,null,null)
+B.af2=new A.dt("v1.14.8",null,B.o8,null,null,null,null,null,null)
+B.Ir=new A.dt("\u30ad\u30e3\u30f3\u30bb\u30eb",null,null,null,null,null,null,null,null)
 B.ad1=new A.l(!0,null,null,null,null,null,15,B.Z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.af4=new A.dt("0(fault)",null,B.ad1,null,null,null,null,null,null)
 B.af5=new A.dt(" - ",null,B.ki,null,null,null,null,null,null)
