@@ -87,6 +87,8 @@ class L10n {
       'help_title': 'How to Play',
       'pts': 'pts',
       'hyakin_mode': 'Hyakin (表裏 2 sets)',
+      'three_game_mode': '3-Game (3 sets)',
+      'three_game_co_win': 'Co-winners: {names}',
       'self5turn_fail_1': 'So close! Keep it up! 😤',
       'self5turn_fail_2_3': 'Not bad at all! 👍',
       'self5turn_fail_4_5': 'Seriously!? That\'s amazing! 🤩',
@@ -169,6 +171,8 @@ class L10n {
       'help_title': '使い方',
       'pts': '点',
       'hyakin_mode': '100均（表裏2セット）',
+      'three_game_mode': '3番（3セット）',
+      'three_game_co_win': '共同優勝: {names}',
       'self5turn_fail_1': '惜しい！まだまだこれから！😤',
       'self5turn_fail_2_3': 'なかなかやりますね！👍',
       'self5turn_fail_4_5': 'マジで！？凄いです！🤩',
@@ -675,6 +679,14 @@ class _SetupScreenState extends State<SetupScreen> {
         turnLimitPerSet: turnLimit,
         matchTimeLimitSeconds: matchTimeLimitSeconds,
       );
+    } else if (_selectedModeKey == -4) {
+      match = MolkkyMatch(
+        players: playersForMatch,
+        limit: 3,
+        type: MatchType.threeGame,
+        turnLimitPerSet: turnLimit,
+        matchTimeLimitSeconds: matchTimeLimitSeconds,
+      );
     } else {
       MatchType type =
           [1, 2, 10].contains(_selectedModeKey)
@@ -707,11 +719,13 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
-    // key=-1: self5Turn, key=-3: self6Turn, key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
+    // key=-1: self5Turn, key=-2: hyakin, key=-3: self6Turn, key=-4: threeGame
+    // key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
     final Map<int, String> options = {
       1: t.get('sets_count', args: {'n': '1'}),
       2: t.get('sets_count', args: {'n': '2'}),
       -2: t.get('hyakin_mode'),
+      -4: t.get('three_game_mode'),
       3: t.get('race_to', args: {'n': '2'}),
       5: t.get('race_to', args: {'n': '3'}),
       7: t.get('race_to', args: {'n': '4'}),
@@ -1617,7 +1631,8 @@ class _GameScreenState extends State<GameScreen>
         final tempCompleted = List<SetRecord>.from(widget.match.completedSets)
           ..add(widget.match.currentSetRecord);
         bool matchTrulyOver = false;
-        if (widget.match.type == MatchType.fixedSets) {
+        if (widget.match.type == MatchType.fixedSets ||
+            widget.match.type == MatchType.threeGame) {
           matchTrulyOver = tempCompleted.length >= widget.match.limit;
         } else {
           matchTrulyOver = widget.match.isMatchOver;
@@ -1628,7 +1643,21 @@ class _GameScreenState extends State<GameScreen>
           widget.match.finalizeCurrentSetIfNeeded();
           if (widget.match.isMatchDraw) {
             _uploadMatchData(null);
-            _showMatchDrawDialog();
+            // 3番共同優勝は専用メッセージで表示
+            if (widget.match.type == MatchType.threeGame) {
+              final t = L10n.of(context);
+              final names = widget.match.threeGameTopScorers
+                  .map((p) => p.name)
+                  .join('・');
+              _showMatchDrawDialog(
+                detailOverride: t.get(
+                  'three_game_co_win',
+                  args: {'names': names},
+                ),
+              );
+            } else {
+              _showMatchDrawDialog();
+            }
           } else {
             final finalWinner = widget.match.matchWinner ?? winner;
             _uploadMatchData(finalWinner);
@@ -1663,7 +1692,8 @@ class _GameScreenState extends State<GameScreen>
               widget.match.completedSets,
             )..add(widget.match.currentSetRecord);
             final bool matchTrulyOver =
-                widget.match.type == MatchType.fixedSets
+                (widget.match.type == MatchType.fixedSets ||
+                        widget.match.type == MatchType.threeGame)
                     ? tempCompleted.length >= widget.match.limit
                     : widget.match.type == MatchType.raceTo &&
                         decision.winner != null &&
@@ -1745,9 +1775,82 @@ class _GameScreenState extends State<GameScreen>
     if (currentPlayerIndex <= start) currentTurnInSet++;
   }
 
+  // セット開始前（一投も投げていない状態）に Undo を押した場合の投げ順変更ダイアログ
+  void _showOrderChangeForCurrentSet() {
+    final t = L10n.of(context);
+    List<Player> reorderList = List.from(widget.match.players);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(t.get('reorder_hint')),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  height: 200,
+                  child: ReorderableListView(
+                    buildDefaultDragHandles: false,
+                    shrinkWrap: true,
+                    onReorder: (o, n) {
+                      setDialogState(() {
+                        if (o < n) n -= 1;
+                        reorderList.insert(n, reorderList.removeAt(o));
+                      });
+                    },
+                    children: [
+                      for (int i = 0; i < reorderList.length; i++)
+                        ReorderableDragStartListener(
+                          key: Key(reorderList[i].id),
+                          index: i,
+                          child: ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.drag_handle, size: 20),
+                            title: Text(reorderList[i].name),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(t.get('cancel')),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        widget.match.applyManualOrder(reorderList);
+                        currentPlayerIndex = 0;
+                        currentTurnInSet = 1;
+                        isSetFinished = false;
+                        turnInProgressScores.clear();
+                        systemCalculatedIds.clear();
+                        selectedSkitels.clear();
+                        _playersBurstedThisSet.clear();
+                      });
+                      _resetElapsedTimer();
+                    },
+                    child: Text(t.get('ok')),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
   void _undo() {
-    if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0))
+    if (isSetFinished) return;
+    if (currentTurnInSet == 1 && currentPlayerIndex == 0) {
+      // 一投目の前 → 投げ順変更ダイアログを表示
+      _showOrderChangeForCurrentSet();
       return;
+    }
     setState(() {
       if (currentPlayerIndex == 0) {
         currentTurnInSet--;
@@ -2142,6 +2245,7 @@ class _GameScreenState extends State<GameScreen>
                       width: double.maxFinite,
                       height: 200,
                       child: ReorderableListView(
+                        buildDefaultDragHandles: false,
                         shrinkWrap: true,
                         onReorder: (o, n) {
                           setDialogState(() {
@@ -2150,12 +2254,18 @@ class _GameScreenState extends State<GameScreen>
                           });
                         },
                         children: [
-                          for (var p in reorderList)
-                            ListTile(
-                              key: Key(p.id),
-                              dense: true,
-                              leading: const Icon(Icons.drag_handle, size: 20),
-                              title: Text(p.name),
+                          for (int i = 0; i < reorderList.length; i++)
+                            ReorderableDragStartListener(
+                              key: Key(reorderList[i].id),
+                              index: i,
+                              child: ListTile(
+                                dense: true,
+                                leading: const Icon(
+                                  Icons.drag_handle,
+                                  size: 20,
+                                ),
+                                title: Text(reorderList[i].name),
+                              ),
                             ),
                         ],
                       ),
@@ -2203,6 +2313,8 @@ class _GameScreenState extends State<GameScreen>
         return 'セルフ5ターン';
       case MatchType.self6Turn:
         return 'セルフ6ターン';
+      case MatchType.threeGame:
+        return '3番';
     }
   }
 
@@ -2284,6 +2396,7 @@ class _GameScreenState extends State<GameScreen>
                       width: double.maxFinite,
                       height: 200,
                       child: ReorderableListView(
+                        buildDefaultDragHandles: false,
                         shrinkWrap: true,
                         onReorder: (o, n) {
                           setDialogState(() {
@@ -2292,12 +2405,18 @@ class _GameScreenState extends State<GameScreen>
                           });
                         },
                         children: [
-                          for (var p in reorderList)
-                            ListTile(
-                              key: Key(p.id),
-                              dense: true,
-                              leading: const Icon(Icons.drag_handle, size: 20),
-                              title: Text(p.name),
+                          for (int i = 0; i < reorderList.length; i++)
+                            ReorderableDragStartListener(
+                              key: Key(reorderList[i].id),
+                              index: i,
+                              child: ListTile(
+                                dense: true,
+                                leading: const Icon(
+                                  Icons.drag_handle,
+                                  size: 20,
+                                ),
+                                title: Text(reorderList[i].name),
+                              ),
                             ),
                         ],
                       ),

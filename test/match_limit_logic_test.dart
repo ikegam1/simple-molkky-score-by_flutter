@@ -2,7 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:simple_molkky_score/logic/game_logic.dart';
 import 'package:simple_molkky_score/models/game_models.dart';
 
-Player _player(String id, String name) => Player(id: id, name: name, initialOrder: 0);
+Player _player(String id, String name) =>
+    Player(id: id, name: name, initialOrder: 0);
 
 void main() {
   group('ターン制限によるセット判定', () {
@@ -23,18 +24,23 @@ void main() {
 
       expect(decision.isDraw, isTrue);
       expect(decision.winner, isNull);
-      expect(decision.leaders.map((p) => p.name), containsAll(['Alice', 'Bob']));
+      expect(
+        decision.leaders.map((p) => p.name),
+        containsAll(['Alice', 'Bob']),
+      );
     });
   });
 
   group('時間切れによる試合判定', () {
     test('セット数優先、次に合計点で勝者を決める', () {
-      final a = _player('a', 'Alice')
-        ..setsWon = 2
-        ..setFinalScores.addAll([50, 32, 18]);
-      final b = _player('b', 'Bob')
-        ..setsWon = 1
-        ..setFinalScores.addAll([41, 50, 20]);
+      final a =
+          _player('a', 'Alice')
+            ..setsWon = 2
+            ..setFinalScores.addAll([50, 32, 18]);
+      final b =
+          _player('b', 'Bob')
+            ..setsWon = 1
+            ..setFinalScores.addAll([41, 50, 20]);
 
       final decision = GameLogic.decideMatchByStandings([a, b]);
       expect(decision.isDraw, isFalse);
@@ -42,12 +48,14 @@ void main() {
     });
 
     test('セット数も合計点も同じなら引き分け', () {
-      final a = _player('a', 'Alice')
-        ..setsWon = 1
-        ..setFinalScores.addAll([50, 20]);
-      final b = _player('b', 'Bob')
-        ..setsWon = 1
-        ..setFinalScores.addAll([45, 25]);
+      final a =
+          _player('a', 'Alice')
+            ..setsWon = 1
+            ..setFinalScores.addAll([50, 20]);
+      final b =
+          _player('b', 'Bob')
+            ..setsWon = 1
+            ..setFinalScores.addAll([45, 25]);
 
       final decision = GameLogic.decideMatchByStandings([a, b]);
       expect(decision.isDraw, isTrue);
@@ -58,12 +66,14 @@ void main() {
 
   group('100均モードのターン制限判定', () {
     test('Set2は合計点が最大のプレイヤーを勝者にする', () {
-      final a = _player('a', 'Alice')
-        ..setFinalScores.add(32)
-        ..currentScore = 30;
-      final b = _player('b', 'Bob')
-        ..setFinalScores.add(40)
-        ..currentScore = 33;
+      final a =
+          _player('a', 'Alice')
+            ..setFinalScores.add(32)
+            ..currentScore = 30;
+      final b =
+          _player('b', 'Bob')
+            ..setFinalScores.add(40)
+            ..currentScore = 33;
 
       final decision = GameLogic.decideHyakinSet2ByCombinedTotals([a, b]);
       expect(decision.isDraw, isFalse);
@@ -71,12 +81,14 @@ void main() {
     });
 
     test('Set2の合計点が同点なら引き分け', () {
-      final a = _player('a', 'Alice')
-        ..setFinalScores.add(30)
-        ..currentScore = 40;
-      final b = _player('b', 'Bob')
-        ..setFinalScores.add(38)
-        ..currentScore = 32;
+      final a =
+          _player('a', 'Alice')
+            ..setFinalScores.add(30)
+            ..currentScore = 40;
+      final b =
+          _player('b', 'Bob')
+            ..setFinalScores.add(38)
+            ..currentScore = 32;
 
       final decision = GameLogic.decideHyakinSet2ByCombinedTotals([a, b]);
       expect(decision.isDraw, isTrue);
