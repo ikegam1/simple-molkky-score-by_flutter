@@ -18,7 +18,9 @@ import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 import 'widgets/match_result_card.dart';
 
-const String _kAppVersion = '1.14.7+92';
+const String _kAppVersion = '1.14.8+93';
+// フッター表示用（pubspec.yaml の version と手動で同期する）
+const String _kDisplayVersion = 'v1.14.8';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -977,7 +979,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     style: const TextStyle(fontSize: 10, color: Colors.grey),
                   ),
                 const Text(
-                  'v1.14.7',
+                  _kDisplayVersion,
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
@@ -1206,7 +1208,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       textAlign: TextAlign.center,
                     ),
                   const Text(
-                    'v1.14.7',
+                    _kDisplayVersion,
                     style: TextStyle(color: Colors.grey, fontSize: 11),
                     textAlign: TextAlign.center,
                   ),
