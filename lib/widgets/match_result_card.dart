@@ -205,8 +205,10 @@ class _SetDetailSection extends StatelessWidget {
                   ...ordered.map((p) {
                     final isSys = turn.systemCalculatedPlayerIds.contains(p.id);
                     final score = turn.scores[p.id];
-                    final txt = isSys ? '-' : (score != null ? '$score' : '');
-                    return _cell(txt);
+                    if (isSys) return _cell('-');
+                    if (score == null) return _cell('');
+                    final ann = turn.scoreAnnotations[p.id] ?? 0;
+                    return _annotatedCell(score, ann);
                   }),
                 ],
               ),
@@ -242,6 +244,34 @@ class _SetDetailSection extends StatelessWidget {
       ),
     ),
   );
+
+  static Widget _annotatedCell(int score, int annotation) {
+    const style = TextStyle(fontSize: 10);
+    if (annotation == 0 || score == 0) {
+      return _cell('$score');
+    }
+    const sz = 14.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+      child: Center(
+        child: Container(
+          width: sz,
+          height: sz,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: annotation == 1 ? BoxShape.circle : BoxShape.rectangle,
+            border: Border.all(color: Colors.black, width: 1.0),
+            borderRadius: annotation == 2 ? BorderRadius.circular(2) : null,
+          ),
+          child: Text(
+            '$score',
+            textAlign: TextAlign.center,
+            style: style.copyWith(fontSize: 8),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ── ダウンロードボタン付きラッパー ────────────────────────────────
