@@ -87,7 +87,7 @@ class L10n {
       'help_title': 'How to Play',
       'pts': 'pts',
       'hyakin_mode': 'Hyakin (表裏 2 sets)',
-      'three_game_mode': '3-Game (total score)',
+      'three_game_mode': '3-Game (3 sets)',
       'three_game_co_win': 'Co-winners: {names}',
       'self5turn_fail_1': 'So close! Keep it up! 😤',
       'self5turn_fail_2_3': 'Not bad at all! 👍',
@@ -171,7 +171,7 @@ class L10n {
       'help_title': '使い方',
       'pts': '点',
       'hyakin_mode': '100均（表裏2セット）',
-      'three_game_mode': '3番（合計点数）',
+      'three_game_mode': '3番（3セット）',
       'three_game_co_win': '共同優勝: {names}',
       'self5turn_fail_1': '惜しい！まだまだこれから！😤',
       'self5turn_fail_2_3': 'なかなかやりますね！👍',
@@ -1775,9 +1775,82 @@ class _GameScreenState extends State<GameScreen>
     if (currentPlayerIndex <= start) currentTurnInSet++;
   }
 
+  // セット開始前（一投も投げていない状態）に Undo を押した場合の投げ順変更ダイアログ
+  void _showOrderChangeForCurrentSet() {
+    final t = L10n.of(context);
+    List<Player> reorderList = List.from(widget.match.players);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(t.get('reorder_hint')),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  height: 200,
+                  child: ReorderableListView(
+                    buildDefaultDragHandles: false,
+                    shrinkWrap: true,
+                    onReorder: (o, n) {
+                      setDialogState(() {
+                        if (o < n) n -= 1;
+                        reorderList.insert(n, reorderList.removeAt(o));
+                      });
+                    },
+                    children: [
+                      for (int i = 0; i < reorderList.length; i++)
+                        ReorderableDragStartListener(
+                          key: Key(reorderList[i].id),
+                          index: i,
+                          child: ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.drag_handle, size: 20),
+                            title: Text(reorderList[i].name),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(t.get('cancel')),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        widget.match.applyManualOrder(reorderList);
+                        currentPlayerIndex = 0;
+                        currentTurnInSet = 1;
+                        isSetFinished = false;
+                        turnInProgressScores.clear();
+                        systemCalculatedIds.clear();
+                        selectedSkitels.clear();
+                        _playersBurstedThisSet.clear();
+                      });
+                      _resetElapsedTimer();
+                    },
+                    child: Text(t.get('ok')),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
   void _undo() {
-    if (isSetFinished || (currentTurnInSet == 1 && currentPlayerIndex == 0))
+    if (isSetFinished) return;
+    if (currentTurnInSet == 1 && currentPlayerIndex == 0) {
+      // 一投目の前 → 投げ順変更ダイアログを表示
+      _showOrderChangeForCurrentSet();
       return;
+    }
     setState(() {
       if (currentPlayerIndex == 0) {
         currentTurnInSet--;
@@ -2172,6 +2245,7 @@ class _GameScreenState extends State<GameScreen>
                       width: double.maxFinite,
                       height: 200,
                       child: ReorderableListView(
+                        buildDefaultDragHandles: false,
                         shrinkWrap: true,
                         onReorder: (o, n) {
                           setDialogState(() {
@@ -2180,12 +2254,18 @@ class _GameScreenState extends State<GameScreen>
                           });
                         },
                         children: [
-                          for (var p in reorderList)
-                            ListTile(
-                              key: Key(p.id),
-                              dense: true,
-                              leading: const Icon(Icons.drag_handle, size: 20),
-                              title: Text(p.name),
+                          for (int i = 0; i < reorderList.length; i++)
+                            ReorderableDragStartListener(
+                              key: Key(reorderList[i].id),
+                              index: i,
+                              child: ListTile(
+                                dense: true,
+                                leading: const Icon(
+                                  Icons.drag_handle,
+                                  size: 20,
+                                ),
+                                title: Text(reorderList[i].name),
+                              ),
                             ),
                         ],
                       ),
@@ -2316,6 +2396,7 @@ class _GameScreenState extends State<GameScreen>
                       width: double.maxFinite,
                       height: 200,
                       child: ReorderableListView(
+                        buildDefaultDragHandles: false,
                         shrinkWrap: true,
                         onReorder: (o, n) {
                           setDialogState(() {
@@ -2324,12 +2405,18 @@ class _GameScreenState extends State<GameScreen>
                           });
                         },
                         children: [
-                          for (var p in reorderList)
-                            ListTile(
-                              key: Key(p.id),
-                              dense: true,
-                              leading: const Icon(Icons.drag_handle, size: 20),
-                              title: Text(p.name),
+                          for (int i = 0; i < reorderList.length; i++)
+                            ReorderableDragStartListener(
+                              key: Key(reorderList[i].id),
+                              index: i,
+                              child: ListTile(
+                                dense: true,
+                                leading: const Icon(
+                                  Icons.drag_handle,
+                                  size: 20,
+                                ),
+                                title: Text(reorderList[i].name),
+                              ),
                             ),
                         ],
                       ),
