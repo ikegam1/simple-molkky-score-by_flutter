@@ -86,7 +86,7 @@ class L10n {
       'back_to_top': 'Back to Top',
       'help_title': 'How to Play',
       'pts': 'pts',
-      'annotation_tip_title': '8. Expert Tips (Hidden)',
+      'annotation_tip_title': '8. Tips',
       'annotation_tip_circle':
           'Double-tap a number button → ◯ (single-pin shot)',
       'annotation_tip_square':
@@ -175,7 +175,7 @@ class L10n {
       'back_to_top': 'トップへ',
       'help_title': '使い方',
       'pts': '点',
-      'annotation_tip_title': '8. 小ネタ（隠し機能）',
+      'annotation_tip_title': '8. 小ネタ',
       'annotation_tip_circle': '数字ボタンをダブルタップ → ◯囲み数字（単品狙い成功）',
       'annotation_tip_square': '数字ボタンを長押し → □囲み数字（本数ガシャ成功）',
       'annotation_tip_note': 'アノテーションはスコア表と戦績にも反映されます。',
