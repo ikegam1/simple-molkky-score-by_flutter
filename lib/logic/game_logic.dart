@@ -1,4 +1,3 @@
-
 import '../models/game_models.dart';
 
 class ScoreDecision {
@@ -11,7 +10,11 @@ class ScoreDecision {
 }
 
 class GameLogic {
-  static void processThrow(Player player, List<int> knockedDownSkitels, MolkkyMatch match) {
+  static void processThrow(
+    Player player,
+    List<int> knockedDownSkitels,
+    MolkkyMatch match,
+  ) {
     if (player.isDisqualified) return;
 
     // アンドゥ用に投擲前スコアを保存
@@ -60,7 +63,12 @@ class GameLogic {
 
   /// 100均モード Set 2 の投擲処理
   /// set1Score: このプレイヤーの1セット目の最終スコア
-  static void processHyakinSet2Throw(Player player, List<int> knockedDownSkitels, MolkkyMatch match, int set1Score) {
+  static void processHyakinSet2Throw(
+    Player player,
+    List<int> knockedDownSkitels,
+    MolkkyMatch match,
+    int set1Score,
+  ) {
     if (player.isDisqualified) return;
 
     // アンドゥ用に投擲前スコアを保存
@@ -98,7 +106,10 @@ class GameLogic {
 
   static ScoreDecision decideSetByCurrentScores(List<Player> players) {
     if (players.isEmpty) return const ScoreDecision([]);
-    int bestScore = players.fold<int>(-1, (best, p) => p.currentScore > best ? p.currentScore : best);
+    int bestScore = players.fold<int>(
+      -1,
+      (best, p) => p.currentScore > best ? p.currentScore : best,
+    );
     final leaders = players.where((p) => p.currentScore == bestScore).toList();
     return ScoreDecision(leaders);
   }
@@ -120,18 +131,22 @@ class GameLogic {
   static ScoreDecision decideMatchByStandings(List<Player> players) {
     if (players.isEmpty) return const ScoreDecision([]);
 
-    final sorted = List<Player>.from(players)
-      ..sort((a, b) {
-        if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
-        if (b.totalMatchScore != a.totalMatchScore) return b.totalMatchScore.compareTo(a.totalMatchScore);
-        return a.totalMatchThrows.compareTo(b.totalMatchThrows);
-      });
+    final sorted = List<Player>.from(players)..sort((a, b) {
+      if (b.setsWon != a.setsWon) return b.setsWon.compareTo(a.setsWon);
+      if (b.totalMatchScore != a.totalMatchScore)
+        return b.totalMatchScore.compareTo(a.totalMatchScore);
+      return a.totalMatchThrows.compareTo(b.totalMatchThrows);
+    });
 
     final top = sorted.first;
-    final leaders = sorted.where((p) =>
-      p.setsWon == top.setsWon &&
-      p.totalMatchScore == top.totalMatchScore,
-    ).toList();
+    final leaders =
+        sorted
+            .where(
+              (p) =>
+                  p.setsWon == top.setsWon &&
+                  p.totalMatchScore == top.totalMatchScore,
+            )
+            .toList();
     return ScoreDecision(leaders);
   }
 }
