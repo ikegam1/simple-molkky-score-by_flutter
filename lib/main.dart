@@ -1635,6 +1635,7 @@ class _GameScreenState extends State<GameScreen>
             currentTurnInSet,
             Map.from(turnInProgressScores),
             systemCalculated: Set.from(systemCalculatedIds),
+            scoreAnnotations: Map.from(_turnAnnotations),
           ),
         );
 
@@ -1669,10 +1670,12 @@ class _GameScreenState extends State<GameScreen>
               currentTurnInSet,
               Map.from(turnInProgressScores),
               systemCalculated: Set.from(systemCalculatedIds),
+              scoreAnnotations: Map.from(_turnAnnotations),
             ),
           );
           turnInProgressScores.clear();
           systemCalculatedIds.clear();
+          _turnAnnotations.clear();
 
           if (_hasTurnLimit &&
               currentTurnInSet >= widget.match.turnLimitPerSet!) {
