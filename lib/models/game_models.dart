@@ -29,8 +29,16 @@ class TurnRecord {
   final int turnNumber;
   final Map<String, int> scores;
   final Set<String> systemCalculatedPlayerIds;
-  TurnRecord(this.turnNumber, this.scores, {Set<String>? systemCalculated})
-    : systemCalculatedPlayerIds = systemCalculated ?? {};
+  // 0=通常 / 1=◯囲み（単品狙い成功） / 2=□囲み（本数ガシャ成功）
+  final Map<String, int> scoreAnnotations;
+
+  TurnRecord(
+    this.turnNumber,
+    this.scores, {
+    Set<String>? systemCalculated,
+    Map<String, int>? scoreAnnotations,
+  }) : systemCalculatedPlayerIds = systemCalculated ?? {},
+       scoreAnnotations = scoreAnnotations ?? {};
 }
 
 class SetRecord {

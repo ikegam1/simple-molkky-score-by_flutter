@@ -88,6 +88,13 @@ class L10n {
       'back_to_top': 'Back to Top',
       'help_title': 'How to Play',
       'pts': 'pts',
+      'annotation_tip_title': '8. Tips',
+      'annotation_tip_circle':
+          'Double-tap a number button → ◯ (single-pin shot)',
+      'annotation_tip_square':
+          'Long-press a number button → □ (multi-pin exact count)',
+      'annotation_tip_note':
+          'Annotations appear in the score table and match history.',
       'hyakin_mode': 'Hyakin (表裏 2 sets)',
       'three_game_mode': '3-Game (3 sets)',
       'three_game_co_win': 'Co-winners: {names}',
@@ -172,6 +179,10 @@ class L10n {
       'back_to_top': 'トップへ',
       'help_title': '使い方',
       'pts': '点',
+      'annotation_tip_title': '8. 小ネタ',
+      'annotation_tip_circle': '数字ボタンをダブルタップ → ◯囲み数字（単品狙い成功）',
+      'annotation_tip_square': '数字ボタンを長押し → □囲み数字（本数ガシャ成功）',
+      'annotation_tip_note': 'アノテーションはスコア表と戦績にも反映されます。',
       'hyakin_mode': '100均（表裏2セット）',
       'three_game_mode': '3番（3セット）',
       'three_game_co_win': '共同優勝: {names}',
@@ -1259,6 +1270,9 @@ class _GameScreenState extends State<GameScreen>
   // 点滅アニメーション (2ミス + 49点)
   late AnimationController _blinkController;
   late Animation<double> _blinkOpacity;
+  // 投擲アノテーション: 0=通常, 1=◯囲み, 2=□囲み
+  int _throwAnnotation = 0;
+  Map<String, int> _turnAnnotations = {};
 
   @override
   void initState() {
@@ -1510,10 +1524,12 @@ class _GameScreenState extends State<GameScreen>
                 currentTurnInSet,
                 Map.from(turnInProgressScores),
                 systemCalculated: Set.from(systemCalculatedIds),
+                scoreAnnotations: Map.from(_turnAnnotations),
               ),
             );
             turnInProgressScores.clear();
             systemCalculatedIds.clear();
+            _turnAnnotations.clear();
 
             if (_hasTurnLimit &&
                 currentTurnInSet >= widget.match.turnLimitPerSet!) {
@@ -1557,6 +1573,10 @@ class _GameScreenState extends State<GameScreen>
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
+      // アノテーション記録（スコアが0の場合は記録しない）
+      if (_throwAnnotation != 0 && lastPoints != 0)
+        _turnAnnotations[player.id] = _throwAnnotation;
+      _throwAnnotation = 0;
       // バースト検出: 投擲前スコア + 得点 > 目標点 ならバースト
       if (selectedSkitels.isNotEmpty && player.scoreSnapshot.isNotEmpty) {
         final preScore = player.scoreSnapshot.last;
@@ -1568,10 +1588,15 @@ class _GameScreenState extends State<GameScreen>
       // === Self Turn mode (5/6ターンチャレンジ) ===
       if (_isSelfTurnMode) {
         widget.match.currentSetRecord.turns.add(
-          TurnRecord(currentTurnInSet, Map.from(turnInProgressScores)),
+          TurnRecord(
+            currentTurnInSet,
+            Map.from(turnInProgressScores),
+            scoreAnnotations: Map.from(_turnAnnotations),
+          ),
         );
         turnInProgressScores.clear();
         systemCalculatedIds.clear();
+        _turnAnnotations.clear();
         bool succeeded =
             player.currentScore == widget.match.targetScore &&
             currentTurnInSet <= _selfTurnLimit;
@@ -1864,6 +1889,7 @@ class _GameScreenState extends State<GameScreen>
           systemCalculatedIds = Set<String>.from(
             lastTurn.systemCalculatedPlayerIds,
           );
+          _turnAnnotations = Map<String, int>.from(lastTurn.scoreAnnotations);
         }
       } else {
         currentPlayerIndex--;
@@ -1888,6 +1914,7 @@ class _GameScreenState extends State<GameScreen>
           p.currentScore = p.scoreSnapshot.removeLast();
         turnInProgressScores.remove(p.id);
         systemCalculatedIds.remove(p.id);
+        _turnAnnotations.remove(p.id);
         if (last == 0 && p.consecutiveMisses > 0) {
           p.consecutiveMisses--;
           p.isDisqualified = false;
@@ -2074,6 +2101,8 @@ class _GameScreenState extends State<GameScreen>
                               (t) => {
                                 'turnNumber': t.turnNumber,
                                 'scores': t.scores,
+                                if (t.scoreAnnotations.isNotEmpty)
+                                  'annotations': t.scoreAnnotations,
                               },
                             )
                             .toList(),
@@ -2844,34 +2873,39 @@ class _GameScreenState extends State<GameScreen>
                                     itemCount: 12,
                                     itemBuilder: (c, i) {
                                       final num = i + 1;
-                                      return ElevatedButton(
-                                        onPressed: () {
-                                          if (isSetFinished) return;
-                                          setState(
-                                            () => selectedSkitels = [num],
-                                          );
-                                          _submitThrow();
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.black,
-                                          side: BorderSide(
-                                            color: Colors.grey[300]!,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                        ),
-                                        child: Text(
-                                          '$num',
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                      return _PinButton(
+                                        num: num,
+                                        onTap:
+                                            isSetFinished
+                                                ? null
+                                                : () {
+                                                  setState(() {
+                                                    selectedSkitels = [num];
+                                                    _throwAnnotation = 0;
+                                                  });
+                                                  _submitThrow();
+                                                },
+                                        onDoubleTap:
+                                            isSetFinished
+                                                ? null
+                                                : () {
+                                                  setState(() {
+                                                    selectedSkitels = [num];
+                                                    _throwAnnotation = 1;
+                                                  });
+                                                  _submitThrow();
+                                                },
+                                        onLongPress:
+                                            isSetFinished
+                                                ? null
+                                                : () {
+                                                  setState(() {
+                                                    selectedSkitels = [num];
+                                                    _throwAnnotation = 2;
+                                                  });
+                                                  _submitThrow();
+                                                },
+                                        fontSize: 20,
                                       );
                                     },
                                   );
@@ -3071,27 +3105,39 @@ class _GameScreenState extends State<GameScreen>
                             itemCount: 12,
                             itemBuilder: (c, i) {
                               final num = i + 1;
-                              return ElevatedButton(
-                                onPressed: () {
-                                  if (isSetFinished) return;
-                                  setState(() => selectedSkitels = [num]);
-                                  _submitThrow();
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  side: BorderSide(color: Colors.grey[300]!),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  '$num',
-                                  style: const TextStyle(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                              return _PinButton(
+                                num: num,
+                                onTap:
+                                    isSetFinished
+                                        ? null
+                                        : () {
+                                          setState(() {
+                                            selectedSkitels = [num];
+                                            _throwAnnotation = 0;
+                                          });
+                                          _submitThrow();
+                                        },
+                                onDoubleTap:
+                                    isSetFinished
+                                        ? null
+                                        : () {
+                                          setState(() {
+                                            selectedSkitels = [num];
+                                            _throwAnnotation = 1;
+                                          });
+                                          _submitThrow();
+                                        },
+                                onLongPress:
+                                    isSetFinished
+                                        ? null
+                                        : () {
+                                          setState(() {
+                                            selectedSkitels = [num];
+                                            _throwAnnotation = 2;
+                                          });
+                                          _submitThrow();
+                                        },
+                                fontSize: 26,
                               );
                             },
                           );
@@ -3304,6 +3350,31 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
+  // アノテーション付きスコアウィジェット（◯囲み or □囲み）
+  static Widget _annotatedScoreWidget(
+    int score,
+    int annotation, {
+    required TextStyle style,
+  }) {
+    final txt = Text(
+      '$score',
+      style: style.copyWith(fontSize: (style.fontSize ?? 14) * 0.82),
+    );
+    if (annotation == 0 || score == 0) return Text('$score', style: style);
+    final sz = (style.fontSize ?? 14) * 1.35;
+    return Container(
+      width: sz,
+      height: sz,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: annotation == 1 ? BoxShape.circle : BoxShape.rectangle,
+        border: Border.all(color: style.color ?? Colors.black, width: 1.3),
+        borderRadius: annotation == 2 ? BorderRadius.circular(2) : null,
+      ),
+      child: txt,
+    );
+  }
+
   Widget _buildScoreTable(L10n t, Player currentPlayer) {
     return LayoutBuilder(
       builder: (ctx, constraints) {
@@ -3478,14 +3549,41 @@ class _GameScreenState extends State<GameScreen>
                                             ),
                                           )
                                           : null,
-                                  child: Text(
-                                    isFault ? '―' : (hasScore ? '$score' : ''),
-                                    style: TextStyle(
-                                      fontSize: fontSize,
-                                      color: textColor,
-                                      fontWeight:
-                                          isFault ? FontWeight.bold : null,
-                                    ),
+                                  child: Builder(
+                                    builder: (_) {
+                                      if (!hasScore || isFault) {
+                                        return Text(
+                                          isFault ? '―' : '',
+                                          style: TextStyle(
+                                            fontSize: fontSize,
+                                            color: textColor,
+                                            fontWeight:
+                                                isFault
+                                                    ? FontWeight.bold
+                                                    : null,
+                                          ),
+                                        );
+                                      }
+                                      final turns =
+                                          widget.match.currentSetRecord.turns;
+                                      final ann =
+                                          isCurrent
+                                              ? (_turnAnnotations[p.id] ?? 0)
+                                              : (turns.length >= turn
+                                                  ? (turns[turn - 1]
+                                                          .scoreAnnotations[p
+                                                          .id] ??
+                                                      0)
+                                                  : 0);
+                                      return _annotatedScoreWidget(
+                                        score,
+                                        ann,
+                                        style: TextStyle(
+                                          fontSize: fontSize,
+                                          color: textColor,
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                                 Container(
@@ -3937,18 +4035,20 @@ class HistoryPage extends StatelessWidget {
                 ...displayOrder.map((p) {
                   bool isStarter = p.id == set.starterPlayerId;
                   bool isSys = turn.systemCalculatedPlayerIds.contains(p.id);
-                  String txt =
-                      turn.scores.containsKey(p.id)
-                          ? (isSys ? "-" : "${turn.scores[p.id]}")
-                          : "";
+                  final hasScore = turn.scores.containsKey(p.id);
+                  final score = turn.scores[p.id] ?? 0;
+                  final ann = turn.scoreAnnotations[p.id] ?? 0;
+                  final style = TextStyle(
+                    fontWeight: isStarter ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 16,
+                  );
+                  if (!hasScore) return DataCell(Text('', style: style));
+                  if (isSys) return DataCell(Text('-', style: style));
                   return DataCell(
-                    Text(
-                      txt,
-                      style: TextStyle(
-                        fontWeight:
-                            isStarter ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 16,
-                      ),
+                    _GameScreenState._annotatedScoreWidget(
+                      score,
+                      ann,
+                      style: style,
                     ),
                   );
                 }),
@@ -4293,6 +4393,10 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                   systemCalculated: Set<String>.from(
                     t['systemCalculated'] ?? [],
                   ),
+                  scoreAnnotations:
+                      t['annotations'] != null
+                          ? Map<String, int>.from(t['annotations'])
+                          : {},
                 ),
               ),
             );
@@ -4412,6 +4516,14 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(title: '7. 戦績', items: ['戦績ではこれまでの試合結果や各セットの内容を確認できます']),
+    _HelpSection(
+      title: t.get('annotation_tip_title'),
+      items: [
+        t.get('annotation_tip_circle'),
+        t.get('annotation_tip_square'),
+        t.get('annotation_tip_note'),
+      ],
+    ),
   ];
 
   List<Widget> _enSections(L10n t) => [
@@ -4468,6 +4580,14 @@ class HelpPage extends StatelessWidget {
       title: '7. Match History',
       items: [
         'You can review past matches and each set from the history screen',
+      ],
+    ),
+    _HelpSection(
+      title: t.get('annotation_tip_title'),
+      items: [
+        t.get('annotation_tip_circle'),
+        t.get('annotation_tip_square'),
+        t.get('annotation_tip_note'),
       ],
     ),
   ];
@@ -4595,6 +4715,48 @@ class _HelpSection extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ─── ピンボタン（シングル / ダブルタップ / 長押しでアノテーション切替）──────────
+class _PinButton extends StatelessWidget {
+  const _PinButton({
+    required this.num,
+    required this.fontSize,
+    this.onTap,
+    this.onDoubleTap,
+    this.onLongPress,
+  });
+
+  final int num;
+  final double fontSize;
+  final VoidCallback? onTap;
+  final VoidCallback? onDoubleTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      onDoubleTap: onDoubleTap,
+      onLongPress: onLongPress,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '$num',
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+      ),
     );
   }
 }
