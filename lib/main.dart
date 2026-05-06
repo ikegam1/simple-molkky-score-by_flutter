@@ -87,6 +87,8 @@ class L10n {
       'help_title': 'How to Play',
       'pts': 'pts',
       'hyakin_mode': 'Hyakin (表裏 2 sets)',
+      'three_game_mode': '3-Game (total score)',
+      'three_game_co_win': 'Co-winners: {names}',
       'self5turn_fail_1': 'So close! Keep it up! 😤',
       'self5turn_fail_2_3': 'Not bad at all! 👍',
       'self5turn_fail_4_5': 'Seriously!? That\'s amazing! 🤩',
@@ -169,6 +171,8 @@ class L10n {
       'help_title': '使い方',
       'pts': '点',
       'hyakin_mode': '100均（表裏2セット）',
+      'three_game_mode': '3番（合計点数）',
+      'three_game_co_win': '共同優勝: {names}',
       'self5turn_fail_1': '惜しい！まだまだこれから！😤',
       'self5turn_fail_2_3': 'なかなかやりますね！👍',
       'self5turn_fail_4_5': 'マジで！？凄いです！🤩',
@@ -675,6 +679,14 @@ class _SetupScreenState extends State<SetupScreen> {
         turnLimitPerSet: turnLimit,
         matchTimeLimitSeconds: matchTimeLimitSeconds,
       );
+    } else if (_selectedModeKey == -4) {
+      match = MolkkyMatch(
+        players: playersForMatch,
+        limit: 3,
+        type: MatchType.threeGame,
+        turnLimitPerSet: turnLimit,
+        matchTimeLimitSeconds: matchTimeLimitSeconds,
+      );
     } else {
       MatchType type =
           [1, 2, 10].contains(_selectedModeKey)
@@ -707,11 +719,13 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
-    // key=-1: self5Turn, key=-3: self6Turn, key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
+    // key=-1: self5Turn, key=-2: hyakin, key=-3: self6Turn, key=-4: threeGame
+    // key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
     final Map<int, String> options = {
       1: t.get('sets_count', args: {'n': '1'}),
       2: t.get('sets_count', args: {'n': '2'}),
       -2: t.get('hyakin_mode'),
+      -4: t.get('three_game_mode'),
       3: t.get('race_to', args: {'n': '2'}),
       5: t.get('race_to', args: {'n': '3'}),
       7: t.get('race_to', args: {'n': '4'}),
@@ -1617,7 +1631,8 @@ class _GameScreenState extends State<GameScreen>
         final tempCompleted = List<SetRecord>.from(widget.match.completedSets)
           ..add(widget.match.currentSetRecord);
         bool matchTrulyOver = false;
-        if (widget.match.type == MatchType.fixedSets) {
+        if (widget.match.type == MatchType.fixedSets ||
+            widget.match.type == MatchType.threeGame) {
           matchTrulyOver = tempCompleted.length >= widget.match.limit;
         } else {
           matchTrulyOver = widget.match.isMatchOver;
@@ -1628,7 +1643,21 @@ class _GameScreenState extends State<GameScreen>
           widget.match.finalizeCurrentSetIfNeeded();
           if (widget.match.isMatchDraw) {
             _uploadMatchData(null);
-            _showMatchDrawDialog();
+            // 3番共同優勝は専用メッセージで表示
+            if (widget.match.type == MatchType.threeGame) {
+              final t = L10n.of(context);
+              final names = widget.match.threeGameTopScorers
+                  .map((p) => p.name)
+                  .join('・');
+              _showMatchDrawDialog(
+                detailOverride: t.get(
+                  'three_game_co_win',
+                  args: {'names': names},
+                ),
+              );
+            } else {
+              _showMatchDrawDialog();
+            }
           } else {
             final finalWinner = widget.match.matchWinner ?? winner;
             _uploadMatchData(finalWinner);
@@ -1663,7 +1692,8 @@ class _GameScreenState extends State<GameScreen>
               widget.match.completedSets,
             )..add(widget.match.currentSetRecord);
             final bool matchTrulyOver =
-                widget.match.type == MatchType.fixedSets
+                (widget.match.type == MatchType.fixedSets ||
+                        widget.match.type == MatchType.threeGame)
                     ? tempCompleted.length >= widget.match.limit
                     : widget.match.type == MatchType.raceTo &&
                         decision.winner != null &&
@@ -2203,6 +2233,8 @@ class _GameScreenState extends State<GameScreen>
         return 'セルフ5ターン';
       case MatchType.self6Turn:
         return 'セルフ6ターン';
+      case MatchType.threeGame:
+        return '3番';
     }
   }
 

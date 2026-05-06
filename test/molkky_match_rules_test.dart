@@ -240,4 +240,138 @@ void main() {
       expect(match.completedSets.where((s) => s.setNumber == 1).length, 1);
     });
   });
+
+  group('3番 (threeGame) rules', () {
+    test('3セット完了で試合終了', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final match = MolkkyMatch(
+        players: [a, b],
+        limit: 3,
+        type: MatchType.threeGame,
+      );
+
+      for (int i = 1; i <= 3; i++) {
+        match.completedSets.add(SetRecord(i, a.id, [a.id, b.id]));
+      }
+      expect(match.isMatchOver, isTrue);
+    });
+
+    test('2セットではまだ試合継続', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final match = MolkkyMatch(
+        players: [a, b],
+        limit: 3,
+        type: MatchType.threeGame,
+      );
+
+      for (int i = 1; i <= 2; i++) {
+        match.completedSets.add(SetRecord(i, a.id, [a.id, b.id]));
+      }
+      expect(match.isMatchOver, isFalse);
+    });
+
+    test('合計点が高い方が勝者', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final match = MolkkyMatch(
+        players: [a, b],
+        limit: 3,
+        type: MatchType.threeGame,
+      );
+
+      a.setFinalScores = [50, 40, 30]; // 計120
+      b.setFinalScores = [30, 35, 40]; // 計105
+      for (int i = 1; i <= 3; i++) {
+        match.completedSets.add(SetRecord(i, a.id, [a.id, b.id]));
+      }
+      expect(match.matchWinner?.id, 'A');
+      expect(match.isMatchDraw, isFalse);
+    });
+
+    test('合計点が同じなら共同優勝（matchWinner=null, isMatchDraw=true）', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final match = MolkkyMatch(
+        players: [a, b],
+        limit: 3,
+        type: MatchType.threeGame,
+      );
+
+      a.setFinalScores = [50, 30, 40]; // 計120
+      b.setFinalScores = [40, 50, 30]; // 計120
+      for (int i = 1; i <= 3; i++) {
+        match.completedSets.add(SetRecord(i, a.id, [a.id, b.id]));
+      }
+      expect(match.matchWinner, isNull);
+      expect(match.isMatchDraw, isTrue);
+      expect(
+        match.threeGameTopScorers.map((p) => p.id),
+        containsAll(['A', 'B']),
+      );
+    });
+
+    test('3人以上で合計点1位が1人なら単独優勝', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final c = p('C', 2);
+      final match = MolkkyMatch(
+        players: [a, b, c],
+        limit: 3,
+        type: MatchType.threeGame,
+      );
+
+      a.setFinalScores = [50, 50, 50]; // 計150
+      b.setFinalScores = [40, 40, 40]; // 計120
+      c.setFinalScores = [30, 30, 30]; // 計90
+      for (int i = 1; i <= 3; i++) {
+        match.completedSets.add(SetRecord(i, a.id, [a.id, b.id, c.id]));
+      }
+      expect(match.matchWinner?.id, 'A');
+      expect(match.isMatchDraw, isFalse);
+    });
+
+    test('投げ順が左ローテーション（ABC→BCA→CAB）', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final c = p('C', 2);
+      final match = MolkkyMatch(
+        players: [a, b, c],
+        limit: 3,
+        type: MatchType.threeGame,
+      );
+
+      // Set1: A, B, C
+      expect(match.players.map((p) => p.id).toList(), ['A', 'B', 'C']);
+
+      match.prepareNextSet();
+      // Set2: B, C, A
+      expect(match.players.map((p) => p.id).toList(), ['B', 'C', 'A']);
+
+      match.prepareNextSet();
+      // Set3: C, A, B
+      expect(match.players.map((p) => p.id).toList(), ['C', 'A', 'B']);
+    });
+
+    test('4人の投げ順ローテーション（ABCD→BCDA→CDAB）', () {
+      final a = p('A', 0);
+      final b = p('B', 1);
+      final c = p('C', 2);
+      final d = p('D', 3);
+      final match = MolkkyMatch(
+        players: [a, b, c, d],
+        limit: 3,
+        type: MatchType.threeGame,
+      );
+
+      expect(match.players.map((p) => p.id).toList(), ['A', 'B', 'C', 'D']);
+
+      match.prepareNextSet();
+      expect(match.players.map((p) => p.id).toList(), ['B', 'C', 'D', 'A']);
+
+      match.prepareNextSet();
+      expect(match.players.map((p) => p.id).toList(), ['C', 'D', 'A', 'B']);
+    });
+  });
 }

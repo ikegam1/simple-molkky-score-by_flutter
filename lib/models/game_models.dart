@@ -44,7 +44,7 @@ class SetRecord {
   bool get hasContent => turns.isNotEmpty || finalCumulativeScores.isNotEmpty;
 }
 
-enum MatchType { raceTo, fixedSets, self5Turn, self6Turn, hyakin }
+enum MatchType { raceTo, fixedSets, self5Turn, self6Turn, hyakin, threeGame }
 
 class MolkkyMatch {
   List<Player> players;
@@ -92,6 +92,7 @@ class MolkkyMatch {
     if (type == MatchType.self5Turn || type == MatchType.self6Turn)
       return false; // managed explicitly in GameScreen
     if (type == MatchType.hyakin) return completedSets.length >= 2;
+    if (type == MatchType.threeGame) return completedSets.length >= 3;
     // 修正: completedSets.length で判定することで、指定セット数が「完了」するまで終わらないようにする
     if (type == MatchType.fixedSets) return completedSets.length >= limit;
     for (var p in players) {
@@ -103,8 +104,24 @@ class MolkkyMatch {
     return false;
   }
 
+  /// 3番: 合計点1位が複数いる場合（共同優勝）は draw として扱う
+  bool get isThreeGameCoWin =>
+      type == MatchType.threeGame &&
+      completedSets.length >= 3 &&
+      threeGameTopScorers.length > 1;
+
+  /// 3番の合計点最高プレイヤー全員を返す（共同優勝判定用）
+  List<Player> get threeGameTopScorers {
+    if (type != MatchType.threeGame || completedSets.length < 3) return [];
+    final maxScore = players
+        .map((p) => p.totalMatchScore)
+        .reduce((a, b) => a > b ? a : b);
+    return players.where((p) => p.totalMatchScore == maxScore).toList();
+  }
+
   /// 2番・10番の fixedSets で、全セット完了後にセット数・合計点数が同じ場合は引き分け
   bool get isMatchDraw {
+    if (type == MatchType.threeGame) return isThreeGameCoWin;
     if (type != MatchType.fixedSets) return false;
     if (limit != 2 && limit != 10) return false;
     if (completedSets.length < limit) return false;
@@ -119,6 +136,18 @@ class MolkkyMatch {
   }
 
   Player? get matchWinner {
+    // 3番: 合計点で順位付け（共同優勝の場合は initialOrder 最小を代表として返す）
+    if (type == MatchType.threeGame) {
+      if (completedSets.length < 3) return null;
+      if (isThreeGameCoWin)
+        return null; // 共同優勝は matchWinner = null（draw ダイアログで表示）
+      final sorted = List<Player>.from(players)..sort((a, b) {
+        if (b.totalMatchScore != a.totalMatchScore)
+          return b.totalMatchScore.compareTo(a.totalMatchScore);
+        return a.initialOrder.compareTo(b.initialOrder);
+      });
+      return sorted.first;
+    }
     if (type == MatchType.hyakin) {
       if (completedSets.length < 2) return null;
       final sorted = List<Player>.from(players);

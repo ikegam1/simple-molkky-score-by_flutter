@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('縦向きピンボタン アスペクト比', () {
-    double portraitAspectRatio({required double screenH, required double screenW}) {
+    double portraitAspectRatio({
+      required double screenH,
+      required double screenW,
+    }) {
       const maxGridH = 0.392; // height * 0.392
       final h = screenH * maxGridH;
       final cellH = (h - 8.0 * 2) / 3;
@@ -34,14 +37,20 @@ void main() {
       ];
       for (final (w, h) in screens) {
         final ratio = portraitAspectRatio(screenH: h, screenW: w);
-        expect(ratio, greaterThanOrEqualTo(1.5),
-            reason: '${w}x$h のアスペクト比が1.5未満');
+        expect(
+          ratio,
+          greaterThanOrEqualTo(1.5),
+          reason: '${w}x$h のアスペクト比が1.5未満',
+        );
       }
     });
   });
 
   group('横向きピンボタン アスペクト比', () {
-    double landscapeAspectRatio({required double panelW, required double availH}) {
+    double landscapeAspectRatio({
+      required double panelW,
+      required double availH,
+    }) {
       final cellH = (availH - 6.0 * 2) / 3;
       final cellW = (panelW - 6.0 * 3) / 4;
       return (cellW / cellH).clamp(0.8, double.infinity);

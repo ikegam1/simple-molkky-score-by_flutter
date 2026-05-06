@@ -104,12 +104,24 @@ void main() {
       final p = match.players.first;
 
       // 49点から2点で51点 → バースト(25点)
-      applyScores(p, match, [12, 12, 12, 12, 2]); // 12+12+12+12=48, +2=50 → ちょうど50
+      applyScores(p, match, [
+        12,
+        12,
+        12,
+        12,
+        2,
+      ]); // 12+12+12+12=48, +2=50 → ちょうど50
       // これは成功になってしまうので別のケースに
       // 40点から12点で52 → バースト25、残り0投
       final match2 = makeSelf5TurnMatch();
       final p2 = match2.players.first;
-      applyScores(p2, match2, [12, 12, 12, 5, 12]); // 12+12+12+5=41, +12=53 → burst 25
+      applyScores(p2, match2, [
+        12,
+        12,
+        12,
+        5,
+        12,
+      ]); // 12+12+12+5=41, +12=53 → burst 25
       expect(p2.currentScore, 25);
       expect(p2.scoreHistory.length, 5);
     });
