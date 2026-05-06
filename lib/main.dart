@@ -2172,6 +2172,8 @@ class _GameScreenState extends State<GameScreen>
                                 'scores': t.scores,
                                 'systemCalculated':
                                     t.systemCalculatedPlayerIds.toList(),
+                                if (t.scoreAnnotations.isNotEmpty)
+                                  'annotations': t.scoreAnnotations,
                               },
                             )
                             .toList(),
