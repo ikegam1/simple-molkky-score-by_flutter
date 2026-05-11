@@ -1924,15 +1924,11 @@ class _GameScreenState extends State<GameScreen>
     }
   }
 
-  void _saveSetSnapshot() {
+  // setWinner: セット勝者（winnerのsetsWonはすでに+1済みのため-1して保存）
+  void _saveSetSnapshot({Player? setWinner}) {
     _prevSetSnapshot = _PrevSetSnapshot(
       currentSetIndex: widget.match.currentSetIndex,
       currentTurnInSet: currentTurnInSet,
-      currentPlayerIndex: currentPlayerIndex,
-      turnInProgressScores: Map.from(turnInProgressScores),
-      systemCalculatedIds: Set.from(systemCalculatedIds),
-      turnAnnotations: Map.from(_turnAnnotations),
-      playersBurstedThisSet: Set.from(_playersBurstedThisSet),
       currentSetRecord: widget.match.currentSetRecord,
       completedSetsLen: widget.match.completedSets.length,
       playerStates: widget.match.players.map((p) => <String, dynamic>{
@@ -1940,7 +1936,7 @@ class _GameScreenState extends State<GameScreen>
         'currentScore': p.currentScore,
         'consecutiveMisses': p.consecutiveMisses,
         'isDisqualified': p.isDisqualified,
-        'setsWon': p.setsWon,
+        'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
         'scoreHistory': List<int>.from(p.scoreHistory),
         'scoreSnapshot': List<int>.from(p.scoreSnapshot),
         'matchScoreHistoryLen': p.matchScoreHistory.length,
@@ -1957,7 +1953,6 @@ class _GameScreenState extends State<GameScreen>
     while (widget.match.completedSets.length > snap.completedSetsLen) {
       widget.match.completedSets.removeLast();
     }
-    // turn-limit等で事前finalize済みの場合も除去
     widget.match.completedSets.removeWhere(
       (s) => s.setNumber == snap.currentSetRecord.setNumber,
     );
@@ -1966,7 +1961,7 @@ class _GameScreenState extends State<GameScreen>
     widget.match.currentSetRecord = snap.currentSetRecord;
     widget.match.currentSetIndex = snap.currentSetIndex;
 
-    // プレイヤー状態を復元
+    // プレイヤー状態をスナップショットから復元
     for (final p in widget.match.players) {
       final ps = snap.playerStates.firstWhere((s) => s['id'] == p.id);
       p.currentScore = ps['currentScore'] as int;
@@ -1981,26 +1976,38 @@ class _GameScreenState extends State<GameScreen>
         p.setFinalScores.removeLast();
     }
 
-    // Undoが機能するよう、勝者の次のプレイヤーにポジションを進める
-    final winnerIdx = snap.currentPlayerIndex;
-    final numPlayers = widget.match.players.length;
-    final nextIdx = (winnerIdx + 1) % numPlayers;
-    final wrapped = nextIdx <= winnerIdx;
+    // 勝利ターンの TurnRecord を削除し、そのターンの投擲も全て取り消す
+    // → スコア表が正しく「そのターンの開始時」を示すようにする
+    if (snap.currentSetRecord.turns.isNotEmpty) {
+      final winTurn = snap.currentSetRecord.turns.removeLast();
+      for (final p in widget.match.players) {
+        if (!winTurn.scores.containsKey(p.id)) continue;
+        if (winTurn.systemCalculatedPlayerIds.contains(p.id)) {
+          // システム自動計算（サバイバー自動完了）: scoreSnapshot エントリなし
+          final gained = winTurn.scores[p.id] ?? 0;
+          p.currentScore -= gained;
+          if (p.scoreHistory.isNotEmpty) p.scoreHistory.removeLast();
+          if (p.matchScoreHistory.isNotEmpty) p.matchScoreHistory.removeLast();
+          p.isDisqualified = false;
+        } else {
+          // 通常の手動投擲
+          if (p.scoreHistory.isNotEmpty) p.scoreHistory.removeLast();
+          if (p.scoreSnapshot.isNotEmpty)
+            p.currentScore = p.scoreSnapshot.removeLast();
+          if (p.matchScoreHistory.isNotEmpty) p.matchScoreHistory.removeLast();
+        }
+      }
+    }
 
+    // 勝利ターンの開始位置に配置（currentTurnInSet=N、player 0 が次の投擲者）
     setState(() {
-      currentTurnInSet =
-          wrapped ? snap.currentTurnInSet + 1 : snap.currentTurnInSet;
-      currentPlayerIndex = nextIdx;
+      currentTurnInSet = snap.currentTurnInSet;
+      currentPlayerIndex = 0;
       isSetFinished = false;
-      turnInProgressScores =
-          wrapped ? {} : Map.from(snap.turnInProgressScores);
-      systemCalculatedIds =
-          wrapped ? {} : Set.from(snap.systemCalculatedIds);
-      _turnAnnotations =
-          wrapped ? {} : Map.from(snap.turnAnnotations);
-      _playersBurstedThisSet
-        ..clear()
-        ..addAll(snap.playersBurstedThisSet);
+      turnInProgressScores = {};
+      systemCalculatedIds = {};
+      _turnAnnotations = {};
+      _playersBurstedThisSet.clear();
       _prevSetSnapshot = null;
       _lastTapNum = null;
       _lastTapTime = null;
@@ -2386,7 +2393,7 @@ class _GameScreenState extends State<GameScreen>
   void _showSetWinnerDialog(Player winner, {required String winMsg}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex; // 現在のセット番号を保持
-    _saveSetSnapshot();
+    _saveSetSnapshot(setWinner: winner);
     widget.match.prepareNextSet(manualOrder: false);
     List<Player> reorderList = List.from(widget.match.players);
 
@@ -4870,11 +4877,6 @@ class _PinButton extends StatelessWidget {
 class _PrevSetSnapshot {
   final int currentSetIndex;
   final int currentTurnInSet;
-  final int currentPlayerIndex;
-  final Map<String, int> turnInProgressScores;
-  final Set<String> systemCalculatedIds;
-  final Map<String, int> turnAnnotations;
-  final Set<String> playersBurstedThisSet;
   final SetRecord currentSetRecord;
   final int completedSetsLen;
   final List<Map<String, dynamic>> playerStates;
@@ -4882,11 +4884,6 @@ class _PrevSetSnapshot {
   _PrevSetSnapshot({
     required this.currentSetIndex,
     required this.currentTurnInSet,
-    required this.currentPlayerIndex,
-    required this.turnInProgressScores,
-    required this.systemCalculatedIds,
-    required this.turnAnnotations,
-    required this.playersBurstedThisSet,
     required this.currentSetRecord,
     required this.completedSetsLen,
     required this.playerStates,
