@@ -1273,6 +1273,12 @@ class _GameScreenState extends State<GameScreen>
   // 投擲アノテーション: 0=通常, 1=◯囲み, 2=□囲み
   int _throwAnnotation = 0;
   Map<String, int> _turnAnnotations = {};
+  // 0.3秒再タップで◯囲みに変換するためのトラッキング
+  int? _lastTapNum;
+  DateTime? _lastTapTime;
+  String? _lastTapPlayerId;
+  // セット間Undo用スナップショット
+  _PrevSetSnapshot? _prevSetSnapshot;
 
   @override
   void initState() {
@@ -1846,6 +1852,17 @@ class _GameScreenState extends State<GameScreen>
                   ),
                 ),
                 actions: [
+                  if (_prevSetSnapshot != null)
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.orange[700],
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _undoToPreviousSet();
+                      },
+                      child: const Text('前のセットに戻る'),
+                    ),
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
                     child: Text(t.get('cancel')),
@@ -1872,6 +1889,123 @@ class _GameScreenState extends State<GameScreen>
             },
           ),
     );
+  }
+
+  // ピンボタンタップ: 0.3秒以内に同じピンを再タップで◯囲みに昇格
+  void _handlePinTap(int num) {
+    if (isSetFinished) return;
+    final now = DateTime.now();
+    if (_lastTapNum == num &&
+        _lastTapPlayerId != null &&
+        _lastTapTime != null &&
+        now.difference(_lastTapTime!) <= const Duration(milliseconds: 300)) {
+      setState(() => _upgradeLastAnnotation(_lastTapPlayerId!));
+      _lastTapNum = null;
+      _lastTapTime = null;
+      _lastTapPlayerId = null;
+      return;
+    }
+    final playerId = widget.match.players[currentPlayerIndex].id;
+    _lastTapNum = num;
+    _lastTapTime = now;
+    _lastTapPlayerId = playerId;
+    setState(() {
+      selectedSkitels = [num];
+      _throwAnnotation = 0;
+    });
+    _submitThrow();
+  }
+
+  void _upgradeLastAnnotation(String playerId) {
+    if (turnInProgressScores.containsKey(playerId)) {
+      _turnAnnotations[playerId] = 1;
+    } else if (widget.match.currentSetRecord.turns.isNotEmpty) {
+      widget.match.currentSetRecord.turns.last.scoreAnnotations[playerId] = 1;
+    }
+  }
+
+  void _saveSetSnapshot() {
+    _prevSetSnapshot = _PrevSetSnapshot(
+      currentSetIndex: widget.match.currentSetIndex,
+      currentTurnInSet: currentTurnInSet,
+      currentPlayerIndex: currentPlayerIndex,
+      turnInProgressScores: Map.from(turnInProgressScores),
+      systemCalculatedIds: Set.from(systemCalculatedIds),
+      turnAnnotations: Map.from(_turnAnnotations),
+      playersBurstedThisSet: Set.from(_playersBurstedThisSet),
+      currentSetRecord: widget.match.currentSetRecord,
+      completedSetsLen: widget.match.completedSets.length,
+      playerStates: widget.match.players.map((p) => <String, dynamic>{
+        'id': p.id,
+        'currentScore': p.currentScore,
+        'consecutiveMisses': p.consecutiveMisses,
+        'isDisqualified': p.isDisqualified,
+        'setsWon': p.setsWon,
+        'scoreHistory': List<int>.from(p.scoreHistory),
+        'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+        'matchScoreHistoryLen': p.matchScoreHistory.length,
+        'setFinalScoresLen': p.setFinalScores.length,
+      }).toList(),
+    );
+  }
+
+  void _undoToPreviousSet() {
+    final snap = _prevSetSnapshot;
+    if (snap == null) return;
+
+    // prepareNextSet で追加された completedSet を除去
+    while (widget.match.completedSets.length > snap.completedSetsLen) {
+      widget.match.completedSets.removeLast();
+    }
+    // turn-limit等で事前finalize済みの場合も除去
+    widget.match.completedSets.removeWhere(
+      (s) => s.setNumber == snap.currentSetRecord.setNumber,
+    );
+
+    // currentSetRecord と currentSetIndex を復元
+    widget.match.currentSetRecord = snap.currentSetRecord;
+    widget.match.currentSetIndex = snap.currentSetIndex;
+
+    // プレイヤー状態を復元
+    for (final p in widget.match.players) {
+      final ps = snap.playerStates.firstWhere((s) => s['id'] == p.id);
+      p.currentScore = ps['currentScore'] as int;
+      p.consecutiveMisses = ps['consecutiveMisses'] as int;
+      p.isDisqualified = ps['isDisqualified'] as bool;
+      p.setsWon = ps['setsWon'] as int;
+      p.scoreHistory = List<int>.from(ps['scoreHistory'] as List);
+      p.scoreSnapshot = List<int>.from(ps['scoreSnapshot'] as List);
+      while (p.matchScoreHistory.length > (ps['matchScoreHistoryLen'] as int))
+        p.matchScoreHistory.removeLast();
+      while (p.setFinalScores.length > (ps['setFinalScoresLen'] as int))
+        p.setFinalScores.removeLast();
+    }
+
+    // Undoが機能するよう、勝者の次のプレイヤーにポジションを進める
+    final winnerIdx = snap.currentPlayerIndex;
+    final numPlayers = widget.match.players.length;
+    final nextIdx = (winnerIdx + 1) % numPlayers;
+    final wrapped = nextIdx <= winnerIdx;
+
+    setState(() {
+      currentTurnInSet =
+          wrapped ? snap.currentTurnInSet + 1 : snap.currentTurnInSet;
+      currentPlayerIndex = nextIdx;
+      isSetFinished = false;
+      turnInProgressScores =
+          wrapped ? {} : Map.from(snap.turnInProgressScores);
+      systemCalculatedIds =
+          wrapped ? {} : Set.from(snap.systemCalculatedIds);
+      _turnAnnotations =
+          wrapped ? {} : Map.from(snap.turnAnnotations);
+      _playersBurstedThisSet
+        ..clear()
+        ..addAll(snap.playersBurstedThisSet);
+      _prevSetSnapshot = null;
+      _lastTapNum = null;
+      _lastTapTime = null;
+      _lastTapPlayerId = null;
+    });
   }
 
   void _undo() {
@@ -2250,6 +2384,7 @@ class _GameScreenState extends State<GameScreen>
   void _showSetWinnerDialog(Player winner, {required String winMsg}) {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex; // 現在のセット番号を保持
+    _saveSetSnapshot();
     widget.match.prepareNextSet(manualOrder: false);
     List<Player> reorderList = List.from(widget.match.players);
 
@@ -2401,6 +2536,7 @@ class _GameScreenState extends State<GameScreen>
   void _showSetDrawDialog() {
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
+    _saveSetSnapshot();
     widget.match.prepareNextSet(manualOrder: false);
     List<Player> reorderList = List.from(widget.match.players);
 
@@ -2881,23 +3017,7 @@ class _GameScreenState extends State<GameScreen>
                                         onTap:
                                             isSetFinished
                                                 ? null
-                                                : () {
-                                                  setState(() {
-                                                    selectedSkitels = [num];
-                                                    _throwAnnotation = 0;
-                                                  });
-                                                  _submitThrow();
-                                                },
-                                        onDoubleTap:
-                                            isSetFinished
-                                                ? null
-                                                : () {
-                                                  setState(() {
-                                                    selectedSkitels = [num];
-                                                    _throwAnnotation = 1;
-                                                  });
-                                                  _submitThrow();
-                                                },
+                                                : () => _handlePinTap(num),
                                         onLongPress:
                                             isSetFinished
                                                 ? null
@@ -3113,23 +3233,7 @@ class _GameScreenState extends State<GameScreen>
                                 onTap:
                                     isSetFinished
                                         ? null
-                                        : () {
-                                          setState(() {
-                                            selectedSkitels = [num];
-                                            _throwAnnotation = 0;
-                                          });
-                                          _submitThrow();
-                                        },
-                                onDoubleTap:
-                                    isSetFinished
-                                        ? null
-                                        : () {
-                                          setState(() {
-                                            selectedSkitels = [num];
-                                            _throwAnnotation = 1;
-                                          });
-                                          _submitThrow();
-                                        },
+                                        : () => _handlePinTap(num),
                                 onLongPress:
                                     isSetFinished
                                         ? null
@@ -4728,21 +4832,18 @@ class _PinButton extends StatelessWidget {
     required this.num,
     required this.fontSize,
     this.onTap,
-    this.onDoubleTap,
     this.onLongPress,
   });
 
   final int num;
   final double fontSize;
   final VoidCallback? onTap;
-  final VoidCallback? onDoubleTap;
   final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onDoubleTap: onDoubleTap,
       onLongPress: onLongPress,
       child: Container(
         decoration: BoxDecoration(
@@ -4762,4 +4863,30 @@ class _PinButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PrevSetSnapshot {
+  final int currentSetIndex;
+  final int currentTurnInSet;
+  final int currentPlayerIndex;
+  final Map<String, int> turnInProgressScores;
+  final Set<String> systemCalculatedIds;
+  final Map<String, int> turnAnnotations;
+  final Set<String> playersBurstedThisSet;
+  final SetRecord currentSetRecord;
+  final int completedSetsLen;
+  final List<Map<String, dynamic>> playerStates;
+
+  _PrevSetSnapshot({
+    required this.currentSetIndex,
+    required this.currentTurnInSet,
+    required this.currentPlayerIndex,
+    required this.turnInProgressScores,
+    required this.systemCalculatedIds,
+    required this.turnAnnotations,
+    required this.playersBurstedThisSet,
+    required this.currentSetRecord,
+    required this.completedSetsLen,
+    required this.playerStates,
+  });
 }
