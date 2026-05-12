@@ -273,40 +273,37 @@ class _SetDetailSection extends StatelessWidget {
             ),
           ),
         );
-      case 3: // 寄せ成功: 数字の下左に ← を少し重ねて表示
+      case 3: // 寄せ成功: ← を数字の下（重ならない）に青色で表示
         return Padding(
           padding: pad,
-          child: SizedBox(
-            width: 15,
-            height: 14,
-            child: Stack(
-              children: [
-                Text('$score', style: style),
-                const Positioned(
-                  bottom: 0,
-                  left: 0,
-                  child: Text('←', style: TextStyle(fontSize: 6, color: Colors.black87)),
-                ),
-              ],
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$score', style: style),
+              const Text(
+                '←',
+                style: TextStyle(fontSize: 5.5, color: Color(0xFF1E88E5), height: 0.85),
+              ),
+            ],
           ),
         );
-      case 4: // 飛ばし成功: 数字の右下に ↑ を少し重ねて表示
+      case 4: // 飛ばし成功: ↑ を数字の右（重ならない）に青色で表示
         return Padding(
           padding: pad,
-          child: SizedBox(
-            width: 15,
-            height: 14,
-            child: Stack(
-              children: [
-                Text('$score', style: style),
-                const Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Text('↑', style: TextStyle(fontSize: 6, color: Colors.black87)),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('$score', style: style),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 1),
+                child: Text(
+                  '↑',
+                  style: TextStyle(fontSize: 5.5, color: Color(0xFF1E88E5)),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       default:

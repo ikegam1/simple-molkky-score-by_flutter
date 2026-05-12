@@ -88,7 +88,7 @@ class L10n {
       'back_to_top': 'Back to Top',
       'help_title': 'How to Play',
       'pts': 'pts',
-      'annotation_tip_title': '8. Button Tips',
+      'annotation_tip_title': '8. Tips',
       'annotation_tip_circle':
           'Re-tap within 0.3s → ◯ (single-pin shot)',
       'annotation_tip_square':
@@ -185,7 +185,7 @@ class L10n {
       'back_to_top': 'トップへ',
       'help_title': '使い方',
       'pts': '点',
-      'annotation_tip_title': '8. 数字ボタンの操作',
+      'annotation_tip_title': '8. 小ネタ',
       'annotation_tip_circle': '再タップ（0.3秒以内に同じボタン）→ ◯囲み（単品狙い成功）',
       'annotation_tip_square': '長押し中に上フリック → □囲み（本数ガシャ成功）',
       'annotation_tip_yose': '長押し中に左フリック → 寄せ成功（数字に ← を重ねて表示）',
@@ -3687,35 +3687,36 @@ class _GameScreenState extends State<GameScreen>
           ),
           child: Text('$score', style: style.copyWith(fontSize: fs * 0.82)),
         );
-      case 3: // 寄せ成功: 数字の下左に ← を少し重ねて表示
-        return SizedBox(
-          width: fs * 1.15,
-          height: fs * 1.35,
-          child: Stack(
-            children: [
-              Text('$score', style: style),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                child: Text('←', style: smallStyle.copyWith(color: c.withValues(alpha: 0.85))),
+      case 3: // 寄せ成功: ← を数字の下（重ならない）に青色で表示
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$score', style: style),
+            Text(
+              '←',
+              style: TextStyle(
+                fontSize: fs * 0.5,
+                color: Colors.blue[600],
+                height: 0.85,
               ),
-            ],
-          ),
+            ),
+          ],
         );
-      case 4: // 飛ばし成功: 数字の右下に ↑ を少し重ねて表示
-        return SizedBox(
-          width: fs * 1.35,
-          height: fs * 1.2,
-          child: Stack(
-            children: [
-              Text('$score', style: style),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Text('↑', style: smallStyle.copyWith(color: c.withValues(alpha: 0.85))),
+      case 4: // 飛ばし成功: ↑ を数字の右（重ならない）に青色で表示
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text('$score', style: style),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 1),
+              child: Text(
+                '↑',
+                style: TextStyle(fontSize: fs * 0.5, color: Colors.blue[600]),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       default:
         return Text('$score', style: style);
