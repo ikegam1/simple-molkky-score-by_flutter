@@ -1961,7 +1961,7 @@ class _GameScreenState extends State<GameScreen>
     }
   }
 
-  // ピンボタンタップ: 0.3秒以内の再タップでピッカーを表示
+  // ピンボタンタップ: 0.3秒以内の再タップで直接◯囲みに昇格
   void _handlePinTap(int num, Offset globalPos) {
     if (isSetFinished) return;
     final now = DateTime.now();
@@ -1969,11 +1969,8 @@ class _GameScreenState extends State<GameScreen>
         _lastTapPlayerId != null &&
         _lastTapTime != null &&
         now.difference(_lastTapTime!) <= const Duration(milliseconds: 300)) {
-      // 再タップ → 直前スコアのアノテーションをピッカーで選択
-      _showAnnotationPickerForModify(
-        _lastTapPosition ?? globalPos,
-        _lastTapPlayerId!,
-      );
+      // 再タップ → ◯囲み（annotation=1）を直接設定
+      setState(() => _updateLastAnnotation(_lastTapPlayerId!, 1));
       _lastTapNum = null;
       _lastTapTime = null;
       _lastTapPlayerId = null;
@@ -3613,22 +3610,35 @@ class _GameScreenState extends State<GameScreen>
           ),
           child: Text('$score', style: style.copyWith(fontSize: fs * 0.82)),
         );
-      case 3: // 寄せ成功: 数字の下に ←
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('$score', style: style),
-            Text('←', style: smallStyle),
-          ],
+      case 3: // 寄せ成功: 数字の下左に ← を少し重ねて表示
+        return SizedBox(
+          width: fs * 1.15,
+          height: fs * 1.35,
+          child: Stack(
+            children: [
+              Text('$score', style: style),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                child: Text('←', style: smallStyle.copyWith(color: c.withValues(alpha: 0.85))),
+              ),
+            ],
+          ),
         );
-      case 4: // 飛ばし成功: 数字の右に ↑
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text('$score', style: style),
-            Text('↑', style: smallStyle),
-          ],
+      case 4: // 飛ばし成功: 数字の右下に ↑ を少し重ねて表示
+        return SizedBox(
+          width: fs * 1.35,
+          height: fs * 1.2,
+          child: Stack(
+            children: [
+              Text('$score', style: style),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Text('↑', style: smallStyle.copyWith(color: c.withValues(alpha: 0.85))),
+              ),
+            ],
+          ),
         );
       default:
         return Text('$score', style: style);

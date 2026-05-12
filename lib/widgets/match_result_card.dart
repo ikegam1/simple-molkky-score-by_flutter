@@ -273,28 +273,40 @@ class _SetDetailSection extends StatelessWidget {
             ),
           ),
         );
-      case 3: // 寄せ成功: 数字 + ← 下
+      case 3: // 寄せ成功: 数字の下左に ← を少し重ねて表示
         return Padding(
           padding: pad,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('$score', style: style),
-              const Text('←', style: TextStyle(fontSize: 7)),
-            ],
+          child: SizedBox(
+            width: 15,
+            height: 14,
+            child: Stack(
+              children: [
+                Text('$score', style: style),
+                const Positioned(
+                  bottom: 0,
+                  left: 0,
+                  child: Text('←', style: TextStyle(fontSize: 6, color: Colors.black87)),
+                ),
+              ],
+            ),
           ),
         );
-      case 4: // 飛ばし成功: 数字 + ↑ 右
+      case 4: // 飛ばし成功: 数字の右下に ↑ を少し重ねて表示
         return Padding(
           padding: pad,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('$score', style: style),
-              const Text('↑', style: TextStyle(fontSize: 7)),
-            ],
+          child: SizedBox(
+            width: 15,
+            height: 14,
+            child: Stack(
+              children: [
+                Text('$score', style: style),
+                const Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Text('↑', style: TextStyle(fontSize: 6, color: Colors.black87)),
+                ),
+              ],
+            ),
           ),
         );
       default:
