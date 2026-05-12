@@ -88,7 +88,7 @@ class L10n {
       'back_to_top': 'Back to Top',
       'help_title': 'How to Play',
       'pts': 'pts',
-      'annotation_tip_title': '8. Tips',
+      'annotation_tip_title': 'Tips',
       'annotation_tip_circle': 'Re-tap within 0.3s → ◯ (single-pin shot)',
       'annotation_tip_square':
           'Long-press + flick up → □ (multi-pin exact count)',
@@ -183,7 +183,7 @@ class L10n {
       'back_to_top': 'トップへ',
       'help_title': '使い方',
       'pts': '点',
-      'annotation_tip_title': '8. 小ネタ',
+      'annotation_tip_title': 'Tips',
       'annotation_tip_circle': '再タップ（0.3秒以内に同じボタン）→ ◯囲み（単品狙い成功）',
       'annotation_tip_square': '長押し中に上フリック → □囲み（本数ガシャ成功）',
       'annotation_tip_yose': '長押し中に左フリック → 寄せ成功（数字に ← を重ねて表示）',
@@ -2126,7 +2126,7 @@ class _GameScreenState extends State<GameScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _tipRow('👆 ', 'タップ', '通常スコア入力'),
-                _tipRow('👆👆', '再タップ(0.3秒)', '◯囲み（単品狙い成功）'),
+                _tipRow('👆👆', 'ダブルタップ(0.3秒)', '◯囲み（単品狙い成功）'),
                 const Divider(height: 16),
                 _tipRow('⬆️', '長押し＋上フリック', '□囲み（本数ガシャ成功）'),
                 _tipRow('⬇️', '長押し＋下フリック', '◯囲み（同上）'),
