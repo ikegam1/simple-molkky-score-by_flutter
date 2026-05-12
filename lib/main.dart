@@ -5134,13 +5134,27 @@ class _PinButton extends StatefulWidget {
 
 class _PinButtonState extends State<_PinButton> {
   bool _pressed = false;
+  Timer? _releaseTimer;
+
+  void _scheduleRelease() {
+    _releaseTimer?.cancel();
+    _releaseTimer = Timer(const Duration(milliseconds: 120), () {
+      if (mounted) setState(() => _pressed = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _releaseTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (d) {
-        setState(() => _pressed = false);
+        _scheduleRelease();
         widget.onTap?.call(d.globalPosition);
       },
       onTapCancel: () => setState(() => _pressed = false),
