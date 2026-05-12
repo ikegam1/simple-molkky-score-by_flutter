@@ -89,12 +89,10 @@ class L10n {
       'help_title': 'How to Play',
       'pts': 'pts',
       'annotation_tip_title': '8. Tips',
-      'annotation_tip_circle':
-          'Re-tap within 0.3s → ◯ (single-pin shot)',
+      'annotation_tip_circle': 'Re-tap within 0.3s → ◯ (single-pin shot)',
       'annotation_tip_square':
           'Long-press + flick up → □ (multi-pin exact count)',
-      'annotation_tip_yose':
-          'Long-press + flick left → Nearness (← overlaid)',
+      'annotation_tip_yose': 'Long-press + flick left → Nearness (← overlaid)',
       'annotation_tip_tobashi':
           'Long-press + flick right → Flying (↑ overlaid)',
       'annotation_tip_circle_flick':
@@ -1923,16 +1921,17 @@ class _GameScreenState extends State<GameScreen>
     _pickerAnnotation.value = 0;
     _annotationPickerEntry?.remove();
     _annotationPickerEntry = OverlayEntry(
-      builder: (_) => _AnnotationPicker(
-        center: globalPos,
-        pickerAnnotation: _pickerAnnotation,
-        onDismiss: () {
-          // 長押し途中でキャンセルされた場合: スコアなしで閉じる
-          _annotationPickerEntry?.remove();
-          _annotationPickerEntry = null;
-          _pickerAnnotation.value = 0;
-        },
-      ),
+      builder:
+          (_) => _AnnotationPicker(
+            center: globalPos,
+            pickerAnnotation: _pickerAnnotation,
+            onDismiss: () {
+              // 長押し途中でキャンセルされた場合: スコアなしで閉じる
+              _annotationPickerEntry?.remove();
+              _annotationPickerEntry = null;
+              _pickerAnnotation.value = 0;
+            },
+          ),
     );
     Overlay.of(context).insert(_annotationPickerEntry!);
   }
@@ -1942,17 +1941,19 @@ class _GameScreenState extends State<GameScreen>
     _pickerAnnotation.value = 0;
     _annotationPickerEntry?.remove();
     _annotationPickerEntry = OverlayEntry(
-      builder: (_) => _AnnotationPicker(
-        center: globalPos,
-        pickerAnnotation: _pickerAnnotation,
-        onDismiss: () {
-          final ann = _pickerAnnotation.value;
-          _annotationPickerEntry?.remove();
-          _annotationPickerEntry = null;
-          _pickerAnnotation.value = 0;
-          if (ann != 0) setState(() => _updateLastAnnotation(playerId, ann));
-        },
-      ),
+      builder:
+          (_) => _AnnotationPicker(
+            center: globalPos,
+            pickerAnnotation: _pickerAnnotation,
+            onDismiss: () {
+              final ann = _pickerAnnotation.value;
+              _annotationPickerEntry?.remove();
+              _annotationPickerEntry = null;
+              _pickerAnnotation.value = 0;
+              if (ann != 0)
+                setState(() => _updateLastAnnotation(playerId, ann));
+            },
+          ),
     );
     Overlay.of(context).insert(_annotationPickerEntry!);
   }
@@ -2009,17 +2010,22 @@ class _GameScreenState extends State<GameScreen>
       currentTurnInSet: currentTurnInSet,
       currentSetRecord: widget.match.currentSetRecord,
       completedSetsLen: widget.match.completedSets.length,
-      playerStates: widget.match.players.map((p) => <String, dynamic>{
-        'id': p.id,
-        'currentScore': p.currentScore,
-        'consecutiveMisses': p.consecutiveMisses,
-        'isDisqualified': p.isDisqualified,
-        'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
-        'scoreHistory': List<int>.from(p.scoreHistory),
-        'scoreSnapshot': List<int>.from(p.scoreSnapshot),
-        'matchScoreHistoryLen': p.matchScoreHistory.length,
-        'setFinalScoresLen': p.setFinalScores.length,
-      }).toList(),
+      playerStates:
+          widget.match.players
+              .map(
+                (p) => <String, dynamic>{
+                  'id': p.id,
+                  'currentScore': p.currentScore,
+                  'consecutiveMisses': p.consecutiveMisses,
+                  'isDisqualified': p.isDisqualified,
+                  'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
+                  'scoreHistory': List<int>.from(p.scoreHistory),
+                  'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+                  'matchScoreHistoryLen': p.matchScoreHistory.length,
+                  'setFinalScoresLen': p.setFinalScores.length,
+                },
+              )
+              .toList(),
     );
   }
 
@@ -2103,31 +2109,38 @@ class _GameScreenState extends State<GameScreen>
     final t = L10n.of(context);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.info_outline, size: 20),
-            const SizedBox(width: 8),
-            Text(t.get('annotation_tip_title'), style: const TextStyle(fontSize: 16)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _tipRow('👆 ', 'タップ', '通常スコア入力'),
-            _tipRow('👆👆', '再タップ(0.3秒)', '◯囲み（単品狙い成功）'),
-            const Divider(height: 16),
-            _tipRow('⬆️', '長押し＋上フリック', '□囲み（本数ガシャ成功）'),
-            _tipRow('⬇️', '長押し＋下フリック', '◯囲み（同上）'),
-            _tipRow('⬅️', '長押し＋左フリック', '寄せ成功'),
-            _tipRow('➡️', '長押し＋右フリック', '飛ばし成功'),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  t.get('annotation_tip_title'),
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _tipRow('👆 ', 'タップ', '通常スコア入力'),
+                _tipRow('👆👆', '再タップ(0.3秒)', '◯囲み（単品狙い成功）'),
+                const Divider(height: 16),
+                _tipRow('⬆️', '長押し＋上フリック', '□囲み（本数ガシャ成功）'),
+                _tipRow('⬇️', '長押し＋下フリック', '◯囲み（同上）'),
+                _tipRow('⬅️', '長押し＋左フリック', '寄せ成功'),
+                _tipRow('➡️', '長押し＋右フリック', '飛ばし成功'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
     );
   }
 
@@ -2136,14 +2149,20 @@ class _GameScreenState extends State<GameScreen>
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          SizedBox(width: 24, child: Text(icon, style: const TextStyle(fontSize: 14))),
+          SizedBox(
+            width: 24,
+            child: Text(icon, style: const TextStyle(fontSize: 14)),
+          ),
           const SizedBox(width: 4),
           Expanded(
             child: RichText(
               text: TextSpan(
                 style: const TextStyle(fontSize: 12, color: Colors.black87),
                 children: [
-                  TextSpan(text: gesture, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  TextSpan(
+                    text: gesture,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const TextSpan(text: ' → '),
                   TextSpan(text: meaning),
                 ],
@@ -3140,8 +3159,8 @@ class _GameScreenState extends State<GameScreen>
                           Align(
                             alignment: Alignment.centerRight,
                             child: IconButton(
-                              icon: const Icon(Icons.info_outline, size: 18),
-                              color: Colors.grey[400],
+                              icon: const Icon(Icons.info_outline, size: 20),
+                              color: Colors.blueGrey[300],
                               padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
                               constraints: const BoxConstraints(),
                               tooltip: 'ボタン操作ガイド',
@@ -3188,29 +3207,33 @@ class _GameScreenState extends State<GameScreen>
                                                       details.globalPosition,
                                                       num,
                                                     ),
-                                        onLongPressMoveUpdate: isSetFinished
-                                            ? null
-                                            : (details) {
-                                              _pickerAnnotation.value =
-                                                  _annotationFromOffset(
-                                                    details.offsetFromOrigin,
-                                                  );
-                                            },
-                                        onLongPressEnd: isSetFinished
-                                            ? null
-                                            : (details) {
-                                              final ann =
-                                                  _pickerAnnotation.value;
-                                              _annotationPickerEntry?.remove();
-                                              _annotationPickerEntry = null;
-                                              _pickerAnnotation.value = 0;
-                                              _lastTapNum = null;
-                                              setState(() {
-                                                selectedSkitels = [num];
-                                                _throwAnnotation = ann;
-                                              });
-                                              _submitThrow();
-                                            },
+                                        onLongPressMoveUpdate:
+                                            isSetFinished
+                                                ? null
+                                                : (details) {
+                                                  _pickerAnnotation.value =
+                                                      _annotationFromOffset(
+                                                        details
+                                                            .offsetFromOrigin,
+                                                      );
+                                                },
+                                        onLongPressEnd:
+                                            isSetFinished
+                                                ? null
+                                                : (details) {
+                                                  final ann =
+                                                      _pickerAnnotation.value;
+                                                  _annotationPickerEntry
+                                                      ?.remove();
+                                                  _annotationPickerEntry = null;
+                                                  _pickerAnnotation.value = 0;
+                                                  _lastTapNum = null;
+                                                  setState(() {
+                                                    selectedSkitels = [num];
+                                                    _throwAnnotation = ann;
+                                                  });
+                                                  _submitThrow();
+                                                },
                                         fontSize: 20,
                                       );
                                     },
@@ -3387,14 +3410,15 @@ class _GameScreenState extends State<GameScreen>
                         _buildMatchTimerWidget(t, fontSize: 30),
                         const SizedBox(height: 8),
                       ],
-                      // ℹ️ ヒントボタン（横向きレイアウト）
+                      // ℹ️ ヒントボタン（縦向きレイアウト）
                       Align(
                         alignment: Alignment.centerRight,
                         child: IconButton(
-                          icon: const Icon(Icons.info_outline, size: 16),
-                          color: Colors.grey[400],
-                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                          icon: const Icon(Icons.info_outline, size: 20),
+                          color: Colors.blueGrey[300],
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
                           constraints: const BoxConstraints(),
+                          tooltip: 'ボタン操作ガイド',
                           onPressed: () => _showPinTipsDialog(context),
                         ),
                       ),
@@ -3436,28 +3460,30 @@ class _GameScreenState extends State<GameScreen>
                                               details.globalPosition,
                                               num,
                                             ),
-                                onLongPressMoveUpdate: isSetFinished
-                                    ? null
-                                    : (details) {
-                                      _pickerAnnotation.value =
-                                          _annotationFromOffset(
+                                onLongPressMoveUpdate:
+                                    isSetFinished
+                                        ? null
+                                        : (details) {
+                                          _pickerAnnotation
+                                              .value = _annotationFromOffset(
                                             details.offsetFromOrigin,
                                           );
-                                    },
-                                onLongPressEnd: isSetFinished
-                                    ? null
-                                    : (details) {
-                                      final ann = _pickerAnnotation.value;
-                                      _annotationPickerEntry?.remove();
-                                      _annotationPickerEntry = null;
-                                      _pickerAnnotation.value = 0;
-                                      _lastTapNum = null;
-                                      setState(() {
-                                        selectedSkitels = [num];
-                                        _throwAnnotation = ann;
-                                      });
-                                      _submitThrow();
-                                    },
+                                        },
+                                onLongPressEnd:
+                                    isSetFinished
+                                        ? null
+                                        : (details) {
+                                          final ann = _pickerAnnotation.value;
+                                          _annotationPickerEntry?.remove();
+                                          _annotationPickerEntry = null;
+                                          _pickerAnnotation.value = 0;
+                                          _lastTapNum = null;
+                                          setState(() {
+                                            selectedSkitels = [num];
+                                            _throwAnnotation = ann;
+                                          });
+                                          _submitThrow();
+                                        },
                                 fontSize: 26,
                               );
                             },
@@ -5131,7 +5157,8 @@ class _PinButtonState extends State<_PinButton> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 70),
         transform:
-            Matrix4.identity()..scale(_pressed ? 0.86 : 1.0, _pressed ? 0.86 : 1.0),
+            Matrix4.identity()
+              ..scale(_pressed ? 0.86 : 1.0, _pressed ? 0.86 : 1.0),
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
           color: _pressed ? const Color(0xFFE3F2FD) : Colors.white,
@@ -5258,7 +5285,11 @@ class _AnnotationPicker extends StatelessWidget {
                 color: isSelected ? Colors.blue : Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
                 ],
               ),
               child: Column(

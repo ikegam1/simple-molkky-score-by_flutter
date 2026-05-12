@@ -284,7 +284,11 @@ class _SetDetailSection extends StatelessWidget {
                 Text('$score', style: style),
                 const Text(
                   '←',
-                  style: TextStyle(fontSize: 5.5, color: Color(0xFF1E88E5), height: 0.85),
+                  style: TextStyle(
+                    fontSize: 5.5,
+                    color: Color(0xFF1E88E5),
+                    height: 0.85,
+                  ),
                 ),
               ],
             ),
