@@ -18,9 +18,9 @@ import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 import 'widgets/match_result_card.dart';
 
-const String _kAppVersion = '1.14.11+96';
+const String _kAppVersion = '1.14.12+97';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.14.11';
+const String _kDisplayVersion = 'v1.14.12';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
