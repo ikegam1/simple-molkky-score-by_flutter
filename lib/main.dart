@@ -2106,7 +2106,7 @@ class _GameScreenState extends State<GameScreen>
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.radio_button_unchecked, size: 20),
+            const Icon(Icons.info_outline, size: 20),
             const SizedBox(width: 8),
             Text(t.get('annotation_tip_title'), style: const TextStyle(fontSize: 16)),
           ],
@@ -3140,7 +3140,7 @@ class _GameScreenState extends State<GameScreen>
                           Align(
                             alignment: Alignment.centerRight,
                             child: IconButton(
-                              icon: const Icon(Icons.radio_button_unchecked, size: 18),
+                              icon: const Icon(Icons.info_outline, size: 18),
                               color: Colors.grey[400],
                               padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
                               constraints: const BoxConstraints(),
