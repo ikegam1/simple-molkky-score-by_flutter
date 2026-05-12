@@ -1899,12 +1899,14 @@ class _GameScreenState extends State<GameScreen>
         _lastTapPlayerId != null &&
         _lastTapTime != null &&
         now.difference(_lastTapTime!) <= const Duration(milliseconds: 300)) {
+      HapticFeedback.mediumImpact();
       setState(() => _upgradeLastAnnotation(_lastTapPlayerId!));
       _lastTapNum = null;
       _lastTapTime = null;
       _lastTapPlayerId = null;
       return;
     }
+    HapticFeedback.selectionClick();
     final playerId = widget.match.players[currentPlayerIndex].id;
     _lastTapNum = num;
     _lastTapTime = now;
@@ -3037,6 +3039,7 @@ class _GameScreenState extends State<GameScreen>
                                             isSetFinished
                                                 ? null
                                                 : () {
+                                                  HapticFeedback.heavyImpact();
                                                   setState(() {
                                                     selectedSkitels = [num];
                                                     _throwAnnotation = 2;
@@ -3253,6 +3256,7 @@ class _GameScreenState extends State<GameScreen>
                                     isSetFinished
                                         ? null
                                         : () {
+                                          HapticFeedback.heavyImpact();
                                           setState(() {
                                             selectedSkitels = [num];
                                             _throwAnnotation = 2;
