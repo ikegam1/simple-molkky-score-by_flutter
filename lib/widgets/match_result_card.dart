@@ -247,30 +247,59 @@ class _SetDetailSection extends StatelessWidget {
 
   static Widget _annotatedCell(int score, int annotation) {
     const style = TextStyle(fontSize: 10);
-    if (annotation == 0 || score == 0) {
-      return _cell('$score');
+    if (annotation == 0 || score == 0) return _cell('$score');
+    const pad = EdgeInsets.symmetric(horizontal: 3, vertical: 3);
+    switch (annotation) {
+      case 1: // ◯囲み
+      case 2: // □囲み
+        const sz = 14.0;
+        return Padding(
+          padding: pad,
+          child: Center(
+            child: Container(
+              width: sz,
+              height: sz,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: annotation == 1 ? BoxShape.circle : BoxShape.rectangle,
+                border: Border.all(color: Colors.black, width: 1.0),
+                borderRadius: annotation == 2 ? BorderRadius.circular(2) : null,
+              ),
+              child: Text(
+                '$score',
+                textAlign: TextAlign.center,
+                style: style.copyWith(fontSize: 8),
+              ),
+            ),
+          ),
+        );
+      case 3: // 寄せ成功: 数字 + ← 下
+        return Padding(
+          padding: pad,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('$score', style: style),
+              const Text('←', style: TextStyle(fontSize: 7)),
+            ],
+          ),
+        );
+      case 4: // 飛ばし成功: 数字 + ↑ 右
+        return Padding(
+          padding: pad,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('$score', style: style),
+              const Text('↑', style: TextStyle(fontSize: 7)),
+            ],
+          ),
+        );
+      default:
+        return _cell('$score');
     }
-    const sz = 14.0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-      child: Center(
-        child: Container(
-          width: sz,
-          height: sz,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: annotation == 1 ? BoxShape.circle : BoxShape.rectangle,
-            border: Border.all(color: Colors.black, width: 1.0),
-            borderRadius: annotation == 2 ? BorderRadius.circular(2) : null,
-          ),
-          child: Text(
-            '$score',
-            textAlign: TextAlign.center,
-            style: style.copyWith(fontSize: 8),
-          ),
-        ),
-      ),
-    );
   }
 }
 

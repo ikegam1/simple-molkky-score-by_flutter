@@ -1273,10 +1273,14 @@ class _GameScreenState extends State<GameScreen>
   // 投擲アノテーション: 0=通常, 1=◯囲み, 2=□囲み
   int _throwAnnotation = 0;
   Map<String, int> _turnAnnotations = {};
-  // 0.3秒再タップで◯囲みに変換するためのトラッキング
+  // 再タップ検出用
   int? _lastTapNum;
   DateTime? _lastTapTime;
   String? _lastTapPlayerId;
+  Offset? _lastTapPosition;
+  // アノテーションピッカーOverlay
+  OverlayEntry? _annotationPickerEntry;
+  final ValueNotifier<int> _pickerAnnotation = ValueNotifier(0);
   // セット間Undo用スナップショット
   _PrevSetSnapshot? _prevSetSnapshot;
 
@@ -1301,6 +1305,8 @@ class _GameScreenState extends State<GameScreen>
     _elapsedTimer?.cancel();
     _elapsedStartDelayTimer?.cancel();
     _matchTimer?.cancel();
+    _pickerAnnotation.dispose();
+    _annotationPickerEntry?.remove();
     super.dispose();
   }
 
@@ -1891,24 +1897,94 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  // ピンボタンタップ: 0.3秒以内に同じピンを再タップで◯囲みに昇格
-  void _handlePinTap(int num) {
+  // ドラッグ方向からアノテーション値を決定
+  // 1=◯(down) / 2=□(up) / 3=寄せ(left) / 4=飛ばし(right)
+  int _annotationFromOffset(Offset offset) {
+    const threshold = 22.0;
+    if (offset.distance < threshold) return 0;
+    if (offset.dy.abs() >= offset.dx.abs()) {
+      return offset.dy < 0 ? 2 : 1;
+    } else {
+      return offset.dx < 0 ? 3 : 4;
+    }
+  }
+
+  // アノテーションピッカーを表示（新規スコア入力用）
+  void _showAnnotationPickerForNewScore(Offset globalPos, int num) {
+    _pickerAnnotation.value = 0;
+    _annotationPickerEntry?.remove();
+    _annotationPickerEntry = OverlayEntry(
+      builder: (_) => _AnnotationPicker(
+        center: globalPos,
+        pickerAnnotation: _pickerAnnotation,
+        onDismiss: () {
+          // 長押し途中でキャンセルされた場合: スコアなしで閉じる
+          _annotationPickerEntry?.remove();
+          _annotationPickerEntry = null;
+          _pickerAnnotation.value = 0;
+        },
+      ),
+    );
+    Overlay.of(context).insert(_annotationPickerEntry!);
+  }
+
+  // アノテーションピッカーを表示（直前スコアの修正用）
+  void _showAnnotationPickerForModify(Offset globalPos, String playerId) {
+    _pickerAnnotation.value = 0;
+    _annotationPickerEntry?.remove();
+    _annotationPickerEntry = OverlayEntry(
+      builder: (_) => _AnnotationPicker(
+        center: globalPos,
+        pickerAnnotation: _pickerAnnotation,
+        onDismiss: () {
+          final ann = _pickerAnnotation.value;
+          _annotationPickerEntry?.remove();
+          _annotationPickerEntry = null;
+          _pickerAnnotation.value = 0;
+          if (ann != 0) setState(() => _updateLastAnnotation(playerId, ann));
+        },
+      ),
+    );
+    Overlay.of(context).insert(_annotationPickerEntry!);
+  }
+
+  void _updateLastAnnotation(String playerId, int annotation) {
+    if (turnInProgressScores.containsKey(playerId)) {
+      if (annotation == 0) {
+        _turnAnnotations.remove(playerId);
+      } else {
+        _turnAnnotations[playerId] = annotation;
+      }
+    } else if (widget.match.currentSetRecord.turns.isNotEmpty) {
+      widget.match.currentSetRecord.turns.last.scoreAnnotations[playerId] =
+          annotation;
+    }
+  }
+
+  // ピンボタンタップ: 0.3秒以内の再タップでピッカーを表示
+  void _handlePinTap(int num, Offset globalPos) {
     if (isSetFinished) return;
     final now = DateTime.now();
     if (_lastTapNum == num &&
         _lastTapPlayerId != null &&
         _lastTapTime != null &&
         now.difference(_lastTapTime!) <= const Duration(milliseconds: 300)) {
-      setState(() => _upgradeLastAnnotation(_lastTapPlayerId!));
+      // 再タップ → 直前スコアのアノテーションをピッカーで選択
+      _showAnnotationPickerForModify(
+        _lastTapPosition ?? globalPos,
+        _lastTapPlayerId!,
+      );
       _lastTapNum = null;
       _lastTapTime = null;
       _lastTapPlayerId = null;
+      _lastTapPosition = null;
       return;
     }
     final playerId = widget.match.players[currentPlayerIndex].id;
     _lastTapNum = num;
     _lastTapTime = now;
     _lastTapPlayerId = playerId;
+    _lastTapPosition = globalPos;
     setState(() {
       selectedSkitels = [num];
       _throwAnnotation = 0;
@@ -1916,13 +1992,9 @@ class _GameScreenState extends State<GameScreen>
     _submitThrow();
   }
 
-  void _upgradeLastAnnotation(String playerId) {
-    if (turnInProgressScores.containsKey(playerId)) {
-      _turnAnnotations[playerId] = 1;
-    } else if (widget.match.currentSetRecord.turns.isNotEmpty) {
-      widget.match.currentSetRecord.turns.last.scoreAnnotations[playerId] = 1;
-    }
-  }
+  // ─── 旧メソッド（後方互換のため残す）
+  void _upgradeLastAnnotation(String playerId) =>
+      _updateLastAnnotation(playerId, 1);
 
   // setWinner: セット勝者（winnerのsetsWonはすでに+1済みのため-1して保存）
   void _saveSetSnapshot({Player? setWinner}) {
@@ -3032,17 +3104,39 @@ class _GameScreenState extends State<GameScreen>
                                         onTap:
                                             isSetFinished
                                                 ? null
-                                                : () => _handlePinTap(num),
-                                        onLongPress:
+                                                : (pos) =>
+                                                    _handlePinTap(num, pos),
+                                        onLongPressStart:
                                             isSetFinished
                                                 ? null
-                                                : () {
-                                                  setState(() {
-                                                    selectedSkitels = [num];
-                                                    _throwAnnotation = 2;
-                                                  });
-                                                  _submitThrow();
-                                                },
+                                                : (details) =>
+                                                    _showAnnotationPickerForNewScore(
+                                                      details.globalPosition,
+                                                      num,
+                                                    ),
+                                        onLongPressMoveUpdate: isSetFinished
+                                            ? null
+                                            : (details) {
+                                              _pickerAnnotation.value =
+                                                  _annotationFromOffset(
+                                                    details.offsetFromOrigin,
+                                                  );
+                                            },
+                                        onLongPressEnd: isSetFinished
+                                            ? null
+                                            : (details) {
+                                              final ann =
+                                                  _pickerAnnotation.value;
+                                              _annotationPickerEntry?.remove();
+                                              _annotationPickerEntry = null;
+                                              _pickerAnnotation.value = 0;
+                                              _lastTapNum = null;
+                                              setState(() {
+                                                selectedSkitels = [num];
+                                                _throwAnnotation = ann;
+                                              });
+                                              _submitThrow();
+                                            },
                                         fontSize: 20,
                                       );
                                     },
@@ -3248,17 +3342,37 @@ class _GameScreenState extends State<GameScreen>
                                 onTap:
                                     isSetFinished
                                         ? null
-                                        : () => _handlePinTap(num),
-                                onLongPress:
+                                        : (pos) => _handlePinTap(num, pos),
+                                onLongPressStart:
                                     isSetFinished
                                         ? null
-                                        : () {
-                                          setState(() {
-                                            selectedSkitels = [num];
-                                            _throwAnnotation = 2;
-                                          });
-                                          _submitThrow();
-                                        },
+                                        : (details) =>
+                                            _showAnnotationPickerForNewScore(
+                                              details.globalPosition,
+                                              num,
+                                            ),
+                                onLongPressMoveUpdate: isSetFinished
+                                    ? null
+                                    : (details) {
+                                      _pickerAnnotation.value =
+                                          _annotationFromOffset(
+                                            details.offsetFromOrigin,
+                                          );
+                                    },
+                                onLongPressEnd: isSetFinished
+                                    ? null
+                                    : (details) {
+                                      final ann = _pickerAnnotation.value;
+                                      _annotationPickerEntry?.remove();
+                                      _annotationPickerEntry = null;
+                                      _pickerAnnotation.value = 0;
+                                      _lastTapNum = null;
+                                      setState(() {
+                                        selectedSkitels = [num];
+                                        _throwAnnotation = ann;
+                                      });
+                                      _submitThrow();
+                                    },
                                 fontSize: 26,
                               );
                             },
@@ -3472,29 +3586,53 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  // アノテーション付きスコアウィジェット（◯囲み or □囲み）
+  // アノテーション付きスコアウィジェット
+  // 0=通常 / 1=◯囲み / 2=□囲み / 3=寄せ成功(←) / 4=飛ばし成功(↑)
   static Widget _annotatedScoreWidget(
     int score,
     int annotation, {
     required TextStyle style,
   }) {
-    final txt = Text(
-      '$score',
-      style: style.copyWith(fontSize: (style.fontSize ?? 14) * 0.82),
-    );
     if (annotation == 0 || score == 0) return Text('$score', style: style);
-    final sz = (style.fontSize ?? 14) * 1.35;
-    return Container(
-      width: sz,
-      height: sz,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: annotation == 1 ? BoxShape.circle : BoxShape.rectangle,
-        border: Border.all(color: style.color ?? Colors.black, width: 1.3),
-        borderRadius: annotation == 2 ? BorderRadius.circular(2) : null,
-      ),
-      child: txt,
-    );
+    final c = style.color ?? Colors.black;
+    final fs = style.fontSize ?? 14;
+    final smallStyle = style.copyWith(fontSize: fs * 0.62, color: c);
+
+    switch (annotation) {
+      case 1: // ◯囲み
+      case 2: // □囲み
+        final sz = fs * 1.35;
+        return Container(
+          width: sz,
+          height: sz,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: annotation == 1 ? BoxShape.circle : BoxShape.rectangle,
+            border: Border.all(color: c, width: 1.3),
+            borderRadius: annotation == 2 ? BorderRadius.circular(2) : null,
+          ),
+          child: Text('$score', style: style.copyWith(fontSize: fs * 0.82)),
+        );
+      case 3: // 寄せ成功: 数字の下に ←
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('$score', style: style),
+            Text('←', style: smallStyle),
+          ],
+        );
+      case 4: // 飛ばし成功: 数字の右に ↑
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text('$score', style: style),
+            Text('↑', style: smallStyle),
+          ],
+        );
+      default:
+        return Text('$score', style: style);
+    }
   }
 
   Widget _buildScoreTable(L10n t, Player currentPlayer) {
@@ -4841,38 +4979,70 @@ class _HelpSection extends StatelessWidget {
   }
 }
 
-// ─── ピンボタン（シングル / ダブルタップ / 長押しでアノテーション切替）──────────
-class _PinButton extends StatelessWidget {
+// ─── ピンボタン（押下ビジュアル / 長押しフリックでアノテーション選択）──────────
+class _PinButton extends StatefulWidget {
   const _PinButton({
     required this.num,
     required this.fontSize,
     this.onTap,
-    this.onLongPress,
+    this.onLongPressStart,
+    this.onLongPressMoveUpdate,
+    this.onLongPressEnd,
   });
 
   final int num;
   final double fontSize;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
+  final void Function(Offset globalPos)? onTap;
+  final GestureLongPressStartCallback? onLongPressStart;
+  final GestureLongPressMoveUpdateCallback? onLongPressMoveUpdate;
+  final GestureLongPressEndCallback? onLongPressEnd;
+
+  @override
+  State<_PinButton> createState() => _PinButtonState();
+}
+
+class _PinButtonState extends State<_PinButton> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (d) {
+        setState(() => _pressed = false);
+        widget.onTap?.call(d.globalPosition);
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      onLongPressStart: (d) {
+        setState(() => _pressed = true);
+        widget.onLongPressStart?.call(d);
+      },
+      onLongPressMoveUpdate: widget.onLongPressMoveUpdate,
+      onLongPressEnd: (d) {
+        setState(() => _pressed = false);
+        widget.onLongPressEnd?.call(d);
+      },
+      onLongPressCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 70),
+        transform:
+            Matrix4.identity()..scale(_pressed ? 0.86 : 1.0, _pressed ? 0.86 : 1.0),
+        transformAlignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.grey[300]!),
+          color: _pressed ? const Color(0xFFE3F2FD) : Colors.white,
+          border: Border.all(
+            color: _pressed ? Colors.blue : Colors.grey[300]!,
+            width: _pressed ? 1.8 : 1.0,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         alignment: Alignment.center,
         child: Text(
-          '$num',
+          '${widget.num}',
           style: TextStyle(
-            fontSize: fontSize,
+            fontSize: widget.fontSize,
             fontWeight: FontWeight.bold,
-            color: Colors.black,
+            color: _pressed ? Colors.blue[800] : Colors.black,
           ),
         ),
       ),
@@ -4894,4 +5064,121 @@ class _PrevSetSnapshot {
     required this.completedSetsLen,
     required this.playerStates,
   });
+}
+
+// ─── アノテーションフリックピッカー ──────────────────────────────────────────
+// 長押し / 再タップ時にオーバーレイ表示。上下左右にスライドで選択。
+class _AnnotationPicker extends StatelessWidget {
+  const _AnnotationPicker({
+    required this.center,
+    required this.pickerAnnotation,
+    required this.onDismiss,
+  });
+
+  final Offset center;
+  final ValueNotifier<int> pickerAnnotation;
+  final VoidCallback onDismiss;
+
+  static const _itemSize = 52.0;
+  static const _gap = 6.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onDismiss,
+      child: Stack(
+        children: [
+          // Up = □囲み
+          _positioned(
+            left: center.dx - _itemSize / 2,
+            top: center.dy - _itemSize * 2 - _gap,
+            annotation: 2,
+            label: '□囲み',
+            icon: '↑',
+          ),
+          // Down = ◯囲み
+          _positioned(
+            left: center.dx - _itemSize / 2,
+            top: center.dy + _itemSize / 2 + _gap,
+            annotation: 1,
+            label: '◯囲み',
+            icon: '↓',
+          ),
+          // Left = 寄せ成功
+          _positioned(
+            left: center.dx - _itemSize * 2 - _gap,
+            top: center.dy - _itemSize / 2,
+            annotation: 3,
+            label: '寄せ',
+            icon: '←',
+          ),
+          // Right = 飛ばし成功
+          _positioned(
+            left: center.dx + _itemSize / 2 + _gap,
+            top: center.dy - _itemSize / 2,
+            annotation: 4,
+            label: '飛ばし',
+            icon: '→',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _positioned({
+    required double left,
+    required double top,
+    required int annotation,
+    required String label,
+    required String icon,
+  }) {
+    return Positioned(
+      left: left,
+      top: top,
+      width: _itemSize,
+      height: _itemSize,
+      child: ValueListenableBuilder<int>(
+        valueListenable: pickerAnnotation,
+        builder: (_, selected, __) {
+          final isSelected = selected == annotation;
+          return GestureDetector(
+            onTap: () {
+              pickerAnnotation.value = annotation;
+              onDismiss();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.blue : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    icon,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isSelected ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: isSelected ? Colors.white : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
