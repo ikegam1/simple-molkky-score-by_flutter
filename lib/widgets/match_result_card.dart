@@ -273,37 +273,41 @@ class _SetDetailSection extends StatelessWidget {
             ),
           ),
         );
-      case 3: // 寄せ成功: ← を数字の下（重ならない）に青色で表示
+      case 3: // 寄せ成功: ← を数字の下（重ならない）に青色で表示（センター）
         return Padding(
           padding: pad,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('$score', style: style),
-              const Text(
-                '←',
-                style: TextStyle(fontSize: 5.5, color: Color(0xFF1E88E5), height: 0.85),
-              ),
-            ],
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$score', style: style),
+                const Text(
+                  '←',
+                  style: TextStyle(fontSize: 5.5, color: Color(0xFF1E88E5), height: 0.85),
+                ),
+              ],
+            ),
           ),
         );
-      case 4: // 飛ばし成功: ↑ を数字の右（重ならない）に青色で表示
+      case 4: // 飛ばし成功: ↑ を数字の右（重ならない）に青色で表示（センター）
         return Padding(
           padding: pad,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('$score', style: style),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 1),
-                child: Text(
-                  '↑',
-                  style: TextStyle(fontSize: 5.5, color: Color(0xFF1E88E5)),
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('$score', style: style),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 1),
+                  child: Text(
+                    '↑',
+                    style: TextStyle(fontSize: 5.5, color: Color(0xFF1E88E5)),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       default:

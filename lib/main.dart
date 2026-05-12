@@ -3387,6 +3387,17 @@ class _GameScreenState extends State<GameScreen>
                         _buildMatchTimerWidget(t, fontSize: 30),
                         const SizedBox(height: 8),
                       ],
+                      // ℹ️ ヒントボタン（横向きレイアウト）
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.info_outline, size: 16),
+                          color: Colors.grey[400],
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _showPinTipsDialog(context),
+                        ),
+                      ),
                       LayoutBuilder(
                         builder: (_, gc) {
                           // 点数ボタングリッド: 4列×3行（1-12）
