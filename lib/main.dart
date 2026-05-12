@@ -1961,6 +1961,12 @@ class _GameScreenState extends State<GameScreen>
     widget.match.currentSetRecord = snap.currentSetRecord;
     widget.match.currentSetIndex = snap.currentSetIndex;
 
+    // 前セットの投げ順（playerOrder）に widget.match.players を並び替える
+    final orderIds = snap.currentSetRecord.playerOrder;
+    widget.match.players.sort(
+      (a, b) => orderIds.indexOf(a.id).compareTo(orderIds.indexOf(b.id)),
+    );
+
     // プレイヤー状態をスナップショットから復元
     for (final p in widget.match.players) {
       final ps = snap.playerStates.firstWhere((s) => s['id'] == p.id);
