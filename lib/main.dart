@@ -88,13 +88,19 @@ class L10n {
       'back_to_top': 'Back to Top',
       'help_title': 'How to Play',
       'pts': 'pts',
-      'annotation_tip_title': '8. Tips',
+      'annotation_tip_title': '8. Button Tips',
       'annotation_tip_circle':
-          'Double-tap a number button → ◯ (single-pin shot)',
+          'Re-tap within 0.3s → ◯ (single-pin shot)',
       'annotation_tip_square':
-          'Long-press a number button → □ (multi-pin exact count)',
+          'Long-press + flick up → □ (multi-pin exact count)',
+      'annotation_tip_yose':
+          'Long-press + flick left → Nearness (← overlaid)',
+      'annotation_tip_tobashi':
+          'Long-press + flick right → Flying (↑ overlaid)',
+      'annotation_tip_circle_flick':
+          'Long-press + flick down → ◯ (same as re-tap)',
       'annotation_tip_note':
-          'Annotations appear in the score table and match history.',
+          'Annotations appear in the score table, history, and result card.',
       'hyakin_mode': 'Hyakin (表裏 2 sets)',
       'three_game_mode': '3-Game (3 sets)',
       'three_game_co_win': 'Co-winners: {names}',
@@ -179,10 +185,13 @@ class L10n {
       'back_to_top': 'トップへ',
       'help_title': '使い方',
       'pts': '点',
-      'annotation_tip_title': '8. 小ネタ',
-      'annotation_tip_circle': '数字ボタンをダブルタップ → ◯囲み数字（単品狙い成功）',
-      'annotation_tip_square': '数字ボタンを長押し → □囲み数字（本数ガシャ成功）',
-      'annotation_tip_note': 'アノテーションはスコア表と戦績にも反映されます。',
+      'annotation_tip_title': '8. 数字ボタンの操作',
+      'annotation_tip_circle': '再タップ（0.3秒以内に同じボタン）→ ◯囲み（単品狙い成功）',
+      'annotation_tip_square': '長押し中に上フリック → □囲み（本数ガシャ成功）',
+      'annotation_tip_yose': '長押し中に左フリック → 寄せ成功（数字に ← を重ねて表示）',
+      'annotation_tip_tobashi': '長押し中に右フリック → 飛ばし成功（数字に ↑ を重ねて表示）',
+      'annotation_tip_circle_flick': '長押し中に下フリック → ◯囲み（同上）',
+      'annotation_tip_note': 'アノテーションはスコア表・戦績・結果カードにも反映されます。',
       'hyakin_mode': '100均（表裏2セット）',
       'three_game_mode': '3番（3セット）',
       'three_game_co_win': '共同優勝: {names}',
@@ -2090,6 +2099,62 @@ class _GameScreenState extends State<GameScreen>
     });
   }
 
+  void _showPinTipsDialog(BuildContext context) {
+    final t = L10n.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline, size: 20),
+            const SizedBox(width: 8),
+            Text(t.get('annotation_tip_title'), style: const TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _tipRow('👆 ', 'タップ', '通常スコア入力'),
+            _tipRow('👆👆', '再タップ(0.3秒)', '◯囲み（単品狙い成功）'),
+            const Divider(height: 16),
+            _tipRow('⬆️', '長押し＋上フリック', '□囲み（本数ガシャ成功）'),
+            _tipRow('⬇️', '長押し＋下フリック', '◯囲み（同上）'),
+            _tipRow('⬅️', '長押し＋左フリック', '寄せ成功'),
+            _tipRow('➡️', '長押し＋右フリック', '飛ばし成功'),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  static Widget _tipRow(String icon, String gesture, String meaning) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(width: 24, child: Text(icon, style: const TextStyle(fontSize: 14))),
+          const SizedBox(width: 4),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 12, color: Colors.black87),
+                children: [
+                  TextSpan(text: gesture, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const TextSpan(text: ' → '),
+                  TextSpan(text: meaning),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _undo() {
     if (isSetFinished) return;
     if (currentTurnInSet == 1 && currentPlayerIndex == 0) {
@@ -3071,9 +3136,21 @@ class _GameScreenState extends State<GameScreen>
                       ),
                       child: Column(
                         children: [
+                          // ℹ️ ヒントボタン
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              icon: const Icon(Icons.info_outline, size: 18),
+                              color: Colors.grey[400],
+                              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                              constraints: const BoxConstraints(),
+                              tooltip: 'ボタン操作ガイド',
+                              onPressed: () => _showPinTipsDialog(context),
+                            ),
+                          ),
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                              padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
                               child: LayoutBuilder(
                                 builder: (_, gc) {
                                   final cellH = (gc.maxHeight - 6.0 * 2) / 3;
@@ -4791,6 +4868,9 @@ class HelpPage extends StatelessWidget {
       items: [
         t.get('annotation_tip_circle'),
         t.get('annotation_tip_square'),
+        t.get('annotation_tip_circle_flick'),
+        t.get('annotation_tip_yose'),
+        t.get('annotation_tip_tobashi'),
         t.get('annotation_tip_note'),
       ],
     ),
@@ -4857,6 +4937,9 @@ class HelpPage extends StatelessWidget {
       items: [
         t.get('annotation_tip_circle'),
         t.get('annotation_tip_square'),
+        t.get('annotation_tip_circle_flick'),
+        t.get('annotation_tip_yose'),
+        t.get('annotation_tip_tobashi'),
         t.get('annotation_tip_note'),
       ],
     ),
