@@ -3142,235 +3142,243 @@ class _GameScreenState extends State<GameScreen>
                   // 右パネル: ピンボタン + コントロール
                   SizedBox(
                     width: rightW,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 4,
-                            offset: Offset(-2, 0),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          // ℹ️ ヒントボタン
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: IconButton(
-                              icon: const Icon(Icons.info_outline, size: 20),
-                              color: Colors.blueGrey[300],
-                              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                              constraints: const BoxConstraints(),
-                              tooltip: 'ボタン操作ガイド',
-                              onPressed: () => _showPinTipsDialog(context),
+                    child: SafeArea(
+                      top: false,
+                      bottom: false,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 4,
+                              offset: Offset(-2, 0),
                             ),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
-                              child: LayoutBuilder(
-                                builder: (_, gc) {
-                                  final cellH = (gc.maxHeight - 6.0 * 2) / 3;
-                                  final cellW = (gc.maxWidth - 6.0 * 3) / 4;
-                                  final aspectRatio = (cellW / cellH).clamp(
-                                    0.8,
-                                    double.infinity,
-                                  );
-                                  return GridView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    gridDelegate:
-                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 4,
-                                          mainAxisSpacing: 6,
-                                          crossAxisSpacing: 6,
-                                          childAspectRatio: aspectRatio,
-                                        ),
-                                    itemCount: 12,
-                                    itemBuilder: (c, i) {
-                                      final num = i + 1;
-                                      return _PinButton(
-                                        num: num,
-                                        onTap:
-                                            isSetFinished
-                                                ? null
-                                                : (pos) =>
-                                                    _handlePinTap(num, pos),
-                                        onLongPressStart:
-                                            isSetFinished
-                                                ? null
-                                                : (details) =>
-                                                    _showAnnotationPickerForNewScore(
-                                                      details.globalPosition,
-                                                      num,
-                                                    ),
-                                        onLongPressMoveUpdate:
-                                            isSetFinished
-                                                ? null
-                                                : (details) {
-                                                  _pickerAnnotation.value =
-                                                      _annotationFromOffset(
-                                                        details
-                                                            .offsetFromOrigin,
-                                                      );
-                                                },
-                                        onLongPressEnd:
-                                            isSetFinished
-                                                ? null
-                                                : (details) {
-                                                  final ann =
-                                                      _pickerAnnotation.value;
-                                                  _annotationPickerEntry
-                                                      ?.remove();
-                                                  _annotationPickerEntry = null;
-                                                  _pickerAnnotation.value = 0;
-                                                  _lastTapNum = null;
-                                                  setState(() {
-                                                    selectedSkitels = [num];
-                                                    _throwAnnotation = ann;
-                                                  });
-                                                  _submitThrow();
-                                                },
-                                        fontSize: 20,
-                                      );
-                                    },
-                                  );
-                                },
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            // ℹ️ ヒントボタン
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: IconButton(
+                                icon: const Icon(Icons.info_outline, size: 20),
+                                color: Colors.blueGrey[300],
+                                padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                                constraints: const BoxConstraints(),
+                                tooltip: 'ボタン操作ガイド',
+                                onPressed: () => _showPinTipsDialog(context),
                               ),
                             ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              8,
-                              4,
-                              8,
-                              bottomPad + 6,
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
+                                child: LayoutBuilder(
+                                  builder: (_, gc) {
+                                    final cellH = (gc.maxHeight - 6.0 * 2) / 3;
+                                    final cellW = (gc.maxWidth - 6.0 * 3) / 4;
+                                    final aspectRatio = (cellW / cellH).clamp(
+                                      0.8,
+                                      double.infinity,
+                                    );
+                                    return GridView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 4,
+                                            mainAxisSpacing: 6,
+                                            crossAxisSpacing: 6,
+                                            childAspectRatio: aspectRatio,
+                                          ),
+                                      itemCount: 12,
+                                      itemBuilder: (c, i) {
+                                        final num = i + 1;
+                                        return _PinButton(
+                                          num: num,
+                                          onTap:
+                                              isSetFinished
+                                                  ? null
+                                                  : (pos) =>
+                                                      _handlePinTap(num, pos),
+                                          onLongPressStart:
+                                              isSetFinished
+                                                  ? null
+                                                  : (details) =>
+                                                      _showAnnotationPickerForNewScore(
+                                                        details.globalPosition,
+                                                        num,
+                                                      ),
+                                          onLongPressMoveUpdate:
+                                              isSetFinished
+                                                  ? null
+                                                  : (details) {
+                                                    _pickerAnnotation.value =
+                                                        _annotationFromOffset(
+                                                          details
+                                                              .offsetFromOrigin,
+                                                        );
+                                                  },
+                                          onLongPressEnd:
+                                              isSetFinished
+                                                  ? null
+                                                  : (details) {
+                                                    final ann =
+                                                        _pickerAnnotation.value;
+                                                    _annotationPickerEntry
+                                                        ?.remove();
+                                                    _annotationPickerEntry =
+                                                        null;
+                                                    _pickerAnnotation.value = 0;
+                                                    _lastTapNum = null;
+                                                    setState(() {
+                                                      selectedSkitels = [num];
+                                                      _throwAnnotation = ann;
+                                                    });
+                                                    _submitThrow();
+                                                  },
+                                          fontSize: 20,
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
-                            child: Column(
-                              children: [
-                                if (_hasMatchTimeLimit) ...[
-                                  _buildMatchTimerWidget(t, fontSize: 24),
-                                  const SizedBox(height: 4),
-                                ],
-                                if (_shouldShowEarlyEnd()) ...[
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      onPressed: _earlyEnd,
-                                      style: ElevatedButton.styleFrom(
-                                        minimumSize: const Size(0, 36),
-                                        backgroundColor: Colors.orange,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        t.get('early_end'),
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                ],
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: _undo,
-                                        style: OutlinedButton.styleFrom(
-                                          minimumSize: const Size(0, 40),
-                                          foregroundColor: Colors.red,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 2,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            const Icon(Icons.undo, size: 16),
-                                            Text(
-                                              ' ${t.get('undo')}',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                8,
+                                4,
+                                8,
+                                bottomPad + 6,
+                              ),
+                              child: Column(
+                                children: [
+                                  if (_hasMatchTimeLimit) ...[
+                                    _buildMatchTimerWidget(t, fontSize: 24),
+                                    const SizedBox(height: 4),
+                                  ],
+                                  if (_shouldShowEarlyEnd()) ...[
+                                    SizedBox(
+                                      width: double.infinity,
                                       child: ElevatedButton(
-                                        onPressed: () {
-                                          if (isSetFinished) return;
-                                          setState(() => selectedSkitels = []);
-                                          _submitThrow();
-                                        },
+                                        onPressed: _earlyEnd,
                                         style: ElevatedButton.styleFrom(
-                                          minimumSize: const Size(0, 40),
-                                          backgroundColor: Colors.red[50],
-                                          foregroundColor: Colors.red,
-                                          side: const BorderSide(
-                                            color: Colors.red,
+                                          minimumSize: const Size(0, 36),
+                                          backgroundColor: Colors.orange,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
                                           ),
                                         ),
-                                        child: const Text(
-                                          '0(fault)',
-                                          style: TextStyle(
+                                        child: Text(
+                                          t.get('early_end'),
+                                          style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    GestureDetector(
-                                      onTap: _resetElapsedTimer,
-                                      child: SizedBox(
-                                        width: 72,
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              '$_elapsedSeconds',
-                                              style: TextStyle(
-                                                fontSize: 26,
-                                                fontFamily: 'Courier',
-                                                fontWeight: FontWeight.w900,
-                                                color:
-                                                    _elapsedSeconds >= 60
-                                                        ? Colors.red
-                                                        : Colors.black87,
-                                                letterSpacing: 1,
-                                              ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: _undo,
+                                          style: OutlinedButton.styleFrom(
+                                            minimumSize: const Size(0, 40),
+                                            foregroundColor: Colors.red,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 2,
                                             ),
-                                            const Text(
-                                              'sec',
-                                              style: TextStyle(
-                                                fontSize: 9,
-                                                color: Colors.grey,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(Icons.undo, size: 16),
+                                              Text(
+                                                ' ${t.get('undo')}',
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () {
+                                            if (isSetFinished) return;
+                                            setState(
+                                              () => selectedSkitels = [],
+                                            );
+                                            _submitThrow();
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            minimumSize: const Size(0, 40),
+                                            backgroundColor: Colors.red[50],
+                                            foregroundColor: Colors.red,
+                                            side: const BorderSide(
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            '0(fault)',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      GestureDetector(
+                                        onTap: _resetElapsedTimer,
+                                        child: SizedBox(
+                                          width: 72,
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                '$_elapsedSeconds',
+                                                style: TextStyle(
+                                                  fontSize: 26,
+                                                  fontFamily: 'Courier',
+                                                  fontWeight: FontWeight.w900,
+                                                  color:
+                                                      _elapsedSeconds >= 60
+                                                          ? Colors.red
+                                                          : Colors.black87,
+                                                  letterSpacing: 1,
+                                                ),
+                                              ),
+                                              const Text(
+                                                'sec',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
