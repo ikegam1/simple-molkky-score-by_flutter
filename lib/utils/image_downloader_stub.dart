@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:gal/gal.dart';
+
 Future<void> downloadPng(Uint8List bytes, String filename) async {
-  // Non-web platforms: not implemented here
-  // Consider using share_plus or path_provider for Android
+  await Gal.putImageBytes(bytes, name: filename);
 }
