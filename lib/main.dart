@@ -18,9 +18,9 @@ import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 import 'widgets/match_result_card.dart';
 
-const String _kAppVersion = '1.14.12+97';
+const String _kAppVersion = '1.14.15+100';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.14.12';
+const String _kDisplayVersion = 'v1.14.15';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -1304,10 +1304,12 @@ class _GameScreenState extends State<GameScreen>
     ).animate(_blinkController);
     _remainingMatchSeconds = widget.match.matchTimeLimitSeconds;
     _resetElapsedTimer();
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     _blinkController.dispose();
     _elapsedTimer?.cancel();
     _elapsedStartDelayTimer?.cancel();
@@ -1421,6 +1423,7 @@ class _GameScreenState extends State<GameScreen>
                 child: Text(t.get('end_now')),
               ),
               ElevatedButton(
+                autofocus: true,
                 onPressed: () {
                   Navigator.pop(ctx);
                   setState(() => _matchTimeExpired = true);
@@ -1881,6 +1884,7 @@ class _GameScreenState extends State<GameScreen>
                     child: Text(t.get('cancel')),
                   ),
                   TextButton(
+                    autofocus: true,
                     onPressed: () {
                       Navigator.pop(ctx);
                       setState(() {
@@ -1972,6 +1976,62 @@ class _GameScreenState extends State<GameScreen>
   }
 
   // ピンボタンタップ: 0.3秒以内の再タップで直接◯囲みに昇格
+  bool _onKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    final key = event.logicalKey;
+
+    // Backspace → Undo（セット終了中は無効）
+    if (key == LogicalKeyboardKey.backspace) {
+      if (!isSetFinished) _undo();
+      return true;
+    }
+
+    // スコア入力（セット終了中は無効）
+    if (isSetFinished) return false;
+
+    final scoreMap = <LogicalKeyboardKey, int>{
+      LogicalKeyboardKey.numpad0: 0,
+      LogicalKeyboardKey.digit0: 0,
+      LogicalKeyboardKey.numpad1: 1,
+      LogicalKeyboardKey.digit1: 1,
+      LogicalKeyboardKey.numpad2: 2,
+      LogicalKeyboardKey.digit2: 2,
+      LogicalKeyboardKey.numpad3: 3,
+      LogicalKeyboardKey.digit3: 3,
+      LogicalKeyboardKey.numpad4: 4,
+      LogicalKeyboardKey.digit4: 4,
+      LogicalKeyboardKey.numpad5: 5,
+      LogicalKeyboardKey.digit5: 5,
+      LogicalKeyboardKey.numpad6: 6,
+      LogicalKeyboardKey.digit6: 6,
+      LogicalKeyboardKey.numpad7: 7,
+      LogicalKeyboardKey.digit7: 7,
+      LogicalKeyboardKey.numpad8: 8,
+      LogicalKeyboardKey.digit8: 8,
+      LogicalKeyboardKey.numpad9: 9,
+      LogicalKeyboardKey.digit9: 9,
+      LogicalKeyboardKey.numpadMultiply: 10,
+      LogicalKeyboardKey.numpadSubtract: 11,
+      LogicalKeyboardKey.numpadAdd: 12,
+    };
+
+    final score = scoreMap[key];
+    if (score != null) {
+      _handleScoreKey(score);
+      return true;
+    }
+    return false;
+  }
+
+  void _handleScoreKey(int score) {
+    if (isSetFinished) return;
+    setState(() {
+      selectedSkitels = score == 0 ? [] : [score];
+      _throwAnnotation = 0;
+    });
+    _submitThrow();
+  }
+
   void _handlePinTap(int num, Offset globalPos) {
     if (isSetFinished) return;
     final now = DateTime.now();
@@ -2136,6 +2196,7 @@ class _GameScreenState extends State<GameScreen>
             ),
             actions: [
               TextButton(
+                autofocus: true,
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('OK'),
               ),
@@ -2252,6 +2313,7 @@ class _GameScreenState extends State<GameScreen>
             ),
             actions: [
               ElevatedButton(
+                autofocus: true,
                 onPressed: () {
                   Navigator.pop(ctx);
                   _startNextChallenge();
@@ -2310,6 +2372,7 @@ class _GameScreenState extends State<GameScreen>
                 child: Text(t.get('back_to_top')),
               ),
               ElevatedButton(
+                autofocus: true,
                 onPressed: () {
                   Navigator.pop(ctx);
                   final newPlayers =
@@ -2615,6 +2678,7 @@ class _GameScreenState extends State<GameScreen>
                     child: Text(t.get('match_history')),
                   ),
                   TextButton(
+                    autofocus: true,
                     onPressed: () {
                       Navigator.pop(ctx);
                       setState(() {
@@ -2693,6 +2757,7 @@ class _GameScreenState extends State<GameScreen>
             ),
             actions: [
               TextButton(
+                autofocus: true,
                 onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                 child: Text(t.get('finish')),
               ),
@@ -2767,6 +2832,7 @@ class _GameScreenState extends State<GameScreen>
                     child: Text(t.get('match_history')),
                   ),
                   TextButton(
+                    autofocus: true,
                     onPressed: () {
                       Navigator.pop(ctx);
                       setState(() {
@@ -2813,6 +2879,7 @@ class _GameScreenState extends State<GameScreen>
             ),
             actions: [
               TextButton(
+                autofocus: true,
                 onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                 child: Text(t.get('finish')),
               ),
