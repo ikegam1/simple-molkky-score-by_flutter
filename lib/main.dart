@@ -4987,6 +4987,16 @@ class HelpPage extends StatelessWidget {
         t.get('annotation_tip_note'),
       ],
     ),
+    const _HelpSection(
+      title: '小ネタ',
+      items: [
+        'Bluetoothテンキーをスマートフォンに接続すると、キーでスコアを入力できます（PCブラウザでも対応）',
+        '1〜9キー → ピン番号、0キー → ミス',
+        '* キー → 10点、− キー → 11点、+ キー → 12点',
+        'バックスペースキー → 「戻る」と同じ',
+        'ダイアログが出ているときはエンターキーで次へ進めます',
+      ],
+    ),
   ];
 
   List<Widget> _enSections(L10n t) => [
@@ -5054,6 +5064,16 @@ class HelpPage extends StatelessWidget {
         t.get('annotation_tip_yose'),
         t.get('annotation_tip_tobashi'),
         t.get('annotation_tip_note'),
+      ],
+    ),
+    const _HelpSection(
+      title: 'Tips',
+      items: [
+        'Connect a Bluetooth numpad to enter scores with physical keys (also works in PC browsers)',
+        'Keys 1–9 → pin number, Key 0 → miss',
+        '* key → 10, − key → 11, + key → 12',
+        'Backspace → same as Undo',
+        'Press Enter to confirm when a dialog is open',
       ],
     ),
   ];
