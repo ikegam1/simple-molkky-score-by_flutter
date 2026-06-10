@@ -294,8 +294,11 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
 
   void _detectLiveUrl() {
     if (!kIsWeb) return;
-    final path = Uri.base.path;
-    final match = RegExp(r'^/live/([A-Za-z0-9]+)/?$').firstMatch(path);
+    // ハッシュベースルーティングを使用（HTTP 200を返すため）
+    // 例: https://easy-molkky-score.ikegam1.com/#/live/abc123
+    final fragment = Uri.base.fragment;
+    final pattern = RegExp(r'^/?live/([A-Za-z0-9]+)/?$');
+    final match = pattern.firstMatch(fragment);
     if (match != null) {
       _liveIdFromUrl = match.group(1);
     }
@@ -2070,7 +2073,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _showLiveUrlDialog(String liveId) {
-    final url = 'https://easy-molkky-score.ikegam1.com/live/$liveId';
+    final url = 'https://easy-molkky-score.ikegam1.com/#/live/$liveId';
     showDialog(
       context: context,
       builder:
