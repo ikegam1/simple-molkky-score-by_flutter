@@ -17,10 +17,12 @@ import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 import 'widgets/match_result_card.dart';
+import 'services/live_match_service.dart';
+import 'pages/live_display_page.dart';
 
-const String _kAppVersion = '1.14.16+101';
+const String _kAppVersion = '1.15.0+102';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.14.16';
+const String _kDisplayVersion = 'v1.15.0';
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -281,11 +283,22 @@ class EasyMolkkyApp extends StatefulWidget {
 
 class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
   Locale? _locale;
+  String? _liveIdFromUrl;
 
   @override
   void initState() {
     super.initState();
+    _detectLiveUrl();
     _loadLocale();
+  }
+
+  void _detectLiveUrl() {
+    if (!kIsWeb) return;
+    final path = Uri.base.path;
+    final match = RegExp(r'^/live/([A-Za-z0-9]+)/?$').firstMatch(path);
+    if (match != null) {
+      _liveIdFromUrl = match.group(1);
+    }
   }
 
   Future<void> _loadLocale() async {
@@ -308,6 +321,27 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (_liveIdFromUrl != null) {
+      return MaterialApp(
+        title: 'Easy Molkky Score - Live',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          useMaterial3: true,
+          scaffoldBackgroundColor: Colors.transparent,
+          canvasColor: Colors.transparent,
+        ),
+        locale: _locale,
+        localizationsDelegates: const [
+          L10nDelegate(),
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('ja'), Locale('en')],
+        home: LiveDisplayPage(liveId: _liveIdFromUrl!),
+      );
+    }
     return MaterialApp(
       title: 'Easy Molkky Score',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
@@ -1291,6 +1325,14 @@ class _GameScreenState extends State<GameScreen>
   // セット間Undo用スナップショット
   _PrevSetSnapshot? _prevSetSnapshot;
 
+  // ライブ配信用
+  final LiveMatchService _liveService = LiveMatchService();
+  String? _liveId;
+  bool _liveIssuing = false;
+
+  String get _liveMatchId =>
+      'm-${widget.match.startTime.millisecondsSinceEpoch}-${widget.appUserId}';
+
   @override
   void initState() {
     super.initState();
@@ -1814,6 +1856,7 @@ class _GameScreenState extends State<GameScreen>
     } else {
       _resetElapsedTimer();
     }
+    _syncLiveMatch();
   }
 
   void _nextPlayer() {
@@ -1976,6 +2019,133 @@ class _GameScreenState extends State<GameScreen>
   }
 
   // ピンボタンタップ: 0.3秒以内の再タップで直接◯囲みに昇格
+  Future<void> _onLiveButtonTap() async {
+    if (_liveId != null) {
+      _showLiveUrlDialog(_liveId!);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('ライブ表示URLを発行'),
+            content: const Text(
+              'OBS等で利用できるライブ表示URLを発行します。\n'
+              'URLを知っている人は誰でも閲覧できます。\n'
+              '試合終了から24時間後に自動削除されます。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                autofocus: true,
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('発行する'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _liveIssuing = true);
+    try {
+      final id = await _liveService.issueOrGetLiveId(
+        matchId: _liveMatchId,
+        match: widget.match,
+        currentPlayerIndex: currentPlayerIndex,
+        currentTurnInSet: currentTurnInSet,
+      );
+      if (!mounted) return;
+      setState(() => _liveId = id);
+      _showLiveUrlDialog(id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ライブURLの発行に失敗しました: $e')));
+    } finally {
+      if (mounted) setState(() => _liveIssuing = false);
+    }
+  }
+
+  void _showLiveUrlDialog(String liveId) {
+    final url = 'https://easy-molkky-score.ikegam1.com/live/$liveId';
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('ライブ表示URL'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'このURLをOBS等のブラウザソースに設定すると、リアルタイムでスコアが表示されます。',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: SelectableText(
+                    url,
+                    style: const TextStyle(fontSize: 13, fontFamily: 'Courier'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '※ URLを知っている人は誰でも閲覧できます。\n※ 試合終了から24時間後に自動削除されます。',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: url));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('URLをコピーしました'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: const Text('コピー'),
+              ),
+              TextButton(
+                autofocus: true,
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _syncLiveMatch({bool isEnded = false}) {
+    final liveId = _liveId;
+    if (liveId == null) return;
+    // 非同期で実行（失敗してもUIをブロックしない）
+    unawaited(
+      _liveService.updateLiveMatch(
+        liveId: liveId,
+        matchId: _liveMatchId,
+        match: widget.match,
+        currentPlayerIndex: currentPlayerIndex,
+        currentTurnInSet: currentTurnInSet,
+        isEnded: isEnded,
+      ),
+    );
+  }
+
   bool _onKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
     final key = event.logicalKey;
@@ -2292,6 +2462,7 @@ class _GameScreenState extends State<GameScreen>
       selectedSkitels.clear();
     });
     _resetElapsedTimer();
+    _syncLiveMatch();
   }
 
   void _showSelf5TurnSuccessDialog() {
@@ -2484,6 +2655,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _uploadMatchData(Player? finalWinner) async {
+    _syncLiveMatch(isEnded: true);
     try {
       final match = widget.match;
       List<SetRecord> setsToUpload = List.from(match.completedSets);
@@ -3160,6 +3332,14 @@ class _GameScreenState extends State<GameScreen>
                 ),
           ),
           actions: [
+            IconButton(
+              tooltip: 'ライブ表示',
+              icon: Icon(
+                _liveId != null ? Icons.videocam : Icons.videocam_outlined,
+                color: _liveId != null ? Colors.redAccent : null,
+              ),
+              onPressed: _liveIssuing ? null : _onLiveButtonTap,
+            ),
             TextButton.icon(
               onPressed: _goToHistory,
               icon: const Icon(Icons.list_alt, size: 18),
@@ -4988,6 +5168,17 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
+      title: 'ライブ配信',
+      items: [
+        '試合画面右上のビデオアイコン（▶️）をタップでライブ表示URLを発行できます',
+        '発行したURLをOBS等のブラウザソースに設定すると、リアルタイムでスコアが表示されます',
+        '表示項目: プレイヤー名・現在の得点・直近3投・ターン数・獲得セット数',
+        '背景は透明なので、配信画面に重ねて使えます',
+        'URLを知っている人なら誰でも閲覧できます',
+        '試合終了から24時間後に自動削除されます',
+      ],
+    ),
+    const _HelpSection(
       title: '小ネタ',
       items: [
         'Bluetoothテンキーをスマートフォンに接続すると、キーでスコアを入力できます（PCブラウザでも対応）',
@@ -5064,6 +5255,17 @@ class HelpPage extends StatelessWidget {
         t.get('annotation_tip_yose'),
         t.get('annotation_tip_tobashi'),
         t.get('annotation_tip_note'),
+      ],
+    ),
+    const _HelpSection(
+      title: 'Live Broadcast',
+      items: [
+        'Tap the video icon (▶️) at the top-right of the game screen to issue a live display URL',
+        'Set the URL as a browser source in OBS or similar streaming software for real-time score display',
+        'Shown items: player name, current score, last 3 throws, turn number, sets won',
+        'Background is transparent so it overlays cleanly on your stream layout',
+        'Anyone with the URL can view it',
+        'Auto-deleted 24 hours after the match ends',
       ],
     ),
     const _HelpSection(
