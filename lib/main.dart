@@ -20,9 +20,38 @@ import 'widgets/match_result_card.dart';
 import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 
-const String _kAppVersion = '1.15.0+102';
+const String _kAppVersion = '1.15.1+103';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.0';
+const String _kDisplayVersion = 'v1.15.1';
+
+/// 物理キーボード入力からスコアへのマッピング。
+/// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
+/// テスト容易性のためトップレベルに公開。
+final Map<LogicalKeyboardKey, int> kKeyboardScoreMap = {
+  LogicalKeyboardKey.numpad0: 0,
+  LogicalKeyboardKey.digit0: 0,
+  LogicalKeyboardKey.numpad1: 1,
+  LogicalKeyboardKey.digit1: 1,
+  LogicalKeyboardKey.numpad2: 2,
+  LogicalKeyboardKey.digit2: 2,
+  LogicalKeyboardKey.numpad3: 3,
+  LogicalKeyboardKey.digit3: 3,
+  LogicalKeyboardKey.numpad4: 4,
+  LogicalKeyboardKey.digit4: 4,
+  LogicalKeyboardKey.numpad5: 5,
+  LogicalKeyboardKey.digit5: 5,
+  LogicalKeyboardKey.numpad6: 6,
+  LogicalKeyboardKey.digit6: 6,
+  LogicalKeyboardKey.numpad7: 7,
+  LogicalKeyboardKey.digit7: 7,
+  LogicalKeyboardKey.numpad8: 8,
+  LogicalKeyboardKey.digit8: 8,
+  LogicalKeyboardKey.numpad9: 9,
+  LogicalKeyboardKey.digit9: 9,
+  LogicalKeyboardKey.numpadMultiply: 10,
+  LogicalKeyboardKey.numpadSubtract: 11,
+  LogicalKeyboardKey.numpadAdd: 12,
+};
 
 String _getPlatform() {
   if (kIsWeb) return 'web';
@@ -2150,50 +2179,34 @@ class _GameScreenState extends State<GameScreen>
   }
 
   bool _onKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent) return false;
     final key = event.logicalKey;
 
-    // Backspace → Undo（セット終了中は無効）
+    // 自分が扱うキー（数字・テンキー記号・Backspace）かを判定
+    final isOurKey =
+        key == LogicalKeyboardKey.backspace ||
+        kKeyboardScoreMap.containsKey(key);
+    if (!isOurKey) return false;
+
+    // 対象キーは KeyDown/KeyUp/KeyRepeat 全てで true を返して消費する。
+    // そうしないと KeyUp が Android のシステム処理や Navigator のフォーカス処理に
+    // 伝播してしまい、複数回入力後に画面が戻ってしまう不具合が出る。
+    if (event is! KeyDownEvent) return true;
+
+    // Backspace → Undo（セット終了中は無効。ただしキーは消費する）
     if (key == LogicalKeyboardKey.backspace) {
       if (!isSetFinished) _undo();
       return true;
     }
 
-    // スコア入力（セット終了中は無効）
-    if (isSetFinished) return false;
+    // スコア入力（セット終了中は無効。ただしキーは消費する）
+    if (isSetFinished) return true;
 
-    final scoreMap = <LogicalKeyboardKey, int>{
-      LogicalKeyboardKey.numpad0: 0,
-      LogicalKeyboardKey.digit0: 0,
-      LogicalKeyboardKey.numpad1: 1,
-      LogicalKeyboardKey.digit1: 1,
-      LogicalKeyboardKey.numpad2: 2,
-      LogicalKeyboardKey.digit2: 2,
-      LogicalKeyboardKey.numpad3: 3,
-      LogicalKeyboardKey.digit3: 3,
-      LogicalKeyboardKey.numpad4: 4,
-      LogicalKeyboardKey.digit4: 4,
-      LogicalKeyboardKey.numpad5: 5,
-      LogicalKeyboardKey.digit5: 5,
-      LogicalKeyboardKey.numpad6: 6,
-      LogicalKeyboardKey.digit6: 6,
-      LogicalKeyboardKey.numpad7: 7,
-      LogicalKeyboardKey.digit7: 7,
-      LogicalKeyboardKey.numpad8: 8,
-      LogicalKeyboardKey.digit8: 8,
-      LogicalKeyboardKey.numpad9: 9,
-      LogicalKeyboardKey.digit9: 9,
-      LogicalKeyboardKey.numpadMultiply: 10,
-      LogicalKeyboardKey.numpadSubtract: 11,
-      LogicalKeyboardKey.numpadAdd: 12,
-    };
-
-    final score = scoreMap[key];
+    final score = kKeyboardScoreMap[key];
     if (score != null) {
       _handleScoreKey(score);
       return true;
     }
-    return false;
+    return true;
   }
 
   void _handleScoreKey(int score) {
