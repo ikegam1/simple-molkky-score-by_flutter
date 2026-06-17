@@ -19,10 +19,11 @@ import 'logic/game_logic.dart';
 import 'widgets/match_result_card.dart';
 import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
+import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.1+103';
+const String _kAppVersion = '1.15.2+104';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.1';
+const String _kDisplayVersion = 'v1.15.2';
 
 /// 物理キーボード入力からスコアへのマッピング。
 /// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
@@ -411,6 +412,8 @@ class _SetupScreenState extends State<SetupScreen> {
   String _firebaseUid = "";
   final _uuid = const Uuid();
   bool _isGoogleLinked = false;
+  // 横レイアウト判定をキーボード表示で揺らさないためのヘルパー
+  final LandscapeDetector _landscapeDetector = LandscapeDetector();
 
   @override
   void initState() {
@@ -881,10 +884,11 @@ class _SetupScreenState extends State<SetupScreen> {
       extendBodyBehindAppBar: true,
       body: LayoutBuilder(
         builder: (_, constraints) {
-          // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
-          final isLandscape =
-              constraints.maxWidth >= constraints.maxHeight * 1.25 &&
-              constraints.maxHeight < 500;
+          // 横レイアウト判定。キーボード表示で縦幅だけ縮んだ場合は前回判定を維持。
+          final isLandscape = _landscapeDetector.resolve(
+            constraints.maxWidth,
+            constraints.maxHeight,
+          );
           if (isLandscape) {
             return _buildLandscapeBody(context, t, options, selfTurnEnabled);
           }
@@ -1361,6 +1365,12 @@ class _GameScreenState extends State<GameScreen>
   final LiveMatchService _liveService = LiveMatchService();
   String? _liveId;
   bool _liveIssuing = false;
+
+  // 横レイアウト判定をキーボード表示で揺らさないためのヘルパー
+  final LandscapeDetector _landscapeDetector = LandscapeDetector();
+
+  // Firestore に保存済みの試合データを上書き更新するためのドキュメントID
+  String? _uploadedDocId;
 
   String get _liveMatchId =>
       'm-${widget.match.startTime.millisecondsSinceEpoch}-${widget.appUserId}';
@@ -2664,7 +2674,14 @@ class _GameScreenState extends State<GameScreen>
                 )
                 .toList(),
       };
-      await FirebaseFirestore.instance.collection('scores').add(data);
+      // 修正後の再保存は既存ドキュメントを上書き、新規保存ならaddで自動ID生成
+      final col = FirebaseFirestore.instance.collection('scores');
+      if (_uploadedDocId != null) {
+        await col.doc(_uploadedDocId).set(data);
+      } else {
+        final ref = await col.add(data);
+        _uploadedDocId = ref.id;
+      }
     } catch (e) {
       debugPrint("Self5Turn Upload Error: $e");
     }
@@ -2732,7 +2749,14 @@ class _GameScreenState extends State<GameScreen>
                 )
                 .toList(),
       };
-      await FirebaseFirestore.instance.collection('scores').add(data);
+      // 修正後の再保存は既存ドキュメントを上書き、新規保存ならaddで自動ID生成
+      final col = FirebaseFirestore.instance.collection('scores');
+      if (_uploadedDocId != null) {
+        await col.doc(_uploadedDocId).set(data);
+      } else {
+        final ref = await col.add(data);
+        _uploadedDocId = ref.id;
+      }
     } catch (e) {
       debugPrint("Upload Error: $e");
     }
@@ -2945,6 +2969,13 @@ class _GameScreenState extends State<GameScreen>
             ),
             actions: [
               TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _enterPostMatchEditMode();
+                },
+                child: const Text('点数を修正する'),
+              ),
+              TextButton(
                 autofocus: true,
                 onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                 child: Text(t.get('finish')),
@@ -2952,6 +2983,17 @@ class _GameScreenState extends State<GameScreen>
             ],
           ),
     );
+  }
+
+  /// 試合終了後ダイアログから「点数を修正する」を押したときの遷移。
+  /// ダイアログを閉じてゲーム画面に戻し、直前の投擲を1手 Undo して
+  /// プレイヤーが修正できる状態にする。
+  void _enterPostMatchEditMode() {
+    setState(() {
+      isSetFinished = false;
+    });
+    // 直近の投擲を1手戻すことで、間違ったスコアを修正できる状態にする
+    _undo();
   }
 
   void _showSetDrawDialog() {
@@ -3066,6 +3108,13 @@ class _GameScreenState extends State<GameScreen>
               ),
             ),
             actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _enterPostMatchEditMode();
+                },
+                child: const Text('点数を修正する'),
+              ),
               TextButton(
                 autofocus: true,
                 onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
@@ -3365,10 +3414,11 @@ class _GameScreenState extends State<GameScreen>
         ),
         body: LayoutBuilder(
           builder: (_, constraints) {
-            // 横幅が縦幅の1.25倍以上、かつ高さが500px未満の場合のみ横向きレイアウト
-            final isLandscape =
-                constraints.maxWidth >= constraints.maxHeight * 1.25 &&
-                constraints.maxHeight < 500;
+            // 横レイアウト判定。キーボード表示で縦幅だけ縮んだ場合は前回判定を維持。
+            final isLandscape = _landscapeDetector.resolve(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
             if (isLandscape) {
               // ─── 横向きレイアウト ───────────────────────────────────
               final rightW = (MediaQuery.of(context).size.width * 0.42).clamp(
@@ -5202,6 +5252,7 @@ class HelpPage extends StatelessWidget {
         '* キー → 10点、− キー → 11点、+ キー → 12点',
         'バックスペースキー → 「戻る」と同じ',
         'ダイアログが出ているときはエンターキーで次へ進めます',
+        '試合終了直後の結果ダイアログで「点数を修正する」を押すと、直前の投擲に戻って修正できます',
       ],
     ),
   ];
@@ -5292,6 +5343,7 @@ class HelpPage extends StatelessWidget {
         '* key → 10, − key → 11, + key → 12',
         'Backspace → same as Undo',
         'Press Enter to confirm when a dialog is open',
+        'After the final result dialog, tap "Edit Scores" to undo the last throw and fix mistakes',
       ],
     ),
   ];
