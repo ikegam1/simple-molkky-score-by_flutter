@@ -21,9 +21,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.2+104';
+const String _kAppVersion = '1.15.3+105';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.2';
+const String _kDisplayVersion = 'v1.15.3';
 
 /// 物理キーボード入力からスコアへのマッピング。
 /// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
@@ -2285,6 +2285,39 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
+  /// 試合終了時用のスナップショット。
+  /// `_saveSetSnapshot` との違いは、`finalizeCurrentSetIfNeeded()` で全員の
+  /// `setFinalScores` に最終セット分が追加されているため、`setFinalScoresLen`
+  /// を -1 補正して「試合終了処理前」の長さで保存する点。
+  void _saveMatchEndSnapshot({Player? setWinner}) {
+    _prevSetSnapshot = _PrevSetSnapshot(
+      currentSetIndex: widget.match.currentSetIndex,
+      currentTurnInSet: currentTurnInSet,
+      currentSetRecord: widget.match.currentSetRecord,
+      completedSetsLen: widget.match.completedSets.length,
+      playerStates:
+          widget.match.players
+              .map(
+                (p) => <String, dynamic>{
+                  'id': p.id,
+                  'currentScore': p.currentScore,
+                  'consecutiveMisses': p.consecutiveMisses,
+                  'isDisqualified': p.isDisqualified,
+                  'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
+                  'scoreHistory': List<int>.from(p.scoreHistory),
+                  'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+                  'matchScoreHistoryLen': p.matchScoreHistory.length,
+                  // 試合終了処理の finalize で +1 されているため、-1 補正
+                  'setFinalScoresLen':
+                      p.setFinalScores.isEmpty
+                          ? 0
+                          : p.setFinalScores.length - 1,
+                },
+              )
+              .toList(),
+    );
+  }
+
   void _undoToPreviousSet() {
     final snap = _prevSetSnapshot;
     if (snap == null) return;
@@ -2949,6 +2982,10 @@ class _GameScreenState extends State<GameScreen>
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
     final allSets = _buildAllSets();
+    // 「点数を修正する」用に試合終了直前の状態をスナップショット保存。
+    // 試合終了時は finalizeCurrentSetIfNeeded() で setFinalScores が
+    // 全員に追加されているため、setFinalScoresLen も -1 補正する必要がある。
+    _saveMatchEndSnapshot(setWinner: winner);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2986,14 +3023,18 @@ class _GameScreenState extends State<GameScreen>
   }
 
   /// 試合終了後ダイアログから「点数を修正する」を押したときの遷移。
-  /// ダイアログを閉じてゲーム画面に戻し、直前の投擲を1手 Undo して
-  /// プレイヤーが修正できる状態にする。
+  /// `_undoToPreviousSet` を使って、勝者の setsWon +1 や勝利ターンの
+  /// TurnRecord など、試合終了処理で変化した状態を完全に巻き戻す。
+  ///
+  /// 巻き戻し対象:
+  /// - 勝者の `setsWon` を -1（試合終了前の値に戻す）
+  /// - `completedSets` から最終セットを除去
+  /// - 勝利ターンの `TurnRecord` を削除し、そのターンの全投擲を取り消し
+  /// - `currentSetIndex` / `currentTurnInSet` / `currentPlayerIndex` 復元
+  ///
+  /// これにより、勝利ターンの開始位置に戻って正しいスコアを再入力できる。
   void _enterPostMatchEditMode() {
-    setState(() {
-      isSetFinished = false;
-    });
-    // 直近の投擲を1手戻すことで、間違ったスコアを修正できる状態にする
-    _undo();
+    _undoToPreviousSet();
   }
 
   void _showSetDrawDialog() {
@@ -3090,6 +3131,10 @@ class _GameScreenState extends State<GameScreen>
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
     final allSets = _buildAllSets();
+    // 「点数を修正する」用に試合終了直前の状態をスナップショット保存。
+    // 引き分けは setsWon が +1 されないので setWinner は null。
+    // ただし finalize で setFinalScores は全員追加されているので補正必要。
+    _saveMatchEndSnapshot();
     showDialog(
       context: context,
       barrierDismissible: false,
