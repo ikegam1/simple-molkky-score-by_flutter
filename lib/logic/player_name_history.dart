@@ -64,6 +64,25 @@ const String kLegacyRegisteredPlayersPrefsKey = 'saved_players_v2';
 /// 名前の比較用正規化。大文字小文字を無視し、前後空白を除去する。
 String normalizePlayerName(String name) => name.trim().toLowerCase();
 
+/// サジェスト時のマッチング用に、ひらがなをカタカナに揃えたうえで
+/// 小文字化した文字列を返す（前後空白は削除）。
+///
+/// 例: 「ます」→ 「マス」、「Alice」→「alice」
+///
+/// これにより「ます」で「マスラオ」がヒットするようになる。
+String canonicalizeForNameMatch(String s) {
+  final buf = StringBuffer();
+  for (final rune in s.trim().toLowerCase().runes) {
+    // ひらがな (U+3041..U+3096) を カタカナ (U+30A1..U+30F6) に変換。
+    if (rune >= 0x3041 && rune <= 0x3096) {
+      buf.writeCharCode(rune + 0x60);
+    } else {
+      buf.writeCharCode(rune);
+    }
+  }
+  return buf.toString();
+}
+
 /// 履歴 JSON 文字列リストを [PlayerNameHistoryEntry] に復元する。
 List<PlayerNameHistoryEntry> decodePlayerNameHistory(List<String>? raw) {
   if (raw == null) return const <PlayerNameHistoryEntry>[];
@@ -203,7 +222,7 @@ List<PlayerNameHistoryEntry> suggestPlayerNames(
 }) {
   final normalizedExclude = excludeNames.map(normalizePlayerName).toSet();
   final trimmedInput = input.trim();
-  final needle = trimmedInput.toLowerCase();
+  final needle = canonicalizeForNameMatch(trimmedInput);
 
   final filtered =
       entries.where((e) {
@@ -211,8 +230,10 @@ List<PlayerNameHistoryEntry> suggestPlayerNames(
           return false;
         }
         if (needle.isEmpty) return true;
-        if (e.name.toLowerCase().contains(needle)) return true;
-        return e.aliases.any((a) => a.toLowerCase().contains(needle));
+        if (canonicalizeForNameMatch(e.name).contains(needle)) return true;
+        return e.aliases.any(
+          (a) => canonicalizeForNameMatch(a).contains(needle),
+        );
       }).toList();
 
   filtered.sort((a, b) {

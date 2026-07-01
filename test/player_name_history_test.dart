@@ -244,6 +244,33 @@ void main() {
       expect(result.map((e) => e.name).toList(), ['太郎']);
     });
 
+    test('hiragana input matches katakana name', () {
+      final katakanaEntries = [
+        PlayerNameHistoryEntry(
+          name: 'マスラオ',
+          aliases: const [],
+          count: 3,
+          lastUsedAt: now,
+        ),
+      ];
+      final result = suggestPlayerNames(
+        katakanaEntries,
+        input: 'ます',
+        excludeNames: <String>{},
+      );
+      expect(result.map((e) => e.name).toList(), ['マスラオ']);
+    });
+
+    test('katakana input matches hiragana alias', () {
+      final result = suggestPlayerNames(
+        entries,
+        input: 'タロ',
+        excludeNames: <String>{},
+      );
+      // alias「たろう」がヒットして「太郎」が返る
+      expect(result.map((e) => e.name).toList(), ['太郎']);
+    });
+
     test('multiple matches sort by count desc → lastUsedAt desc', () {
       final result = suggestPlayerNames(
         entries,

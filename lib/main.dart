@@ -22,9 +22,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.4+106';
+const String _kAppVersion = '1.15.5+107';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.4';
+const String _kDisplayVersion = 'v1.15.5';
 
 /// 物理キーボード入力からスコアへのマッピング。
 /// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
@@ -619,70 +619,73 @@ class _SetupScreenState extends State<SetupScreen> {
   void _addFromSuggestion(String name) {
     // サジェストからの選択は IME 変換前入力に紐付かないので alias を空に戻す。
     _pendingRawAlias = '';
-    _nameController.value = TextEditingValue(
-      text: name,
-      selection: TextSelection.collapsed(offset: name.length),
-    );
-    _add();
+    // 直接名前で追加。_nameController.text 経由にすると
+    // 直後の再ビルド／フォーカス変化と race して空文字を読むケースがある。
+    _addNamed(name);
   }
 
   Widget _buildNameSuggestionCard({bool dense = false}) {
     final suggestions = _currentSuggestions();
     if (suggestions.isEmpty) return const SizedBox.shrink();
     final maxHeight = dense ? 140.0 : 200.0;
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Material(
-        elevation: 2,
-        borderRadius: BorderRadius.circular(6),
-        color: Theme.of(context).cardColor,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxHeight),
-          child: ListView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            itemCount: suggestions.length,
-            itemBuilder: (context, i) {
-              final entry = suggestions[i];
-              return InkWell(
-                onTap: () => _addFromSuggestion(entry.name),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: dense ? 6 : 10,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.history,
-                        size: dense ? 14 : 16,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          entry.name,
-                          style: TextStyle(fontSize: dense ? 13 : 14),
-                          overflow: TextOverflow.ellipsis,
+    // TextFieldTapRegion で包むことで、この Card 上のタップが
+    // TextField の onTapOutside を発火させず、フォーカスが外れて
+    // 直後の再ビルドでサジェスト行が消える現象を防ぐ。
+    return TextFieldTapRegion(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Material(
+          elevation: 2,
+          borderRadius: BorderRadius.circular(6),
+          color: Theme.of(context).cardColor,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: suggestions.length,
+              itemBuilder: (context, i) {
+                final entry = suggestions[i];
+                return InkWell(
+                  onTap: () => _addFromSuggestion(entry.name),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: dense ? 6 : 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.history,
+                          size: dense ? 14 : 16,
+                          color: Colors.grey.shade500,
                         ),
-                      ),
-                      InkWell(
-                        onTap: () => _removeHistoryEntry(entry.name),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.close,
-                            size: dense ? 12 : 14,
-                            color: Colors.grey.shade400,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            entry.name,
+                            style: TextStyle(fontSize: dense ? 13 : 14),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
+                        InkWell(
+                          onTap: () => _removeHistoryEntry(entry.name),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.close,
+                              size: dense ? 12 : 14,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -904,8 +907,12 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   void _add() {
+    _addNamed(_nameController.text);
+  }
+
+  void _addNamed(String rawName) {
     final t = L10n.of(context);
-    String name = _nameController.text.trim();
+    final name = rawName.trim();
     if (name.isEmpty) return;
     if (_registeredPlayers.length >= 8) {
       _showError(t.get('max_players_reached'));
