@@ -16,14 +16,15 @@ import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
+import 'logic/player_name_history.dart';
 import 'widgets/match_result_card.dart';
 import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.3+105';
+const String _kAppVersion = '1.15.4+106';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.3';
+const String _kDisplayVersion = 'v1.15.4';
 
 /// 物理キーボード入力からスコアへのマッピング。
 /// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
@@ -406,6 +407,7 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> {
   final List<Player> _registeredPlayers = [];
   final TextEditingController _nameController = TextEditingController();
+  final FocusNode _nameFocusNode = FocusNode();
   int _selectedModeKey = 3;
   int _selectedTurnLimit = 0;
   int _selectedTimeLimitMinutes = 0;
@@ -415,10 +417,35 @@ class _SetupScreenState extends State<SetupScreen> {
   // 横レイアウト判定をキーボード表示で揺らさないためのヘルパー
   final LandscapeDetector _landscapeDetector = LandscapeDetector();
 
+  // --- プレイヤー名サジェスト用の状態 ---
+  List<PlayerNameHistoryEntry> _nameHistory = <PlayerNameHistoryEntry>[];
+  // IME 変換前の「かな入力」を alias 用に控えておく。
+  String _pendingRawAlias = '';
+  // 3 秒無入力タイマー。空欄フォーカス継続でよく使う順の全候補を表示する。
+  Timer? _idleSuggestionTimer;
+  bool _forceShowAllSuggestions = false;
+  // 空欄フォーカス継続 → 全候補表示までの待機時間。
+  static const Duration _kIdleSuggestionDelay = Duration(seconds: 3);
+  // ひらがな・カタカナ・英数字・長音のみで構成されているか判定する正規表現。
+  static final RegExp _kanaOnlyPattern = RegExp(r'^[ぁ-ゟ゠-ヿa-zA-Z0-9ー]+$');
+
   @override
   void initState() {
     super.initState();
+    _nameController.addListener(_onNameControllerChanged);
+    _nameFocusNode.addListener(_onFocusChanged);
     _initApp();
+    _loadNameHistory();
+  }
+
+  @override
+  void dispose() {
+    _cancelIdleTimer();
+    _nameController.removeListener(_onNameControllerChanged);
+    _nameFocusNode.removeListener(_onFocusChanged);
+    _nameController.dispose();
+    _nameFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _initApp() async {
@@ -462,6 +489,204 @@ class _SetupScreenState extends State<SetupScreen> {
             .map((p) => jsonEncode({'id': p.id, 'name': p.name}))
             .toList();
     await prefs.setStringList('saved_players_v2', jsonList);
+  }
+
+  Future<void> _loadNameHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(kPlayerNameHistoryPrefsKey);
+    List<PlayerNameHistoryEntry> loaded;
+    if (raw != null) {
+      loaded = decodePlayerNameHistory(raw);
+    } else {
+      final legacy = prefs.getStringList(kLegacyRegisteredPlayersPrefsKey);
+      loaded = seedHistoryFromLegacyPlayers(legacy);
+      if (loaded.isNotEmpty) {
+        await prefs.setStringList(
+          kPlayerNameHistoryPrefsKey,
+          encodePlayerNameHistory(loaded),
+        );
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _nameHistory = loaded;
+    });
+  }
+
+  Future<void> _saveNameHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      kPlayerNameHistoryPrefsKey,
+      encodePlayerNameHistory(_nameHistory),
+    );
+  }
+
+  Future<void> _bumpNameHistory(String name, String alias) async {
+    final updated = recordPlayerNameUsage(
+      _nameHistory,
+      name,
+      alias: alias.isEmpty ? null : alias,
+    );
+    if (!mounted) return;
+    setState(() {
+      _nameHistory = updated;
+    });
+    await _saveNameHistory();
+  }
+
+  Future<void> _removeHistoryEntry(String name) async {
+    final updated = removePlayerNameHistoryEntry(_nameHistory, name);
+    if (!mounted) return;
+    setState(() {
+      _nameHistory = updated;
+    });
+    await _saveNameHistory();
+  }
+
+  List<PlayerNameHistoryEntry> _currentSuggestions() {
+    final input = _nameController.text.trim();
+    // 入力欄が空の場合は 3 秒無入力サジェストが有効な時だけ候補を出す。
+    if (input.isEmpty && !_forceShowAllSuggestions) {
+      return const <PlayerNameHistoryEntry>[];
+    }
+    return suggestPlayerNames(
+      _nameHistory,
+      input: input,
+      excludeNames: _registeredPlayers.map((p) => p.name).toSet(),
+    );
+  }
+
+  void _onNameControllerChanged() {
+    final value = _nameController.value;
+    final text = value.text;
+
+    // 入力が空になった場合は IME 一時変数と 3 秒サジェスト状態をリセット。
+    if (text.isEmpty) {
+      _pendingRawAlias = '';
+    } else if (value.composing.isValid && !value.composing.isCollapsed) {
+      final start = value.composing.start;
+      final end = value.composing.end;
+      if (start >= 0 && end <= text.length && start < end) {
+        final composing = text.substring(start, end);
+        // 変換前と思しき「かな/英数字のみ」の間だけ保存。
+        // 変換候補（漢字）が表示された後は上書きしない。
+        if (_kanaOnlyPattern.hasMatch(composing)) {
+          _pendingRawAlias = composing;
+        }
+      }
+    }
+
+    if (text.isEmpty) {
+      _restartIdleTimer();
+    } else {
+      _cancelIdleTimer();
+      if (_forceShowAllSuggestions) {
+        _forceShowAllSuggestions = false;
+      }
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onFocusChanged() {
+    if (_nameFocusNode.hasFocus && _nameController.text.isEmpty) {
+      _restartIdleTimer();
+    } else {
+      _cancelIdleTimer();
+      if (_forceShowAllSuggestions && mounted) {
+        setState(() => _forceShowAllSuggestions = false);
+      }
+    }
+  }
+
+  void _restartIdleTimer() {
+    _cancelIdleTimer();
+    _idleSuggestionTimer = Timer(_kIdleSuggestionDelay, () {
+      if (!mounted) return;
+      if (!_nameFocusNode.hasFocus) return;
+      if (_nameController.text.isNotEmpty) return;
+      setState(() => _forceShowAllSuggestions = true);
+    });
+  }
+
+  void _cancelIdleTimer() {
+    _idleSuggestionTimer?.cancel();
+    _idleSuggestionTimer = null;
+  }
+
+  void _addFromSuggestion(String name) {
+    // サジェストからの選択は IME 変換前入力に紐付かないので alias を空に戻す。
+    _pendingRawAlias = '';
+    _nameController.value = TextEditingValue(
+      text: name,
+      selection: TextSelection.collapsed(offset: name.length),
+    );
+    _add();
+  }
+
+  Widget _buildNameSuggestionCard({bool dense = false}) {
+    final suggestions = _currentSuggestions();
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+    final maxHeight = dense ? 140.0 : 200.0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(6),
+        color: Theme.of(context).cardColor,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: ListView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            itemCount: suggestions.length,
+            itemBuilder: (context, i) {
+              final entry = suggestions[i];
+              return InkWell(
+                onTap: () => _addFromSuggestion(entry.name),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: dense ? 6 : 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: dense ? 14 : 16,
+                        color: Colors.grey.shade500,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          entry.name,
+                          style: TextStyle(fontSize: dense ? 13 : 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _removeHistoryEntry(entry.name),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.close,
+                            size: dense ? 12 : 14,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showGoogleSignInDialog() async {
@@ -697,6 +922,8 @@ class _SetupScreenState extends State<SetupScreen> {
       return;
     }
 
+    // IME 変換前の入力（あれば）を alias として履歴に残す。
+    final alias = _pendingRawAlias;
     setState(() {
       _registeredPlayers.add(
         Player(
@@ -706,8 +933,13 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
       );
       _nameController.clear();
+      _forceShowAllSuggestions = false;
     });
+    _pendingRawAlias = '';
+    _cancelIdleTimer();
     _savePlayers();
+    // 履歴更新は永続化含めて await せず fire-and-forget。
+    _bumpNameHistory(name, alias);
   }
 
   void _showError(String msg) {
@@ -909,6 +1141,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: _nameController,
+                  focusNode: _nameFocusNode,
                   decoration: InputDecoration(
                     labelText: t.get('player_name'),
                     suffixIcon: IconButton(
@@ -926,6 +1159,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         maxLength,
                       }) => null,
                 ),
+                _buildNameSuggestionCard(),
                 Expanded(
                   child: ReorderableListView(
                     onReorder: (o, n) {
@@ -1110,6 +1344,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 4),
                   TextField(
                     controller: _nameController,
+                    focusNode: _nameFocusNode,
                     decoration: InputDecoration(
                       labelText: t.get('player_name'),
                       suffixIcon: IconButton(
@@ -1128,6 +1363,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           maxLength,
                         }) => null,
                   ),
+                  _buildNameSuggestionCard(dense: true),
                   Expanded(
                     child: ReorderableListView(
                       onReorder: (o, n) {
