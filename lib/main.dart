@@ -22,9 +22,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.6+108';
+const String _kAppVersion = '1.15.7+109';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.6';
+const String _kDisplayVersion = 'v1.15.7';
 
 /// 物理キーボード入力からスコアへのマッピング。
 /// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
@@ -621,6 +621,16 @@ class _SetupScreenState extends State<SetupScreen> {
     _idleSuggestionTimer = null;
   }
 
+  /// 入力欄外への「素のタップ」を拾って名前欄のフォーカスを外す。
+  /// GestureDetector.onTap から呼ぶ想定。TextField 内や
+  /// InkWell (サジェスト行, ボタン類) をタップした場合は
+  /// 子側が gesture arena を勝ち取るのでこの callback は発火しない。
+  void _dismissNameFocusIfActive() {
+    if (_nameFocusNode.hasFocus) {
+      _nameFocusNode.unfocus();
+    }
+  }
+
   void _addFromSuggestion(String name) {
     // サジェストからの選択は IME 変換前入力に紐付かないので alias を空に戻す。
     _pendingRawAlias = '';
@@ -1126,205 +1136,217 @@ class _SetupScreenState extends State<SetupScreen> {
         ],
       ),
       extendBodyBehindAppBar: true,
-      body: LayoutBuilder(
-        builder: (_, constraints) {
-          // 横レイアウト判定。キーボード表示で縦幅だけ縮んだ場合は前回判定を維持。
-          final isLandscape = _landscapeDetector.resolve(
-            constraints.maxWidth,
-            constraints.maxHeight,
-          );
-          if (isLandscape) {
-            return _buildLandscapeBody(context, t, options, selfTurnEnabled);
-          }
-          // --- 縦向き（変更なし）---
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                Text(
-                  t.get('app_title'),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueAccent,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _nameController,
-                  focusNode: _nameFocusNode,
-                  decoration: InputDecoration(
-                    labelText: t.get('player_name'),
-                    suffixIcon: IconButton(
-                      onPressed: _add,
-                      icon: const Icon(Icons.add),
+      // アプリ版で TextField 既定の onTapOutside だけでは
+      // 入力欄外の空きスペースをタップしてもフォーカスが外れにくいため、
+      // Body 全体をタップ検出でラップし、フォームが受けなかった
+      // タップをフォールバックで拾って unfocus する。
+      body: GestureDetector(
+        onTap: _dismissNameFocusIfActive,
+        behavior: HitTestBehavior.translucent,
+        child: LayoutBuilder(
+          builder: (_, constraints) {
+            // 横レイアウト判定。キーボード表示で縦幅だけ縮んだ場合は前回判定を維持。
+            final isLandscape = _landscapeDetector.resolve(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
+            if (isLandscape) {
+              return _buildLandscapeBody(context, t, options, selfTurnEnabled);
+            }
+            // --- 縦向き（変更なし）---
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    t.get('app_title'),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
                     ),
                   ),
-                  onSubmitted: (_) => _add(),
-                  maxLength: 20,
-                  buildCounter:
-                      (
-                        context, {
-                        required currentLength,
-                        required isFocused,
-                        maxLength,
-                      }) => null,
-                ),
-                _buildNameSuggestionCard(),
-                Expanded(
-                  child: ReorderableListView(
-                    onReorder: (o, n) {
-                      setState(() {
-                        if (o < n) n -= 1;
-                        _registeredPlayers.insert(
-                          n,
-                          _registeredPlayers.removeAt(o),
-                        );
-                      });
-                      _savePlayers();
-                    },
-                    children: [
-                      for (int i = 0; i < _registeredPlayers.length; i++)
-                        ListTile(
-                          key: Key(_registeredPlayers[i].id),
-                          leading: const Icon(Icons.drag_handle),
-                          title: Text(
-                            '${i + 1}. ${_registeredPlayers[i].name}',
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () {
-                              setState(() {
-                                _registeredPlayers.removeAt(i);
-                              });
-                              _savePlayers();
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                // プレイヤー名入力にフォーカスがある間は 3 種の Dropdown を
-                // 一時的に非表示にして、履歴サジェストとプレイヤー一覧に
-                // スペースを譲る。フォーカスが外れたら元に戻る。
-                if (!_nameFocusNode.hasFocus) ...[
-                  DropdownButtonFormField<int>(
-                    value: _selectedModeKey,
-                    items:
-                        options.entries.map((e) {
-                          final isSelfTurnMode = e.key == -1 || e.key == -3;
-                          final enabled = !isSelfTurnMode || selfTurnEnabled;
-                          return DropdownMenuItem<int>(
-                            value: e.key,
-                            enabled: enabled,
-                            child: Text(
-                              e.value,
-                              style: TextStyle(
-                                color: enabled ? null : Colors.grey,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _selectedModeKey = v);
-                    },
-                    decoration: InputDecoration(labelText: t.get('game_mode')),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<int>(
-                    value: _selectedTurnLimit,
-                    items:
-                        turnLimitOptions
-                            .map(
-                              (v) => DropdownMenuItem<int>(
-                                value: v,
-                                child: Text(v == 0 ? t.get('no_limit') : '$v'),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _selectedTurnLimit = v);
-                    },
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _nameController,
+                    focusNode: _nameFocusNode,
                     decoration: InputDecoration(
-                      labelText: t.get('turn_limit_setting'),
+                      labelText: t.get('player_name'),
+                      suffixIcon: IconButton(
+                        onPressed: _add,
+                        icon: const Icon(Icons.add),
+                      ),
+                    ),
+                    onSubmitted: (_) => _add(),
+                    maxLength: 20,
+                    buildCounter:
+                        (
+                          context, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
+                  ),
+                  _buildNameSuggestionCard(),
+                  Expanded(
+                    child: ReorderableListView(
+                      onReorder: (o, n) {
+                        setState(() {
+                          if (o < n) n -= 1;
+                          _registeredPlayers.insert(
+                            n,
+                            _registeredPlayers.removeAt(o),
+                          );
+                        });
+                        _savePlayers();
+                      },
+                      children: [
+                        for (int i = 0; i < _registeredPlayers.length; i++)
+                          ListTile(
+                            key: Key(_registeredPlayers[i].id),
+                            leading: const Icon(Icons.drag_handle),
+                            title: Text(
+                              '${i + 1}. ${_registeredPlayers[i].name}',
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () {
+                                setState(() {
+                                  _registeredPlayers.removeAt(i);
+                                });
+                                _savePlayers();
+                              },
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<int>(
-                    value: _selectedTimeLimitMinutes,
-                    items:
-                        timeLimitOptions
-                            .map(
-                              (v) => DropdownMenuItem<int>(
-                                value: v,
-                                child: Text(
-                                  v == 0
-                                      ? t.get('no_limit')
-                                      : t.get(
-                                        'minutes_suffix',
-                                        args: {'n': '$v'},
-                                      ),
+                  // プレイヤー名入力にフォーカスがある間は 3 種の Dropdown を
+                  // 一時的に非表示にして、履歴サジェストとプレイヤー一覧に
+                  // スペースを譲る。フォーカスが外れたら元に戻る。
+                  if (!_nameFocusNode.hasFocus) ...[
+                    DropdownButtonFormField<int>(
+                      value: _selectedModeKey,
+                      items:
+                          options.entries.map((e) {
+                            final isSelfTurnMode = e.key == -1 || e.key == -3;
+                            final enabled = !isSelfTurnMode || selfTurnEnabled;
+                            return DropdownMenuItem<int>(
+                              value: e.key,
+                              enabled: enabled,
+                              child: Text(
+                                e.value,
+                                style: TextStyle(
+                                  color: enabled ? null : Colors.grey,
                                 ),
                               ),
-                            )
-                            .toList(),
-                    onChanged: (v) {
-                      if (v != null)
-                        setState(() => _selectedTimeLimitMinutes = v);
-                    },
-                    decoration: InputDecoration(
-                      labelText: t.get('time_limit_setting'),
+                            );
+                          }).toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedModeKey = v);
+                      },
+                      decoration: InputDecoration(
+                        labelText: t.get('game_mode'),
+                      ),
                     ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      value: _selectedTurnLimit,
+                      items:
+                          turnLimitOptions
+                              .map(
+                                (v) => DropdownMenuItem<int>(
+                                  value: v,
+                                  child: Text(
+                                    v == 0 ? t.get('no_limit') : '$v',
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedTurnLimit = v);
+                      },
+                      decoration: InputDecoration(
+                        labelText: t.get('turn_limit_setting'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      value: _selectedTimeLimitMinutes,
+                      items:
+                          timeLimitOptions
+                              .map(
+                                (v) => DropdownMenuItem<int>(
+                                  value: v,
+                                  child: Text(
+                                    v == 0
+                                        ? t.get('no_limit')
+                                        : t.get(
+                                          'minutes_suffix',
+                                          args: {'n': '$v'},
+                                        ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (v) {
+                        if (v != null)
+                          setState(() => _selectedTimeLimitMinutes = v);
+                      },
+                      decoration: InputDecoration(
+                        labelText: t.get('time_limit_setting'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      backgroundColor: Colors.blue,
+                    ),
+                    child: Text(
+                      t.get('start_game'),
+                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed:
+                        _firebaseUid.isEmpty
+                            ? null
+                            : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (c) => GlobalHistoryPage(uid: _firebaseUid),
+                              ),
+                            ),
+                    icon: const Icon(Icons.cloud_done),
+                    label: Text(t.get('match_history')),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 45),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_firebaseUid.isNotEmpty)
+                    Text(
+                      t.get(
+                        'anonymous_id',
+                        args: {'id': _firebaseUid.substring(0, 8)},
+                      ),
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                  const Text(
+                    _kDisplayVersion,
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: Colors.blue,
-                  ),
-                  child: Text(
-                    t.get('start_game'),
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed:
-                      _firebaseUid.isEmpty
-                          ? null
-                          : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (c) => GlobalHistoryPage(uid: _firebaseUid),
-                            ),
-                          ),
-                  icon: const Icon(Icons.cloud_done),
-                  label: Text(t.get('match_history')),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 45),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (_firebaseUid.isNotEmpty)
-                  Text(
-                    t.get(
-                      'anonymous_id',
-                      args: {'id': _firebaseUid.substring(0, 8)},
-                    ),
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                  ),
-                const Text(
-                  _kDisplayVersion,
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
