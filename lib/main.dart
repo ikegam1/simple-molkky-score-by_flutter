@@ -22,9 +22,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.5+107';
+const String _kAppVersion = '1.15.6+108';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.5';
+const String _kDisplayVersion = 'v1.15.6';
 
 /// 物理キーボード入力からスコアへのマッピング。
 /// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
@@ -595,9 +595,14 @@ class _SetupScreenState extends State<SetupScreen> {
       _restartIdleTimer();
     } else {
       _cancelIdleTimer();
-      if (_forceShowAllSuggestions && mounted) {
-        setState(() => _forceShowAllSuggestions = false);
+      if (_forceShowAllSuggestions) {
+        _forceShowAllSuggestions = false;
       }
+    }
+    // フォーカス状態に応じて Dropdown 群の表示/非表示や
+    // 3 秒サジェスト表示を反映するため、常に再ビルドをかける。
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -1200,74 +1205,79 @@ class _SetupScreenState extends State<SetupScreen> {
                     ],
                   ),
                 ),
-                DropdownButtonFormField<int>(
-                  value: _selectedModeKey,
-                  items:
-                      options.entries.map((e) {
-                        final isSelfTurnMode = e.key == -1 || e.key == -3;
-                        final enabled = !isSelfTurnMode || selfTurnEnabled;
-                        return DropdownMenuItem<int>(
-                          value: e.key,
-                          enabled: enabled,
-                          child: Text(
-                            e.value,
-                            style: TextStyle(
-                              color: enabled ? null : Colors.grey,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedModeKey = v);
-                  },
-                  decoration: InputDecoration(labelText: t.get('game_mode')),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  value: _selectedTurnLimit,
-                  items:
-                      turnLimitOptions
-                          .map(
-                            (v) => DropdownMenuItem<int>(
-                              value: v,
-                              child: Text(v == 0 ? t.get('no_limit') : '$v'),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedTurnLimit = v);
-                  },
-                  decoration: InputDecoration(
-                    labelText: t.get('turn_limit_setting'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  value: _selectedTimeLimitMinutes,
-                  items:
-                      timeLimitOptions
-                          .map(
-                            (v) => DropdownMenuItem<int>(
-                              value: v,
-                              child: Text(
-                                v == 0
-                                    ? t.get('no_limit')
-                                    : t.get(
-                                      'minutes_suffix',
-                                      args: {'n': '$v'},
-                                    ),
+                // プレイヤー名入力にフォーカスがある間は 3 種の Dropdown を
+                // 一時的に非表示にして、履歴サジェストとプレイヤー一覧に
+                // スペースを譲る。フォーカスが外れたら元に戻る。
+                if (!_nameFocusNode.hasFocus) ...[
+                  DropdownButtonFormField<int>(
+                    value: _selectedModeKey,
+                    items:
+                        options.entries.map((e) {
+                          final isSelfTurnMode = e.key == -1 || e.key == -3;
+                          final enabled = !isSelfTurnMode || selfTurnEnabled;
+                          return DropdownMenuItem<int>(
+                            value: e.key,
+                            enabled: enabled,
+                            child: Text(
+                              e.value,
+                              style: TextStyle(
+                                color: enabled ? null : Colors.grey,
                               ),
                             ),
-                          )
-                          .toList(),
-                  onChanged: (v) {
-                    if (v != null)
-                      setState(() => _selectedTimeLimitMinutes = v);
-                  },
-                  decoration: InputDecoration(
-                    labelText: t.get('time_limit_setting'),
+                          );
+                        }).toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedModeKey = v);
+                    },
+                    decoration: InputDecoration(labelText: t.get('game_mode')),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: _selectedTurnLimit,
+                    items:
+                        turnLimitOptions
+                            .map(
+                              (v) => DropdownMenuItem<int>(
+                                value: v,
+                                child: Text(v == 0 ? t.get('no_limit') : '$v'),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedTurnLimit = v);
+                    },
+                    decoration: InputDecoration(
+                      labelText: t.get('turn_limit_setting'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: _selectedTimeLimitMinutes,
+                    items:
+                        timeLimitOptions
+                            .map(
+                              (v) => DropdownMenuItem<int>(
+                                value: v,
+                                child: Text(
+                                  v == 0
+                                      ? t.get('no_limit')
+                                      : t.get(
+                                        'minutes_suffix',
+                                        args: {'n': '$v'},
+                                      ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (v) {
+                      if (v != null)
+                        setState(() => _selectedTimeLimitMinutes = v);
+                    },
+                    decoration: InputDecoration(
+                      labelText: t.get('time_limit_setting'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
@@ -1417,82 +1427,104 @@ class _SetupScreenState extends State<SetupScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropdownButtonFormField<int>(
-                    value: _selectedModeKey,
-                    items:
-                        options.entries.map((e) {
-                          final isSelfTurnMode = e.key == -1 || e.key == -3;
-                          final enabled = !isSelfTurnMode || selfTurnEnabled;
-                          return DropdownMenuItem<int>(
-                            value: e.key,
-                            enabled: enabled,
-                            child: Text(
-                              e.value,
-                              style: TextStyle(
-                                color: enabled ? null : Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _selectedModeKey = v);
-                    },
-                    decoration: InputDecoration(
-                      labelText: t.get('game_mode'),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    value: _selectedTurnLimit,
-                    items:
-                        turnLimitOptions
-                            .map(
-                              (v) => DropdownMenuItem<int>(
-                                value: v,
-                                child: Text(
-                                  v == 0 ? t.get('no_limit') : '$v',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _selectedTurnLimit = v);
-                    },
-                    decoration: InputDecoration(
-                      labelText: t.get('turn_limit_setting'),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    value: _selectedTimeLimitMinutes,
-                    items:
-                        timeLimitOptions
-                            .map(
-                              (v) => DropdownMenuItem<int>(
-                                value: v,
-                                child: Text(
-                                  v == 0
-                                      ? t.get('no_limit')
-                                      : t.get(
-                                        'minutes_suffix',
-                                        args: {'n': '$v'},
+                  // 名前入力にフォーカスがある間は 3 種の Dropdown を
+                  // 一時的に非表示にする。ただし横レイアウトでは右カラムの
+                  // 縦位置がズレると見た目が崩れるため、Visibility で
+                  // 空間だけ確保して見えなくする。
+                  Visibility(
+                    visible: !_nameFocusNode.hasFocus,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        DropdownButtonFormField<int>(
+                          value: _selectedModeKey,
+                          items:
+                              options.entries.map((e) {
+                                final isSelfTurnMode =
+                                    e.key == -1 || e.key == -3;
+                                final enabled =
+                                    !isSelfTurnMode || selfTurnEnabled;
+                                return DropdownMenuItem<int>(
+                                  value: e.key,
+                                  enabled: enabled,
+                                  child: Text(
+                                    e.value,
+                                    style: TextStyle(
+                                      color: enabled ? null : Colors.grey,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedModeKey = v);
+                            }
+                          },
+                          decoration: InputDecoration(
+                            labelText: t.get('game_mode'),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<int>(
+                          value: _selectedTurnLimit,
+                          items:
+                              turnLimitOptions
+                                  .map(
+                                    (v) => DropdownMenuItem<int>(
+                                      value: v,
+                                      child: Text(
+                                        v == 0 ? t.get('no_limit') : '$v',
+                                        style: const TextStyle(fontSize: 13),
                                       ),
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (v) {
-                      if (v != null)
-                        setState(() => _selectedTimeLimitMinutes = v);
-                    },
-                    decoration: InputDecoration(
-                      labelText: t.get('time_limit_setting'),
-                      isDense: true,
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedTurnLimit = v);
+                            }
+                          },
+                          decoration: InputDecoration(
+                            labelText: t.get('turn_limit_setting'),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<int>(
+                          value: _selectedTimeLimitMinutes,
+                          items:
+                              timeLimitOptions
+                                  .map(
+                                    (v) => DropdownMenuItem<int>(
+                                      value: v,
+                                      child: Text(
+                                        v == 0
+                                            ? t.get('no_limit')
+                                            : t.get(
+                                              'minutes_suffix',
+                                              args: {'n': '$v'},
+                                            ),
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedTimeLimitMinutes = v);
+                            }
+                          },
+                          decoration: InputDecoration(
+                            labelText: t.get('time_limit_setting'),
+                            isDense: true,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),
