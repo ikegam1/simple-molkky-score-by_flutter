@@ -12,6 +12,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
 import 'models/game_models.dart';
@@ -22,9 +23,45 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.7+109';
+const String _kAppVersion = '1.15.8+110';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.7';
+const String _kDisplayVersion = 'v1.15.8';
+
+/// 累計試合完了数（勝者確定 or 引き分けを1件としてカウント）。
+/// 3件以上で Google Play In-App Review を試合終了直後に発火させる。
+const String _kCompletedMatchCountPrefsKey = 'completed_match_count_v1';
+
+/// アプリ内評価ダイアログを最低 1 度以上表示済みかどうか。
+/// 再表示の抑制は Play 側 quota に任せるためのフラグではなく、
+/// isAvailable → requestReview の副作用ログ用の marker。
+/// (現状は Play が同一ユーザーへの再表示を throttle するので
+/// アプリ側からは 3 試合閾値のみを管理する)
+const String _kInAppReviewLastRequestedAtKey = 'in_app_review_last_ms_v1';
+
+/// 試合終了ダイアログの「完了」を押下したときに呼び出す。
+/// 累計試合完了数をインクリメントし、3件以上に達したら Google Play
+/// In-App Review を発火させる（Android のみ、iOS/Web/その他プラットフォーム
+/// では no-op）。表示頻度の抑制は Play 側 quota に委ねているため、
+/// アプリ側は 3 試合閾値のみを管理する。
+Future<void> _handleMatchFinishedAndMaybeRequestReview() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final next = (prefs.getInt(_kCompletedMatchCountPrefsKey) ?? 0) + 1;
+    await prefs.setInt(_kCompletedMatchCountPrefsKey, next);
+    if (kIsWeb) return;
+    if (!Platform.isAndroid) return;
+    if (next < 3) return;
+    final inAppReview = InAppReview.instance;
+    if (!await inAppReview.isAvailable()) return;
+    await inAppReview.requestReview();
+    await prefs.setInt(
+      _kInAppReviewLastRequestedAtKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  } catch (_) {
+    // 評価導線は best-effort。失敗しても試合終了フローに影響させない。
+  }
+}
 
 /// 物理キーボード入力からスコアへのマッピング。
 /// 0=ミス、1〜9=ピン番号、numpadMultiply=10、numpadSubtract=11、numpadAdd=12。
@@ -3311,7 +3348,16 @@ class _GameScreenState extends State<GameScreen>
               ),
               TextButton(
                 autofocus: true,
-                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+                onPressed: () {
+                  Navigator.popUntil(context, (r) => r.isFirst);
+                  // ホーム画面に戻った直後に In-App Review を試行する。
+                  // 累計 3 試合以上プレイしたユーザーのみ、Play が許可した
+                  // ときだけダイアログが表示される。
+                  Future<void>.delayed(
+                    const Duration(milliseconds: 400),
+                    _handleMatchFinishedAndMaybeRequestReview,
+                  );
+                },
                 child: Text(t.get('finish')),
               ),
             ],
@@ -3459,7 +3505,13 @@ class _GameScreenState extends State<GameScreen>
               ),
               TextButton(
                 autofocus: true,
-                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+                onPressed: () {
+                  Navigator.popUntil(context, (r) => r.isFirst);
+                  Future<void>.delayed(
+                    const Duration(milliseconds: 400),
+                    _handleMatchFinishedAndMaybeRequestReview,
+                  );
+                },
                 child: Text(t.get('finish')),
               ),
             ],
