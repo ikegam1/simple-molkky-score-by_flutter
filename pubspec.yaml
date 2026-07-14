@@ -1,7 +1,7 @@
 name: simple_molkky_score
 description: "A simple Molkky scoreboard app."
 publish_to: 'none'
-version: 1.15.7+109
+version: 1.15.8+110
 
 environment:
   sdk: ^3.7.0
@@ -23,6 +23,10 @@ dependencies:
   url_launcher: ^6.3.1
   web: ^1.1.0
   gal: ^2.3.0
+  # 累計 3 試合以上プレイしたユーザーに、試合終了直後の自然な休止で
+  # Google Play In-App Review を促す。Play 側で再表示 quota を throttle
+  # するため、アプリ側は 3 試合閾値のみを管理する。
+  in_app_review: ^2.0.10
 
 dev_dependencies:
   flutter_test:
