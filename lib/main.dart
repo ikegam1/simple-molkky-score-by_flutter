@@ -24,9 +24,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.10+112';
+const String _kAppVersion = '1.15.11+113';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.10';
+const String _kDisplayVersion = 'v1.15.11';
 
 /// 累計試合完了数（勝者確定 or 引き分けを1件としてカウント）。
 /// 3件以上で Google Play In-App Review を試合終了直後に発火させる。
@@ -118,10 +118,7 @@ class L10n {
       'start_game': 'Start Game',
       'match_history': 'History',
       'throw_order_roulette': 'Throw Order Roulette',
-      'throw_order_roulette_desc':
-          'Randomize the throwing order with a spin animation',
       'throw_order_roulette_title': 'Throw Order Roulette',
-      'throw_order_roulette_start': 'Start with this order',
       'throw_order_roulette_spinning': 'Spinning…',
       'cancel': 'Cancel',
       'game_mode': 'Game Mode',
@@ -220,9 +217,7 @@ class L10n {
       'start_game': 'ゲーム開始',
       'match_history': '戦績確認',
       'throw_order_roulette': '投げ順ルーレット',
-      'throw_order_roulette_desc': 'ゲーム開始時にプレイヤーの投げ順をランダムに決定します',
       'throw_order_roulette_title': '投げ順ルーレット',
-      'throw_order_roulette_start': 'この順番で開始',
       'throw_order_roulette_spinning': '回転中…',
       'cancel': 'キャンセル',
       'game_mode': '試合形式',
@@ -1376,24 +1371,35 @@ class _SetupScreenState extends State<SetupScreen> {
                   ],
                   const SizedBox(height: 10),
                   // 投げ順ルーレット (2 人以上のときのみ表示)
+                  // タイトルのみコンパクトに、説明文は載せない (ユーザ要望)
                   if (_registeredPlayers.length >= 2)
-                    CheckboxListTile(
-                      value: _useThrowOrderRoulette,
-                      onChanged:
-                          (v) => setState(
-                            () => _useThrowOrderRoulette = v ?? false,
+                    InkWell(
+                      onTap: () => setState(
+                        () => _useThrowOrderRoulette =
+                            !_useThrowOrderRoulette,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _useThrowOrderRoulette,
+                              onChanged: (v) => setState(
+                                () => _useThrowOrderRoulette = v ?? false,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
                           ),
-                      title: Text(
-                        t.get('throw_order_roulette'),
-                        style: const TextStyle(fontSize: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            t.get('throw_order_roulette'),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ],
                       ),
-                      subtitle: Text(
-                        t.get('throw_order_roulette_desc'),
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
                     ),
                   ElevatedButton(
                     onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
@@ -1629,22 +1635,32 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 8),
                   // 投げ順ルーレット (2 人以上のときのみ表示)
                   if (_registeredPlayers.length >= 2)
-                    CheckboxListTile(
-                      value: _useThrowOrderRoulette,
-                      onChanged:
-                          (v) => setState(
-                            () => _useThrowOrderRoulette = v ?? false,
-                          ),
-                      title: Text(
-                        t.get('throw_order_roulette'),
-                        style: const TextStyle(fontSize: 12),
+                    InkWell(
+                      onTap: () => setState(
+                        () => _useThrowOrderRoulette =
+                            !_useThrowOrderRoulette,
                       ),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      visualDensity: const VisualDensity(
-                        horizontal: -4,
-                        vertical: -4,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Checkbox(
+                              value: _useThrowOrderRoulette,
+                              onChanged: (v) => setState(
+                                () => _useThrowOrderRoulette = v ?? false,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            t.get('throw_order_roulette'),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
                   ElevatedButton(
