@@ -6283,14 +6283,9 @@ class _ThrowOrderRouletteDialogState extends State<_ThrowOrderRouletteDialog> {
           ],
         ),
       ),
-      actions: <Widget>[
-        // 停止後 1 秒で自動遷移するため「開始」ボタンは無し。
-        // 演出中に中断したい場合の Cancel のみ残す。
-        TextButton(
-          onPressed: () => Navigator.pop(context, null),
-          child: Text(t.get('cancel')),
-        ),
-      ],
+      // 停止後 1 秒で自動遷移する完全自動フローのため、
+      // 「開始」も「キャンセル」ボタンも出さない (ユーザ要望)。
+      actions: const <Widget>[],
     );
   }
 }
