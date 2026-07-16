@@ -6172,10 +6172,16 @@ class _ThrowOrderRouletteDialogState extends State<_ThrowOrderRouletteDialog> {
 
   void _scheduleNext() {
     if (_tick >= _intervals.length) {
-      // 最終フレームで確定順に切り替えて停止。
+      // 最終フレームで確定順に切り替えて停止し、1 秒後に自動で pop。
+      // 「この順番で開始」ボタンを廃止し、演出停止 → 遷移までを
+      // 自動化する (ユーザ要望)。
       setState(() {
         _display = List<Player>.from(_finalOrder);
         _done = true;
+      });
+      _timer = Timer(const Duration(seconds: 1), () {
+        if (!mounted) return;
+        Navigator.pop(context, _display);
       });
       return;
     }
@@ -6278,13 +6284,11 @@ class _ThrowOrderRouletteDialogState extends State<_ThrowOrderRouletteDialog> {
         ),
       ),
       actions: <Widget>[
+        // 停止後 1 秒で自動遷移するため「開始」ボタンは無し。
+        // 演出中に中断したい場合の Cancel のみ残す。
         TextButton(
           onPressed: () => Navigator.pop(context, null),
           child: Text(t.get('cancel')),
-        ),
-        TextButton(
-          onPressed: _done ? () => Navigator.pop(context, _display) : null,
-          child: Text(t.get('throw_order_roulette_start')),
         ),
       ],
     );
