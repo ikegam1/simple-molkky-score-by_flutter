@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show Random;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,9 +24,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.8+110';
+const String _kAppVersion = '1.15.10+112';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.8';
+const String _kDisplayVersion = 'v1.15.10';
 
 /// 累計試合完了数（勝者確定 or 引き分けを1件としてカウント）。
 /// 3件以上で Google Play In-App Review を試合終了直後に発火させる。
@@ -116,6 +117,13 @@ class L10n {
       'player_name': 'Player Name',
       'start_game': 'Start Game',
       'match_history': 'History',
+      'throw_order_roulette': 'Throw Order Roulette',
+      'throw_order_roulette_desc':
+          'Randomize the throwing order with a spin animation',
+      'throw_order_roulette_title': 'Throw Order Roulette',
+      'throw_order_roulette_start': 'Start with this order',
+      'throw_order_roulette_spinning': 'Spinning…',
+      'cancel': 'Cancel',
       'game_mode': 'Game Mode',
       'sets_count': 'Sets: {n}',
       'race_to': 'First to {n} sets',
@@ -211,6 +219,12 @@ class L10n {
       'player_name': 'プレイヤー名',
       'start_game': 'ゲーム開始',
       'match_history': '戦績確認',
+      'throw_order_roulette': '投げ順ルーレット',
+      'throw_order_roulette_desc': 'ゲーム開始時にプレイヤーの投げ順をランダムに決定します',
+      'throw_order_roulette_title': '投げ順ルーレット',
+      'throw_order_roulette_start': 'この順番で開始',
+      'throw_order_roulette_spinning': '回転中…',
+      'cancel': 'キャンセル',
       'game_mode': '試合形式',
       'sets_count': '{n}番 ({n}セット)',
       'race_to': '{n}先 ({n}本先取)',
@@ -451,6 +465,9 @@ class _SetupScreenState extends State<SetupScreen> {
   String _firebaseUid = "";
   final _uuid = const Uuid();
   bool _isGoogleLinked = false;
+  // 投げ順ルーレット: ON にすると _startMatch 時に順番をランダム化する
+  // ルーレット演出ダイアログを挟む (2 名以上の時のみ意味を持つ)。
+  bool _useThrowOrderRoulette = false;
   // 横レイアウト判定をキーボード表示で揺らさないためのヘルパー
   final LandscapeDetector _landscapeDetector = LandscapeDetector();
 
@@ -1007,7 +1024,7 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  void _startMatch() {
+  Future<void> _startMatch() async {
     final t = L10n.of(context);
     if (_selectedModeKey == -1 && _registeredPlayers.length > 1) {
       _showError(t.get('self5turn_solo_only'));
@@ -1016,6 +1033,27 @@ class _SetupScreenState extends State<SetupScreen> {
     if (_selectedModeKey == -3 && _registeredPlayers.length > 1) {
       _showError(t.get('self6turn_solo_only'));
       return;
+    }
+
+    // 投げ順ルーレット: ON かつ 2 名以上のときのみ意味を持つ。
+    // ダイアログ内でシャッフルアニメーションを回し、ユーザ確定後に
+    // 新順序で _registeredPlayers を並べ替えてから通常フローへ。
+    if (_useThrowOrderRoulette && _registeredPlayers.length >= 2) {
+      final ordered = await showDialog<List<Player>>(
+        context: context,
+        barrierDismissible: false,
+        builder:
+            (ctx) => _ThrowOrderRouletteDialog(
+              players: List<Player>.from(_registeredPlayers),
+            ),
+      );
+      if (!mounted) return;
+      if (ordered == null) return; // ユーザキャンセル (システム back 等)
+      setState(() {
+        _registeredPlayers
+          ..clear()
+          ..addAll(ordered);
+      });
     }
 
     final playersForMatch =
@@ -1337,6 +1375,26 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ],
                   const SizedBox(height: 10),
+                  // 投げ順ルーレット (2 人以上のときのみ表示)
+                  if (_registeredPlayers.length >= 2)
+                    CheckboxListTile(
+                      value: _useThrowOrderRoulette,
+                      onChanged:
+                          (v) => setState(
+                            () => _useThrowOrderRoulette = v ?? false,
+                          ),
+                      title: Text(
+                        t.get('throw_order_roulette'),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        t.get('throw_order_roulette_desc'),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
                   ElevatedButton(
                     onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
                     style: ElevatedButton.styleFrom(
@@ -1346,24 +1404,6 @@ class _SetupScreenState extends State<SetupScreen> {
                     child: Text(
                       t.get('start_game'),
                       style: const TextStyle(color: Colors.white, fontSize: 18),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed:
-                        _firebaseUid.isEmpty
-                            ? null
-                            : () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (c) => GlobalHistoryPage(uid: _firebaseUid),
-                              ),
-                            ),
-                    icon: const Icon(Icons.cloud_done),
-                    label: Text(t.get('match_history')),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 45),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1587,6 +1627,26 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  // 投げ順ルーレット (2 人以上のときのみ表示)
+                  if (_registeredPlayers.length >= 2)
+                    CheckboxListTile(
+                      value: _useThrowOrderRoulette,
+                      onChanged:
+                          (v) => setState(
+                            () => _useThrowOrderRoulette = v ?? false,
+                          ),
+                      title: Text(
+                        t.get('throw_order_roulette'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      visualDensity: const VisualDensity(
+                        horizontal: -4,
+                        vertical: -4,
+                      ),
+                    ),
                   ElevatedButton(
                     onPressed: _registeredPlayers.isEmpty ? null : _startMatch,
                     style: ElevatedButton.styleFrom(
@@ -1596,27 +1656,6 @@ class _SetupScreenState extends State<SetupScreen> {
                     child: Text(
                       t.get('start_game'),
                       style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  OutlinedButton.icon(
-                    onPressed:
-                        _firebaseUid.isEmpty
-                            ? null
-                            : () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (c) => GlobalHistoryPage(uid: _firebaseUid),
-                              ),
-                            ),
-                    icon: const Icon(Icons.cloud_done, size: 16),
-                    label: Text(
-                      t.get('match_history'),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 40),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -6088,6 +6127,165 @@ class _AnnotationPicker extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// 投げ順ルーレット用のダイアログ。
+///
+/// 開いた瞬間からプレイヤーリストを高速にシャッフルし続け、徐々に
+/// 減速して停止する。停止後に「この順番で開始」ボタンを押すと
+/// pop で最終順序 (List<Player>) を返す。キャンセルされた場合は null。
+///
+/// ロジック上はランダム順序を早期に確定し、それを最終フレームで見せる
+/// 演出のみを行う (途中は完全にランダム表示)。
+class _ThrowOrderRouletteDialog extends StatefulWidget {
+  final List<Player> players;
+  const _ThrowOrderRouletteDialog({required this.players});
+
+  @override
+  State<_ThrowOrderRouletteDialog> createState() =>
+      _ThrowOrderRouletteDialogState();
+}
+
+class _ThrowOrderRouletteDialogState extends State<_ThrowOrderRouletteDialog> {
+  static final Random _rand = Random();
+  late List<Player> _display;
+  late List<Player> _finalOrder;
+  Timer? _timer;
+  int _tick = 0;
+  bool _done = false;
+
+  // 減速テーブル (ms)。徐々に間隔を空けて減速感を出す。
+  static const List<int> _intervals = <int>[
+    60, 60, 60, 60, 60, 60, 60, 60, 60, 60, // 0.6s 高速
+    80, 80, 80, 80, 100, 120, 140, 180, 240, 320, 420,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _display = List<Player>.from(widget.players);
+    _finalOrder = List<Player>.from(widget.players)..shuffle(_rand);
+    _scheduleNext();
+  }
+
+  void _scheduleNext() {
+    if (_tick >= _intervals.length) {
+      // 最終フレームで確定順に切り替えて停止し、1 秒後に自動で pop。
+      // 「この順番で開始」ボタンを廃止し、演出停止 → 遷移までを
+      // 自動化する (ユーザ要望)。
+      setState(() {
+        _display = List<Player>.from(_finalOrder);
+        _done = true;
+      });
+      _timer = Timer(const Duration(seconds: 1), () {
+        if (!mounted) return;
+        Navigator.pop(context, _display);
+      });
+      return;
+    }
+    final ms = _intervals[_tick];
+    _timer = Timer(Duration(milliseconds: ms), () {
+      if (!mounted) return;
+      setState(() {
+        _tick++;
+        // ランダムな並びを見せる。最終順とは無関係でよい。
+        final next = List<Player>.from(widget.players)..shuffle(_rand);
+        _display = next;
+      });
+      _scheduleNext();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = L10n.of(context);
+    return AlertDialog(
+      title: Row(
+        children: <Widget>[
+          Icon(
+            _done ? Icons.check_circle : Icons.casino_outlined,
+            color: _done ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 8),
+          Text(t.get('throw_order_roulette_title')),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (int i = 0; i < _display.length; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 50),
+                margin: const EdgeInsets.symmetric(vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      _done
+                          ? (i == 0
+                              ? Colors.orange.shade100
+                              : Colors.grey.shade100)
+                          : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: _done && i == 0 ? Colors.orange : Colors.transparent,
+                    width: _done && i == 0 ? 2 : 0,
+                  ),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        '${i + 1}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color:
+                              _done && i == 0
+                                  ? Colors.orange.shade800
+                                  : Colors.black54,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _display[i].name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                              _done ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 4),
+            if (!_done)
+              Text(
+                t.get('throw_order_roulette_spinning'),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+          ],
+        ),
+      ),
+      // 停止後 1 秒で自動遷移する完全自動フローのため、
+      // 「開始」も「キャンセル」ボタンも出さない (ユーザ要望)。
+      actions: const <Widget>[],
     );
   }
 }

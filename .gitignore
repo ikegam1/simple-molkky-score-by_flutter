@@ -54,3 +54,9 @@ firebase.json
 android/key.properties
 *.jks
 *.keystore
+
+# Local build artifacts (Play Console 提出用の zip 群)
+# GitHub Release にアップロードするのが正で、リポジトリには含めない
+dist/
+/*.aab
+/*.apk
