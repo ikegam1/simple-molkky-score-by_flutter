@@ -22,7 +22,9 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "jp.ikegam1.simple_molkky_score"
-    compileSdk = flutter.compileSdkVersion
+    // Google Play 2026-08-31 期限: Android 16 (API 36) 以上を target とする
+    // 必要があるため、compileSdk / targetSdk を明示的に 36 に上げる。
+    compileSdk = 36
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -37,7 +39,7 @@ android {
     defaultConfig {
         applicationId = "jp.ikegam1.simple_molkky_score"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
