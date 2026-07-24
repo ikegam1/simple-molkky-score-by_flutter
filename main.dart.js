@@ -31951,7 +31951,7 @@ $S:2}
 A.aKK.prototype={
 $1(a){var s=A.dJ().b
 s=s==null?null:s.canvasKitBaseUrl
-return(s==null?"https://www.gstatic.com/flutter-canvaskit/69c8c61792f04cc809dfef0c910414fb9afc06cd/":s)+a},
+return(s==null?"https://www.gstatic.com/flutter-canvaskit/0cd610717bde95fd88343c64f81c11ba4e5c0010/":s)+a},
 $S:33}
 A.Sh.prototype={
 gA(a){var s=this.a
@@ -102719,7 +102719,7 @@ f=$.aR_().ED()
 J.cf(k,"endTime",new A.o0(f,f))
 J.cf(k,"matchType",o.a.c.f.K())
 J.cf(k,"consecutiveSuccesses",n.as)
-J.cf(k,"appVersion","1.15.12+114")
+J.cf(k,"appVersion","1.15.13+115")
 J.cf(k,"platform",A.aYf())
 if(n.r!=null)J.cf(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cf(k,"matchTimeLimitSeconds",n.w)
@@ -102782,7 +102782,7 @@ J.cf(k,"limit",n.e)
 f=a0==null?null:a0.b
 if(f==null)f="DRAW"
 J.cf(k,"winner",f)
-J.cf(k,"appVersion","1.15.12+114")
+J.cf(k,"appVersion","1.15.13+115")
 J.cf(k,"platform",A.aYf())
 if(n.r!=null)J.cf(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cf(k,"matchTimeLimitSeconds",n.w)
@@ -112426,7 +112426,7 @@ B.afo=new A.c0("Easy Molkky Score",null,B.ack,B.aN,null,null,null,null,null)
 B.afp=new A.c0("sec",null,B.oL,null,null,null,null,null,null)
 B.afq=new A.c0("Google\u30a2\u30ab\u30a6\u30f3\u30c8\u3067\u30ed\u30b0\u30a4\u30f3\u3059\u308b\u3068\u3001\u3053\u308c\u307e\u3067\u306e\u6226\u6b74\u304c\u30a2\u30ab\u30a6\u30f3\u30c8\u306b\u7d10\u3065\u304d\u3001\u5225\u7aef\u672b\u3084\u74b0\u5883\u3067\u30ed\u30b0\u30a4\u30f3\u3057\u305f\u5834\u5408\u3082\u4fdd\u6301\u3055\u308c\u308b\u3088\u3046\u306b\u306a\u308a\u307e\u3059\u3002\n\u30ed\u30b0\u30a4\u30f3\u3055\u308c\u307e\u3059\u304b\uff1f",null,null,null,null,null,null,null,null)
 B.afr=new A.c0("\u6700\u521d\u306e\u753b\u9762\u306b\u623b\u308b",null,null,null,null,null,null,null,null)
-B.afs=new A.c0("v1.15.12",null,B.kG,null,null,null,null,null,null)
+B.afs=new A.c0("v1.15.13",null,B.kG,null,null,null,null,null,null)
 B.aft=new A.c0("\u30e9\u30a4\u30d6\u8868\u793aURL",null,null,null,null,null,null,null,null)
 B.afu=new A.c0("\u2022 ",null,B.hN,null,null,null,null,null,null)
 B.Jf=new A.l(!0,B.bP,null,null,null,null,11,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
@@ -112438,7 +112438,7 @@ B.afy=new A.c0("Google\u3067\u30ed\u30b0\u30a4\u30f3",null,null,null,null,null,n
 B.afz=new A.c0("\u76f4\u8fd1:",null,B.Jd,null,null,null,null,null,null)
 B.afA=new A.c0("\u30b3\u30d4\u30fc",null,null,null,null,null,null,null,null)
 B.afB=new A.c0("\u30e9\u30a4\u30d6\u8868\u793aURL\u3092\u767a\u884c",null,null,null,null,null,null,null,null)
-B.afC=new A.c0("v1.15.12",null,B.Jf,B.aN,null,null,null,null,null)
+B.afC=new A.c0("v1.15.13",null,B.Jf,B.aN,null,null,null,null,null)
 B.afD=new A.c0("sec",null,B.oM,null,null,null,null,null,null)
 B.afH=new A.c0("\u9589\u3058\u308b",null,null,null,null,null,null,null,null)
 B.afI=new A.c0("\u524d\u306e\u30bb\u30c3\u30c8\u306b\u623b\u308b",null,null,null,null,null,null,null,null)
