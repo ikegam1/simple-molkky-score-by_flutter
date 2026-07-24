@@ -24,9 +24,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.12+114';
+const String _kAppVersion = '1.15.13+115';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.12';
+const String _kDisplayVersion = 'v1.15.13';
 
 /// 累計試合完了数（勝者確定 or 引き分けを1件としてカウント）。
 /// 3件以上で Google Play In-App Review を試合終了直後に発火させる。

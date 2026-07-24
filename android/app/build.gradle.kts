@@ -61,8 +61,11 @@ android {
         getByName("release") {
             // 明示的に signingConfig を指定。値が空ならビルドエラーになるようにする。
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // Play Console 推奨事項: R8 最適化を有効化してメモリ / パフォーマンスを改善。
+            // 参照される proguard-rules.pro に Firebase / GoogleSignIn / Flutter engine の
+            // keep rules を並べているので、リフレクション経由でロードされる名前は保持される。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
