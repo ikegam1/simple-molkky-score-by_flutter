@@ -1,7 +1,7 @@
 name: simple_molkky_score
 description: "A simple Molkky scoreboard app."
 publish_to: 'none'
-version: 1.15.14+116
+version: 1.15.15+117
 
 environment:
   sdk: ^3.7.0
@@ -42,3 +42,11 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  # 「直」「近」等の CJK 統合漢字が中国語字形にフォールバックしないよう、
+  # Noto Sans JP (Variable Font, ~9.5 MB) を同梱し `ThemeData.fontFamily`
+  # から明示指定する。VF なので Regular/Bold は同一ファイル内の
+  # weight 軸で切り替わる (別ファイル不要)。
+  fonts:
+    - family: NotoSansJP
+      fonts:
+        - asset: assets/fonts/NotoSansJP-Regular.ttf
