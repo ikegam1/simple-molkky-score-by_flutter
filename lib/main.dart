@@ -410,6 +410,11 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
           useMaterial3: true,
           scaffoldBackgroundColor: Colors.transparent,
           canvasColor: Colors.transparent,
+          // CJK 統合漢字 (「直」「近」など) が中国語字形にフォールバック
+          // する問題を防ぐため、日本語グリフを明示的に持つ Noto Sans JP
+          // をアプリ全体の既定フォントに指定する。個別に
+          // `fontFamily: 'Courier'` を指定している TextStyle は等幅にフォールバック。
+          fontFamily: 'NotoSansJP',
         ),
         locale: _locale,
         localizationsDelegates: const [
@@ -424,7 +429,15 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
     }
     return MaterialApp(
       title: 'Easy Molkky Score',
-      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        // CJK 統合漢字 (「直」「近」など) が中国語字形にフォールバックする
+        // 問題を防ぐため、日本語グリフを明示的に持つ Noto Sans JP を
+        // アプリ全体の既定フォントに指定する。個別に `fontFamily: 'Courier'`
+        // を指定している TextStyle は等幅にフォールバック。
+        fontFamily: 'NotoSansJP',
+      ),
       locale: _locale,
       localizationsDelegates: const [
         L10nDelegate(),
@@ -1374,10 +1387,12 @@ class _SetupScreenState extends State<SetupScreen> {
                   // タイトルのみコンパクトに、説明文は載せない (ユーザ要望)
                   if (_registeredPlayers.length >= 2)
                     InkWell(
-                      onTap: () => setState(
-                        () => _useThrowOrderRoulette =
-                            !_useThrowOrderRoulette,
-                      ),
+                      onTap:
+                          () => setState(
+                            () =>
+                                _useThrowOrderRoulette =
+                                    !_useThrowOrderRoulette,
+                          ),
                       child: Row(
                         children: [
                           SizedBox(
@@ -1385,9 +1400,10 @@ class _SetupScreenState extends State<SetupScreen> {
                             height: 24,
                             child: Checkbox(
                               value: _useThrowOrderRoulette,
-                              onChanged: (v) => setState(
-                                () => _useThrowOrderRoulette = v ?? false,
-                              ),
+                              onChanged:
+                                  (v) => setState(
+                                    () => _useThrowOrderRoulette = v ?? false,
+                                  ),
                               visualDensity: VisualDensity.compact,
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
@@ -1636,10 +1652,12 @@ class _SetupScreenState extends State<SetupScreen> {
                   // 投げ順ルーレット (2 人以上のときのみ表示)
                   if (_registeredPlayers.length >= 2)
                     InkWell(
-                      onTap: () => setState(
-                        () => _useThrowOrderRoulette =
-                            !_useThrowOrderRoulette,
-                      ),
+                      onTap:
+                          () => setState(
+                            () =>
+                                _useThrowOrderRoulette =
+                                    !_useThrowOrderRoulette,
+                          ),
                       child: Row(
                         children: [
                           SizedBox(
@@ -1647,9 +1665,10 @@ class _SetupScreenState extends State<SetupScreen> {
                             height: 20,
                             child: Checkbox(
                               value: _useThrowOrderRoulette,
-                              onChanged: (v) => setState(
-                                () => _useThrowOrderRoulette = v ?? false,
-                              ),
+                              onChanged:
+                                  (v) => setState(
+                                    () => _useThrowOrderRoulette = v ?? false,
+                                  ),
                               visualDensity: VisualDensity.compact,
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
