@@ -1853,15 +1853,15 @@ class _GameScreenState extends State<GameScreen>
     if (turnInProgressScores.isEmpty) return;
     for (final p in widget.match.players) {
       if (p.scoreHistory.length >= currentTurnInSet) {
-        final last = p.scoreHistory.removeLast();
+        p.scoreHistory.removeLast();
         if (p.matchScoreHistory.isNotEmpty) p.matchScoreHistory.removeLast();
         if (p.scoreSnapshot.isNotEmpty) {
           p.currentScore = p.scoreSnapshot.removeLast();
         }
-        if (last == 0) {
-          if (p.consecutiveMisses > 0) p.consecutiveMisses--;
-          if (p.consecutiveMisses < widget.match.maxMisses)
-            p.isDisqualified = false;
+        // missSnapshot から投擲前 miss 回数を復元 (非ミス投擲 rollback でも正しく戻る)
+        if (p.missSnapshot.isNotEmpty) {
+          p.consecutiveMisses = p.missSnapshot.removeLast();
+          p.isDisqualified = p.consecutiveMisses >= widget.match.maxMisses;
         }
       }
     }
@@ -2097,6 +2097,24 @@ class _GameScreenState extends State<GameScreen>
         if (preScore + lastPoints > widget.match.targetScore) {
           _playersBurstedThisSet.add(player.id);
         }
+      }
+      // 3 ミス失格の告知。preMisses < maxMisses かつ処理後に isDisqualified が
+      // 立ったら、この投擲で失格になったと分かる。次のプレイヤーへ進む前に
+      // ユーザに何が起きたかを SnackBar で表示する (次回の投擲がスキップされる
+      // 挙動の裏付けになる)。
+      if (preMisses < widget.match.maxMisses && player.isDisqualified) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${player.name} は 3 ミスで失格しました ☠☠☠'),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        });
       }
 
       // === Self Turn mode (5/6ターンチャレンジ) ===
@@ -2685,6 +2703,7 @@ class _GameScreenState extends State<GameScreen>
                   'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
                   'scoreHistory': List<int>.from(p.scoreHistory),
                   'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+                  'missSnapshot': List<int>.from(p.missSnapshot),
                   'matchScoreHistoryLen': p.matchScoreHistory.length,
                   'setFinalScoresLen': p.setFinalScores.length,
                 },
@@ -2714,6 +2733,7 @@ class _GameScreenState extends State<GameScreen>
                   'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
                   'scoreHistory': List<int>.from(p.scoreHistory),
                   'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+                  'missSnapshot': List<int>.from(p.missSnapshot),
                   'matchScoreHistoryLen': p.matchScoreHistory.length,
                   // 試合終了処理の finalize で +1 されているため、-1 補正
                   'setFinalScoresLen':
@@ -2757,6 +2777,10 @@ class _GameScreenState extends State<GameScreen>
       p.setsWon = ps['setsWon'] as int;
       p.scoreHistory = List<int>.from(ps['scoreHistory'] as List);
       p.scoreSnapshot = List<int>.from(ps['scoreSnapshot'] as List);
+      // missSnapshot は 0.6.x 以前のスナップショットに含まれないので absent なら空。
+      final missSnapRaw = ps['missSnapshot'];
+      p.missSnapshot =
+          missSnapRaw is List ? List<int>.from(missSnapRaw) : <int>[];
       while (p.matchScoreHistory.length > (ps['matchScoreHistoryLen'] as int))
         p.matchScoreHistory.removeLast();
       while (p.setFinalScores.length > (ps['setFinalScoresLen'] as int))
@@ -2908,17 +2932,23 @@ class _GameScreenState extends State<GameScreen>
 
       final p = widget.match.players[currentPlayerIndex];
       if (p.scoreHistory.isNotEmpty) {
-        int last = p.scoreHistory.removeLast();
+        p.scoreHistory.removeLast();
         p.matchScoreHistory.removeLast();
         // scoreSnapshot を使って投擲前スコアを正確に復元（バースト時も正しく戻る）
-        if (p.scoreSnapshot.isNotEmpty)
+        if (p.scoreSnapshot.isNotEmpty) {
           p.currentScore = p.scoreSnapshot.removeLast();
+        }
         turnInProgressScores.remove(p.id);
         systemCalculatedIds.remove(p.id);
         _turnAnnotations.remove(p.id);
-        if (last == 0 && p.consecutiveMisses > 0) {
-          p.consecutiveMisses--;
-          p.isDisqualified = false;
+        // 投擲前 miss 回数を missSnapshot から復元する。これによって:
+        //   - ミス投擲 (points=0) を undo → 投擲前の値に減る (元通り)
+        //   - 非ミス投擲 (points>0) を undo → 投擲前の miss 数を再現
+        //     (旧実装は miss=0 のままだったので、続けてミスを入れても 3-miss
+        //      失格が発火しないバグがあった)
+        if (p.missSnapshot.isNotEmpty) {
+          p.consecutiveMisses = p.missSnapshot.removeLast();
+          p.isDisqualified = p.consecutiveMisses >= widget.match.maxMisses;
         }
       }
 

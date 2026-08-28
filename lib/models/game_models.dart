@@ -8,6 +8,13 @@ class Player {
   int setsWon = 0;
   List<int> scoreHistory = [];
   List<int> scoreSnapshot = []; // 各投擲前の currentScore を記録（アンドゥ用）
+  // 各投擲前の consecutiveMisses を記録 (アンドゥ用)。
+  // scoreSnapshot と 1:1 対応。undo 時にこれを pop することで、
+  // 「非ミス投擲 → undo」の際も miss count を投擲前の状態に戻せる。
+  // (元は last==0 のときだけ consecutiveMisses-- していたが、
+  //  非ミス投擲を undo すると processThrow で miss=0 にリセットされた値が
+  //  戻せず、直後にミスを入れても 3-miss 失格が発火しなかった。)
+  List<int> missSnapshot = [];
   List<int> matchScoreHistory = [];
   List<int> setFinalScores = [];
 
@@ -22,6 +29,7 @@ class Player {
     isDisqualified = false;
     scoreHistory = [];
     scoreSnapshot = [];
+    missSnapshot = [];
   }
 }
 
