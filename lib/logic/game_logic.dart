@@ -17,8 +17,9 @@ class GameLogic {
   ) {
     if (player.isDisqualified) return;
 
-    // アンドゥ用に投擲前スコアを保存
+    // アンドゥ用に投擲前スコア / 投擲前ミス回数を保存
     player.scoreSnapshot.add(player.currentScore);
+    player.missSnapshot.add(player.consecutiveMisses);
 
     int points = 0;
     if (knockedDownSkitels.isEmpty) {
@@ -71,8 +72,9 @@ class GameLogic {
   ) {
     if (player.isDisqualified) return;
 
-    // アンドゥ用に投擲前スコアを保存
+    // アンドゥ用に投擲前スコア / 投擲前ミス回数を保存
     player.scoreSnapshot.add(player.currentScore);
+    player.missSnapshot.add(player.consecutiveMisses);
 
     final int target = 100 - set1Score;
     final int burstReset = 75 - set1Score;
