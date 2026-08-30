@@ -1961,7 +1961,32 @@ class _GameScreenState extends State<GameScreen>
     });
   }
 
-  void _submitThrow() {
+  /// 「37 点ルール」ボタン (0 fault 上フリック) から呼ばれる。
+  /// 現在プレイヤーの得点が 37 以上なら、宣言型フォルト扱いで 25 点に戻す。
+  /// 37 未満なら SnackBar で理由を告知し、何もしない。
+  void _handle37RuleFault() {
+    if (isSetFinished) return;
+    final player = widget.match.players[currentPlayerIndex];
+    if (player.currentScore < 37) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('37 点ルールは 37 点以上で使用できます (現在 ${player.currentScore} 点)'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      // processThrow が hillu37=true のとき knockedDownSkitels を無視するので
+      // 空 list を渡しておく。
+      selectedSkitels = <int>[];
+    });
+    _submitThrow(hillu37: true);
+  }
+
+  void _submitThrow({bool hillu37 = false}) {
     if (isSetFinished) return;
     if (_hasMatchTimeLimit && !_matchTimerStarted) {
       _startMatchCountdown();
@@ -2083,7 +2108,12 @@ class _GameScreenState extends State<GameScreen>
       // === End Hyakin Set 2 mode ===
 
       final int preMisses = player.consecutiveMisses;
-      GameLogic.processThrow(player, selectedSkitels, widget.match);
+      GameLogic.processThrow(
+        player,
+        selectedSkitels,
+        widget.match,
+        hillu37: hillu37,
+      );
       int lastPoints = player.scoreHistory.last;
       player.matchScoreHistory.add(lastPoints);
       turnInProgressScores[player.id] = lastPoints;
@@ -4125,29 +4155,17 @@ class _GameScreenState extends State<GameScreen>
                                       ),
                                       const SizedBox(width: 6),
                                       Expanded(
-                                        child: ElevatedButton(
-                                          onPressed: () {
+                                        child: _FaultButtonWithHillu37(
+                                          onFault: () {
                                             if (isSetFinished) return;
                                             setState(
                                               () => selectedSkitels = [],
                                             );
                                             _submitThrow();
                                           },
-                                          style: ElevatedButton.styleFrom(
-                                            minimumSize: const Size(0, 40),
-                                            backgroundColor: Colors.red[50],
-                                            foregroundColor: Colors.red,
-                                            side: const BorderSide(
-                                              color: Colors.red,
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            '0(fault)',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                          onHillu37: _handle37RuleFault,
+                                          minHeight: 40,
+                                          fontSize: 13,
                                         ),
                                       ),
                                       const SizedBox(width: 6),
@@ -4358,25 +4376,15 @@ class _GameScreenState extends State<GameScreen>
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
+                            child: _FaultButtonWithHillu37(
+                              onFault: () {
                                 if (isSetFinished) return;
                                 setState(() => selectedSkitels = []);
                                 _submitThrow();
                               },
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(0, 50),
-                                backgroundColor: Colors.red[50],
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
-                              ),
-                              child: const Text(
-                                '0(fault)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              onHillu37: _handle37RuleFault,
+                              minHeight: 50,
+                              fontSize: 15,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -4816,6 +4824,115 @@ class _GameScreenState extends State<GameScreen>
           ),
         );
       },
+    );
+  }
+}
+
+/// 「0 (fault)」ボタン。通常タップは onFault、長押ししながら上フリックで
+/// 「[25↓]」バッジが出て 37 点ルール (onHillu37) を発火する。
+///
+/// 上フリック判定: 長押し開始位置からの Y オフセットが `-20` 以下 (=20px 以上
+/// 上方向にドラッグ) で ready 状態になる。指を離した時 ready なら onHillu37、
+/// そうでなければ何もしない (単純タップは onTap 側で処理される)。
+class _FaultButtonWithHillu37 extends StatefulWidget {
+  const _FaultButtonWithHillu37({
+    required this.onFault,
+    required this.onHillu37,
+    required this.minHeight,
+    required this.fontSize,
+  });
+
+  final VoidCallback onFault;
+  final VoidCallback onHillu37;
+  final double minHeight;
+  final double fontSize;
+
+  @override
+  State<_FaultButtonWithHillu37> createState() =>
+      _FaultButtonWithHillu37State();
+}
+
+class _FaultButtonWithHillu37State extends State<_FaultButtonWithHillu37> {
+  bool _showHint = false;
+  bool _hillu37Ready = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPressStart:
+          (_) => setState(() {
+            _showHint = true;
+            _hillu37Ready = false;
+          }),
+      onLongPressMoveUpdate: (details) {
+        final ready = details.localOffsetFromOrigin.dy < -20;
+        if (ready != _hillu37Ready) {
+          setState(() => _hillu37Ready = ready);
+        }
+      },
+      onLongPressEnd: (_) {
+        final wasReady = _hillu37Ready;
+        setState(() {
+          _showHint = false;
+          _hillu37Ready = false;
+        });
+        if (wasReady) widget.onHillu37();
+      },
+      onLongPressCancel:
+          () => setState(() {
+            _showHint = false;
+            _hillu37Ready = false;
+          }),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: <Widget>[
+          ElevatedButton(
+            onPressed: widget.onFault,
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size(0, widget.minHeight),
+              backgroundColor: Colors.red[50],
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+            ),
+            child: Text(
+              '0(fault)',
+              style: TextStyle(
+                fontSize: widget.fontSize,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          if (_showHint)
+            Positioned(
+              top: -30,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color:
+                      _hillu37Ready ? Colors.red.shade900 : Colors.red.shade700,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Text(
+                  '[25↓] 37 点ルール',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -5685,6 +5802,10 @@ class HelpPage extends StatelessWidget {
         '1本だけ倒れたらその番号、複数本なら倒れた本数を入力します',
         'ミスは 0 を入力します',
         '入力ミスは「戻る」でひとつ前に戻せます',
+        // 37 点ルール (option) の紹介
+        '「0 (fault)」を長押ししながら上にフリックすると「[25↓] 37 点ルール」バッジが出ます。'
+            '離すと 37 点以上のプレイヤーの得点を 25 点に戻せます '
+            '(1 ミスとしてもカウント)。37 点未満のプレイヤーには適用されません。',
       ],
     ),
     const _HelpSection(
@@ -5771,6 +5892,11 @@ class HelpPage extends StatelessWidget {
         'If multiple pins fall, enter how many fell',
         'Use 0 for a miss',
         'Use "Undo" to go back one step if needed',
+        // 37-point rule (optional)
+        'Long-press the "0 (fault)" button and flick upward to see the '
+            '"[25↓] 37-point rule" badge. Releasing applies the rule: '
+            'a player at 37+ points drops back to 25 (also counted as one miss). '
+            'Not applied to players below 37.',
       ],
     ),
     const _HelpSection(
