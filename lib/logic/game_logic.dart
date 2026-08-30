@@ -13,8 +13,14 @@ class GameLogic {
   static void processThrow(
     Player player,
     List<int> knockedDownSkitels,
-    MolkkyMatch match,
-  ) {
+    MolkkyMatch match, {
+
+    /// 「37 点ルール」: 37 点以上のプレイヤーが宣言型フォルトを受けた場合、
+    /// 得点をバースト同様 25 点に戻す。呼び元 (client) で
+    /// `player.currentScore >= 37` を検査済みの想定。knockedDownSkitels の
+    /// 内容は無視され、常に points=0 (ミス扱い + consecutiveMisses++) となる。
+    bool hillu37 = false,
+  }) {
     if (player.isDisqualified) return;
 
     // アンドゥ用に投擲前スコア / 投擲前ミス回数を保存
@@ -22,6 +28,16 @@ class GameLogic {
     player.missSnapshot.add(player.consecutiveMisses);
 
     int points = 0;
+    if (hillu37) {
+      // 37 点ルール: 得点を 25 に戻す + ミス扱い (3 発で失格ルールは共通)
+      player.currentScore = match.burstResetScore;
+      player.consecutiveMisses++;
+      if (player.consecutiveMisses >= match.maxMisses) {
+        player.isDisqualified = true;
+      }
+      player.scoreHistory.add(points);
+      return;
+    }
     if (knockedDownSkitels.isEmpty) {
       // ミス
       points = 0;
