@@ -1085,6 +1085,15 @@ class _SetupScreenState extends State<SetupScreen> {
             ? null
             : _selectedTimeLimitMinutes * 60;
 
+    // プレイヤー人数ごとに追加できる sets 系モード (n 人でプレイ、キリの良い
+    // セット数)。key は sentinel の負値で衝突回避 (既存 raceTo の 3/5/7/9/11
+    // と natural な 6/8/9/12 が衝突するため)。
+    //   -5 → sets 6 (3 players)
+    //   -6 → sets 9 (3 players)
+    //   -7 → sets 8 (4 players)
+    //   -8 → sets 12 (4 players)
+    const Map<int, int> _extendedSetsLimits = {-5: 6, -6: 9, -7: 8, -8: 12};
+
     if (_selectedModeKey == -1) {
       match = MolkkyMatch(
         players: playersForMatch,
@@ -1110,6 +1119,14 @@ class _SetupScreenState extends State<SetupScreen> {
         players: playersForMatch,
         limit: 3,
         type: MatchType.threeGame,
+        turnLimitPerSet: turnLimit,
+        matchTimeLimitSeconds: matchTimeLimitSeconds,
+      );
+    } else if (_extendedSetsLimits.containsKey(_selectedModeKey)) {
+      match = MolkkyMatch(
+        players: playersForMatch,
+        limit: _extendedSetsLimits[_selectedModeKey]!,
+        type: MatchType.fixedSets,
         turnLimitPerSet: turnLimit,
         matchTimeLimitSeconds: matchTimeLimitSeconds,
       );
@@ -1147,6 +1164,9 @@ class _SetupScreenState extends State<SetupScreen> {
     final t = L10n.of(context);
     // key=-1: self5Turn, key=-2: hyakin, key=-3: self6Turn, key=-4: threeGame
     // key=1/2/10: fixedSets, others: raceTo (limit=ceil(key/2))
+    // key=-5..-8: 追加の sets 系 (プレイヤー人数により表示切替)
+    //   -5 = sets 6 (3 players)  / -6 = sets 9 (3 players)
+    //   -7 = sets 8 (4 players)  / -8 = sets 12 (4 players)
     final Map<int, String> options = {
       1: t.get('sets_count', args: {'n': '1'}),
       2: t.get('sets_count', args: {'n': '2'}),
@@ -1154,6 +1174,16 @@ class _SetupScreenState extends State<SetupScreen> {
       -4: t.get('three_game_mode'),
       3: t.get('race_to', args: {'n': '2'}),
       5: t.get('race_to', args: {'n': '3'}),
+      // 3 名プレイ時のみ 6 セット / 9 セット を追加提示 (各人 2 巡 / 3 巡)。
+      if (_registeredPlayers.length == 3) ...{
+        -5: t.get('sets_count', args: {'n': '6'}),
+        -6: t.get('sets_count', args: {'n': '9'}),
+      },
+      // 4 名プレイ時のみ 8 セット / 12 セット を追加提示 (各人 2 巡 / 3 巡)。
+      if (_registeredPlayers.length == 4) ...{
+        -7: t.get('sets_count', args: {'n': '8'}),
+        -8: t.get('sets_count', args: {'n': '12'}),
+      },
       7: t.get('race_to', args: {'n': '4'}),
       9: t.get('race_to', args: {'n': '5'}),
       10: t.get('sets_count', args: {'n': '10'}),
@@ -1161,6 +1191,15 @@ class _SetupScreenState extends State<SetupScreen> {
       -1: t.get('self5turn_mode'),
       -3: t.get('self6turn_mode'),
     };
+    // プレイヤー人数変更で現在選択中のモードが options から消えた場合、
+    // 既定の raceTo 2 (key=3) にフォールバック。
+    if (!options.containsKey(_selectedModeKey)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !options.containsKey(_selectedModeKey)) {
+          setState(() => _selectedModeKey = 3);
+        }
+      });
+    }
     final bool selfTurnEnabled = _registeredPlayers.length <= 1;
     final turnLimitOptions = [0, ...List<int>.generate(8, (i) => i + 5)];
     final timeLimitOptions = [0, ...List<int>.generate(56, (i) => i + 5)];
