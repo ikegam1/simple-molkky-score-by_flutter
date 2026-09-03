@@ -1,7 +1,7 @@
 name: simple_molkky_score
 description: "A simple Molkky scoreboard app."
 publish_to: 'none'
-version: 1.15.18+120
+version: 1.15.19+121
 
 environment:
   sdk: ^3.7.0
@@ -20,6 +20,15 @@ dependencies:
   firebase_auth: ^6.1.4
   patrol: ^4.2.0
   google_sign_in: ^6.2.0
+  # Apple Sign-In (App Store 審査要件: Google 等の第三者サインインを提供する
+  # 場合、Sign in with Apple を並列で提供する必要がある - App Store Review
+  # Guidelines 4.8)。Firebase Auth の signInWithCredential に OAuth の identityToken
+  # を渡して連携する。
+  sign_in_with_apple: ^6.1.4
+  # Apple Sign-In で nonce (SHA-256) を生成するため。Firebase Auth の
+  # OAuthProvider("apple.com") では identityToken と平文 nonce が一致する
+  # ことを検証するため、client 側で raw nonce と sha256(nonce) の両方を持つ。
+  crypto: ^3.0.6
   url_launcher: ^6.3.1
   web: ^1.1.0
   gal: ^2.3.0

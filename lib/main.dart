@@ -13,6 +13,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:crypto/crypto.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
@@ -457,6 +459,30 @@ class _EasyMolkkyAppState extends State<EasyMolkkyApp> {
   }
 }
 
+/// Sign in with Apple (Web / Android の web-based flow で必要な Services ID)。
+///
+/// Firebase Console (Authentication → Sign-in method → Apple) で登録する
+/// Services ID と、その OAuth 応答を受け取る redirect URI を指定する。
+/// iOS / macOS ネイティブ経路では **使われない** (SignInWithApple が
+/// bundle identifier を自動で使うため)。
+///
+/// **セットアップ手順** (別 docs 参照):
+/// 1. Apple Developer Portal → Certificates, IDs & Profiles → Identifiers で
+///    App ID `com.ikegam1.simple-molkky-score` を作り、Sign in with Apple
+///    capability を有効化。
+/// 2. 同ポータル → Identifiers → 「+」→ **Services IDs** を選び、
+///    `com.ikegam1.simple-molkky-score.web` 等の識別子を作成。
+///    Domains and Subdomains: `simple-molkky-score.firebaseapp.com`
+///    Return URLs: `https://simple-molkky-score.firebaseapp.com/__/auth/handler`
+///    (Firebase Hosting を使っている場合は追加でカスタムドメインも登録)
+/// 3. Keys → 「+」で Sign in with Apple 用の Private Key を発行、
+///    Key ID / .p8 をダウンロード。
+/// 4. Firebase Console → Authentication → Sign-in method → Apple を enable。
+///    Services ID / Team ID / Key ID / Private Key を貼り付け。
+const String _kAppleServicesId = 'com.ikegam1.simple-molkky-score.web';
+const String _kAppleWebRedirectUri =
+    'https://simple-molkky-score.firebaseapp.com/__/auth/handler';
+
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
   @override
@@ -473,6 +499,7 @@ class _SetupScreenState extends State<SetupScreen> {
   String _firebaseUid = "";
   final _uuid = const Uuid();
   bool _isGoogleLinked = false;
+  bool _isAppleLinked = false;
   // 投げ順ルーレット: ON にすると _startMatch 時に順番をランダム化する
   // ルーレット演出ダイアログを挟む (2 名以上の時のみ意味を持つ)。
   bool _useThrowOrderRoulette = false;
@@ -517,9 +544,13 @@ class _SetupScreenState extends State<SetupScreen> {
         final isGoogle = currentUser.providerData.any(
           (p) => p.providerId == 'google.com',
         );
+        final isApple = currentUser.providerData.any(
+          (p) => p.providerId == 'apple.com',
+        );
         setState(() {
           _firebaseUid = currentUser.uid;
           _isGoogleLinked = isGoogle;
+          _isAppleLinked = isApple;
         });
       } else {
         final userCredential = await FirebaseAuth.instance.signInAnonymously();
@@ -769,48 +800,76 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
+  /// サインイン導線。Google と Apple の 2 択を提示する。
+  ///
+  /// App Store Review Guidelines 4.8: 第三者ソーシャルログイン (Google 等) を
+  /// 提供する場合、Sign in with Apple を並列で提供する必要がある。
+  ///
+  /// Sign in with Apple が使えるプラットフォーム:
+  /// - iOS 13+ / macOS 10.15+ / iPadOS 13+
+  /// - Android / Web (web-based flow でどこからでも使える)
+  /// が、iOS 以外では Apple 連携済ユーザ以外にはメリットが薄いため、
+  /// **iOS + Web に限定**で Apple ボタンを出す (Android は Google のみ)。
   Future<void> _showGoogleSignInDialog() async {
-    if (_isGoogleLinked) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Googleアカウントと連携済みです')));
+    if (_isGoogleLinked || _isAppleLinked) {
+      final label = _isGoogleLinked ? 'Google' : 'Apple';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$label アカウントと連携済みです')),
+      );
       return;
     }
-    final result = await showDialog<bool>(
+    // Apple ボタンを出すか。iOS または Web のみ (Android は Google 一択)。
+    final showApple = kIsWeb || (Platform.isIOS || Platform.isMacOS);
+    final result = await showDialog<String>(
       context: context,
       builder:
           (ctx) => AlertDialog(
             title: const Row(
-              children: [
-                Text(
-                  'G',
-                  style: TextStyle(
-                    color: Color(0xFF4285F4),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ),
-                ),
+              children: <Widget>[
+                Icon(Icons.person_outline, size: 22),
                 SizedBox(width: 8),
-                Text('Googleアカウント連携'),
+                Expanded(child: Text('アカウント連携')),
               ],
             ),
             content: const Text(
-              'Googleアカウントでログインすると、これまでの戦歴がアカウントに紐づき、別端末や環境でログインした場合も保持されるようになります。\nログインされますか？',
+              'ログインすると、これまでの戦歴がアカウントに紐づき、'
+              '別端末や環境でログインした場合も保持されるようになります。\n\n'
+              'ログイン方法を選択してください:',
             ),
-            actions: [
+            actions: <Widget>[
               TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
+                onPressed: () => Navigator.pop(ctx, null),
                 child: const Text('キャンセル'),
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Googleでログイン'),
+              if (showApple)
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, 'apple'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.apple, size: 18),
+                  label: const Text('Appleでログイン'),
+                ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(ctx, 'google'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4285F4),
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Text(
+                  'G',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                label: const Text('Googleでログイン'),
               ),
             ],
           ),
     );
-    if (result == true) {
+    if (result == 'google') {
       await _signInWithGoogle();
+    } else if (result == 'apple') {
+      await _signInWithApple();
     }
   }
 
@@ -945,6 +1004,119 @@ class _SetupScreenState extends State<SetupScreen> {
         rethrow;
       }
     }
+  }
+
+  /// Sign in with Apple の共通エントリ。
+  /// - iOS / macOS: OS ネイティブの Apple ID ダイアログ
+  /// - Web (kIsWeb): `webAuthenticationOptions` (Services ID + redirectUri) を
+  ///   渡して Apple の HTTPS ページ経由の OAuth flow
+  /// - Android: 実装はしていない (UI 側でも Apple ボタン非表示。将来
+  ///   `webAuthenticationOptions` を渡せば web-based flow で可能だが、
+  ///   Android ユーザは Google 一択と割り切っている)
+  ///
+  /// Firebase Auth 側で client を validate するために **nonce の hash**
+  /// (SHA-256) を Apple に渡し、返ってきた identityToken に含まれる nonce と
+  /// **raw nonce** を Firebase の OAuthProvider("apple.com") に渡す。
+  Future<void> _signInWithApple() async {
+    try {
+      var currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        final cred = await FirebaseAuth.instance.signInAnonymously();
+        currentUser = cred.user!;
+        setState(() => _firebaseUid = cred.user!.uid);
+      }
+      final oldUid = currentUser.uid;
+
+      // nonce 生成: SecureRandom → SHA-256。Firebase の要件を満たす。
+      final rawNonce = _generateNonce();
+      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+      final apple = await SignInWithApple.getAppleIDCredential(
+        scopes: <AppleIDAuthorizationScopes>[
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+        // Web / Android 経路が必要な場合はここに webAuthenticationOptions を
+        // 追加する。iOS / macOS ではネイティブ dialog を使うので不要。
+        webAuthenticationOptions: kIsWeb
+            ? WebAuthenticationOptions(
+                clientId: _kAppleServicesId,
+                redirectUri: Uri.parse(_kAppleWebRedirectUri),
+              )
+            : null,
+      );
+      final identityToken = apple.identityToken;
+      if (identityToken == null || identityToken.isEmpty) {
+        throw Exception('Apple identityToken が空です');
+      }
+      final credential = OAuthProvider('apple.com').credential(
+        idToken: identityToken,
+        rawNonce: rawNonce,
+        // accessToken は Apple provider では通常不要 (identityToken だけで OK)。
+      );
+
+      try {
+        final userCredential = await currentUser.linkWithCredential(credential);
+        final newUid = userCredential.user!.uid;
+        setState(() {
+          _firebaseUid = newUid;
+          _isAppleLinked = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Appleアカウントと連携しました！'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'credential-already-in-use') {
+          // 匿名 UID のデータを Apple UID にマージする
+          // (Google 経路と同じ手順)。
+          final oldData = await _fetchAllScoreData(oldUid);
+          final result = await FirebaseAuth.instance.signInWithCredential(
+            credential,
+          );
+          final newUid = result.user!.uid;
+          if (oldUid != newUid && oldData.isNotEmpty) {
+            await _writeScoreDataAsNewUid(oldData, newUid);
+          }
+          setState(() {
+            _firebaseUid = newUid;
+            _isAppleLinked = true;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Appleアカウントでログインし、戦歴をマージしました！'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          rethrow;
+        }
+      }
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // ユーザキャンセルはエラー表示しない
+      if (e.code == AuthorizationErrorCode.canceled) return;
+      debugPrint('Apple Sign-In cancelled/failed: ${e.code} ${e.message}');
+      if (mounted) _showError('Appleログインに失敗しました (${e.code})');
+    } catch (e) {
+      debugPrint('Apple Sign-In Error: $e');
+      if (mounted) _showError('Appleログインに失敗しました');
+    }
+  }
+
+  /// Apple / Firebase 用の暗号学的 nonce を生成する。
+  /// 32 byte 分の SecureRandom を [A-Za-z0-9] にエンコード。
+  static String _generateNonce([int length = 32]) {
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    final rnd = Random.secure();
+    return List.generate(length, (_) => chars[rnd.nextInt(chars.length)]).join();
   }
 
   /// oldUidに紐づく全スコアデータをFirestoreから読み取る。
@@ -1222,16 +1394,24 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         actions: [
           IconButton(
-            icon: Text(
-              'G',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: _isGoogleLinked ? Colors.green : const Color(0xFF4285F4),
-              ),
+            // 連携済 (Google or Apple) は緑、未連携は青。
+            icon: Icon(
+              _isAppleLinked
+                  ? Icons.apple
+                  : Icons.account_circle,
+              size: 22,
+              color:
+                  (_isGoogleLinked || _isAppleLinked)
+                      ? Colors.green
+                      : const Color(0xFF4285F4),
             ),
             onPressed: _showGoogleSignInDialog,
-            tooltip: _isGoogleLinked ? 'Google連携済み' : 'Googleアカウント連携',
+            tooltip:
+                _isGoogleLinked
+                    ? 'Google連携済み'
+                    : _isAppleLinked
+                        ? 'Apple連携済み'
+                        : 'アカウント連携',
           ),
           IconButton(
             icon: const Icon(Icons.help_outline),
