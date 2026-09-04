@@ -1051,10 +1051,19 @@ class _SetupScreenState extends State<SetupScreen> {
       if (identityToken == null || identityToken.isEmpty) {
         throw Exception('Apple identityToken が空です');
       }
-      final credential = OAuthProvider('apple.com').credential(
-        idToken: identityToken,
-        rawNonce: rawNonce,
-        // accessToken は Apple provider では通常不要 (identityToken だけで OK)。
+      // Firebase Auth Apple 用 credential 作成。
+      // OAuthProvider('apple.com').credential(...) は FlutterFire iOS ブリッジで
+      // accessToken=nil が空文字列に化けて Firebase backend が Apple の
+      // access-token 交換パスを踏み `Invalid OAuth response from apple.com`
+      // になる既知バグがあるため、Apple 専用の AppleAuthProvider を使う。
+      // 参考: FlutterFire issue #18445 / PR #18450
+      final credential = AppleAuthProvider.credentialWithIDToken(
+        identityToken,
+        rawNonce,
+        AppleFullPersonName(
+          givenName: apple.givenName,
+          familyName: apple.familyName,
+        ),
       );
 
       try {

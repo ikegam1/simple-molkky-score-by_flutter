@@ -2,13 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!--
-		Sign in with Apple capability。App Store Review Guidelines 4.8 に従い、
-		Google Sign-In と並列で提供する必要があるため有効化。
-		この entitlements ファイル自体は Xcode プロジェクトの
-		Runner target の Signing & Capabilities に手動で追加する必要がある
-		(pbxproj 直編集は fragile なので Xcode の UI で行う)。
-	-->
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>
