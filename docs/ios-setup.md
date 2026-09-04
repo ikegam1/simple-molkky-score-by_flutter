@@ -9,7 +9,7 @@
 ## 前提
 
 - Apple Developer Program 加入済 (Individual)
-- Team ID: `78H6QT2YTT`
+- Team ID: `<YOUR_TEAM_ID>` (公開ドキュメントではマスク)
 - Bundle ID: `com.ikegam1.simple-molkky-score`
 
 ---
@@ -60,7 +60,7 @@ Firebase Auth が Apple の identity token を検証するために必要。
 3. 「Enable」をトグル
 4. Services ID: 1-b で作った **`com.ikegam1.simple-molkky-score.web`**
 5. OAuth code flow (下記全て入力):
-   - Apple Team ID: **`78H6QT2YTT`**
+   - Apple Team ID: **`<YOUR_TEAM_ID>`**
    - Key ID: 1-c で控えた Key ID
    - Private key: 1-c でダウンロードした `.p8` ファイルの内容を貼り付け
 6. Save
@@ -77,7 +77,7 @@ PR で `ios/Runner/Runner.entitlements` は作成済みですが、Xcode プロ�
 1. `open ios/Runner.xcworkspace` で Xcode を開く
 2. 左サイドバーで **Runner** プロジェクト → **Runner** target を選択
 3. **Signing & Capabilities** タブ
-4. **Team** ドロップダウンで自分の Apple Developer Team (`78H6QT2YTT`) を選択
+4. **Team** ドロップダウンで自分の Apple Developer Team (`<YOUR_TEAM_ID>`) を選択
 5. **+ Capability** ボタンをクリック → **Sign in with Apple** を追加
    - これで `Runner.entitlements` が自動的にプロジェクトに紐付き、target の
      `Code Signing Entitlements` に `Runner/Runner.entitlements` が入る
@@ -147,7 +147,7 @@ open -a Transporter build/ios/ipa/*.ipa
 
 ## トラブルシュート
 
-### Xcode で "No account for team 78H6QT2YTT" と出る
+### Xcode で "No account for team <YOUR_TEAM_ID>" と出る
 
 Xcode → Preferences → Accounts で Apple ID を追加 (Apple Developer 加入時と
 同じ Apple ID)。
