@@ -54,11 +54,14 @@ flutter pub get
 echo "▶ flutter precache --ios"
 flutter precache --ios
 
-# Xcode Cloud は Podfile.lock を尊重するので --repo-update は不要 (むしろ
-# 差分の原因になる)。install だけ走らせる。
+# Xcode Cloud VM の Cocoapods バージョン (1.17.0+) はローカル開発機
+# (1.16.2 等) と異なることが多く、`--deployment` を付けると
+# `[!] There were changes to the lockfile in deployment mode:` で
+# fail する。CI 側では lock 差分を許容して pod install を回す。
+# (Podfile.lock 自体は git 管理下だが、CI では書き戻さないので影響なし)
 echo "▶ pod install --project-directory=ios"
 cd ios
-pod install --deployment
+pod install
 cd "$PROJECT_ROOT"
 
 echo "✔ ci_post_clone.sh done"
