@@ -1114,84 +1114,10 @@ class _SetupScreenState extends State<SetupScreen> {
       if (e.code == AuthorizationErrorCode.canceled) return;
       debugPrint('Apple Sign-In cancelled/failed: ${e.code} ${e.message}');
       if (mounted) _showError('Appleログインに失敗しました (${e.code})');
-    } on FirebaseAuthException catch (e) {
-      // Firebase 連携失敗時は、SnackBar に code + message を出して
-      // Xcode Console 無しでも原因が判別できるようにする。
-      debugPrint(
-        'Apple Sign-In Firebase Error: code=${e.code} message=${e.message}',
-      );
-      if (mounted) {
-        _showAppleSignInErrorDetails(
-          title: 'Appleログイン: Firebase 連携に失敗',
-          code: e.code,
-          message: e.message ?? '(message なし)',
-        );
-      }
     } catch (e) {
       debugPrint('Apple Sign-In Error: $e');
-      if (mounted) {
-        _showAppleSignInErrorDetails(
-          title: 'Appleログイン: 予期しないエラー',
-          code: e.runtimeType.toString(),
-          message: e.toString(),
-        );
-      }
+      if (mounted) _showError('Appleログインに失敗しました');
     }
-  }
-
-  /// Apple ログイン失敗の詳細を AlertDialog で表示する。
-  /// SnackBar は 4 秒で消えて長文が読めないため、ダイアログで固定表示。
-  /// Xcode Console を開けない環境向けに、実機画面から報告できるようにする。
-  void _showAppleSignInErrorDetails({
-    required String title,
-    required String code,
-    required String message,
-  }) {
-    final ctx = context;
-    showDialog<void>(
-      context: ctx,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          title: Text(title),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Text(
-                  'code:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                SelectableText(
-                  code,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'message:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                SelectableText(
-                  message,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  '↑ 長押しでコピー → Discord に貼り付けて共有してください。',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('閉じる'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   /// Apple / Firebase 用の暗号学的 nonce を生成する。
