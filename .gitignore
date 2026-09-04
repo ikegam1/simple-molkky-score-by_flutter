@@ -46,7 +46,9 @@ app.*.map.json
 lib/firebase_options.dart
 
 # Firebase configuration files
-ios/Runner/GoogleService-Info.plist
+# Note: ios/Runner/GoogleService-Info.plist は Xcode Cloud CI で必要になるため
+# git 管理下に戻した (Google 公式も「plist は秘密ではない」と明言、アプリ
+# バイナリに配布される前提)。
 android/app/google-services.json
 firebase.json
 
