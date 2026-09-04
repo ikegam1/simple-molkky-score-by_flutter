@@ -813,9 +813,9 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _showGoogleSignInDialog() async {
     if (_isGoogleLinked || _isAppleLinked) {
       final label = _isGoogleLinked ? 'Google' : 'Apple';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$label アカウントと連携済みです')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$label アカウントと連携済みです')));
       return;
     }
     // Apple ボタンを出すか。iOS または Web のみ (Android は Google 一択)。
@@ -1039,12 +1039,13 @@ class _SetupScreenState extends State<SetupScreen> {
         nonce: hashedNonce,
         // Web / Android 経路が必要な場合はここに webAuthenticationOptions を
         // 追加する。iOS / macOS ではネイティブ dialog を使うので不要。
-        webAuthenticationOptions: kIsWeb
-            ? WebAuthenticationOptions(
-                clientId: _kAppleServicesId,
-                redirectUri: Uri.parse(_kAppleWebRedirectUri),
-              )
-            : null,
+        webAuthenticationOptions:
+            kIsWeb
+                ? WebAuthenticationOptions(
+                  clientId: _kAppleServicesId,
+                  redirectUri: Uri.parse(_kAppleWebRedirectUri),
+                )
+                : null,
       );
       final identityToken = apple.identityToken;
       if (identityToken == null || identityToken.isEmpty) {
@@ -1104,10 +1105,84 @@ class _SetupScreenState extends State<SetupScreen> {
       if (e.code == AuthorizationErrorCode.canceled) return;
       debugPrint('Apple Sign-In cancelled/failed: ${e.code} ${e.message}');
       if (mounted) _showError('Appleログインに失敗しました (${e.code})');
+    } on FirebaseAuthException catch (e) {
+      // Firebase 連携失敗時は、SnackBar に code + message を出して
+      // Xcode Console 無しでも原因が判別できるようにする。
+      debugPrint(
+        'Apple Sign-In Firebase Error: code=${e.code} message=${e.message}',
+      );
+      if (mounted) {
+        _showAppleSignInErrorDetails(
+          title: 'Appleログイン: Firebase 連携に失敗',
+          code: e.code,
+          message: e.message ?? '(message なし)',
+        );
+      }
     } catch (e) {
       debugPrint('Apple Sign-In Error: $e');
-      if (mounted) _showError('Appleログインに失敗しました');
+      if (mounted) {
+        _showAppleSignInErrorDetails(
+          title: 'Appleログイン: 予期しないエラー',
+          code: e.runtimeType.toString(),
+          message: e.toString(),
+        );
+      }
     }
+  }
+
+  /// Apple ログイン失敗の詳細を AlertDialog で表示する。
+  /// SnackBar は 4 秒で消えて長文が読めないため、ダイアログで固定表示。
+  /// Xcode Console を開けない環境向けに、実機画面から報告できるようにする。
+  void _showAppleSignInErrorDetails({
+    required String title,
+    required String code,
+    required String message,
+  }) {
+    final ctx = context;
+    showDialog<void>(
+      context: ctx,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Text(
+                  'code:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                SelectableText(
+                  code,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'message:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                SelectableText(
+                  message,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  '↑ 長押しでコピー → Discord に貼り付けて共有してください。',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   /// Apple / Firebase 用の暗号学的 nonce を生成する。
@@ -1116,7 +1191,10 @@ class _SetupScreenState extends State<SetupScreen> {
     const chars =
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     final rnd = Random.secure();
-    return List.generate(length, (_) => chars[rnd.nextInt(chars.length)]).join();
+    return List.generate(
+      length,
+      (_) => chars[rnd.nextInt(chars.length)],
+    ).join();
   }
 
   /// oldUidに紐づく全スコアデータをFirestoreから読み取る。
@@ -1396,9 +1474,7 @@ class _SetupScreenState extends State<SetupScreen> {
           IconButton(
             // 連携済 (Google or Apple) は緑、未連携は青。
             icon: Icon(
-              _isAppleLinked
-                  ? Icons.apple
-                  : Icons.account_circle,
+              _isAppleLinked ? Icons.apple : Icons.account_circle,
               size: 22,
               color:
                   (_isGoogleLinked || _isAppleLinked)
@@ -1410,8 +1486,8 @@ class _SetupScreenState extends State<SetupScreen> {
                 _isGoogleLinked
                     ? 'Google連携済み'
                     : _isAppleLinked
-                        ? 'Apple連携済み'
-                        : 'アカウント連携',
+                    ? 'Apple連携済み'
+                    : 'アカウント連携',
           ),
           IconButton(
             icon: const Icon(Icons.help_outline),
