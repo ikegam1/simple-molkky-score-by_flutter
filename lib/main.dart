@@ -6007,10 +6007,15 @@ class HelpPage extends StatelessWidget {
               sections[i],
             ],
             const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 16),
-            const _AndroidAppPromoSection(),
-            const SizedBox(height: 32),
+            // Android アプリの告知は Web 版のヘルプにのみ表示する。
+            // iOS / Android ネイティブアプリを既にインストールして
+            // 見ている場合は不要 (Play Store リンク訴求は Web 訪問者向け)。
+            if (kIsWeb) ...[
+              const Divider(),
+              const SizedBox(height: 16),
+              const _AndroidAppPromoSection(),
+              const SizedBox(height: 32),
+            ],
           ],
         ),
       ),
