@@ -59,9 +59,28 @@ flutter precache --ios
 # `[!] There were changes to the lockfile in deployment mode:` で
 # fail する。CI 側では lock 差分を許容して pod install を回す。
 # (Podfile.lock 自体は git 管理下だが、CI では書き戻さないので影響なし)
-echo "▶ pod install --project-directory=ios"
+#
+# また Cocoapods CDN (raw.githubusercontent.com) のタイムアウトが
+# 稀に発生し、`Response: Timeout was reached` で fail する。3 回まで
+# リトライして transient network エラーで即失敗しないようにする。
+echo "▶ pod install --project-directory=ios (with retry)"
 cd ios
-pod install
+POD_INSTALL_MAX_TRIES=3
+POD_INSTALL_TRY=1
+while [ "$POD_INSTALL_TRY" -le "$POD_INSTALL_MAX_TRIES" ]; do
+  echo "  attempt $POD_INSTALL_TRY / $POD_INSTALL_MAX_TRIES"
+  if pod install; then
+    echo "  pod install succeeded on attempt $POD_INSTALL_TRY"
+    break
+  fi
+  if [ "$POD_INSTALL_TRY" -eq "$POD_INSTALL_MAX_TRIES" ]; then
+    echo "  pod install failed after $POD_INSTALL_MAX_TRIES attempts"
+    exit 1
+  fi
+  echo "  pod install failed; retrying in 15 seconds..."
+  sleep 15
+  POD_INSTALL_TRY=$((POD_INSTALL_TRY + 1))
+done
 cd "$PROJECT_ROOT"
 
 echo "✔ ci_post_clone.sh done"
