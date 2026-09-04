@@ -1,7 +1,7 @@
 name: simple_molkky_score
 description: "A simple Molkky scoreboard app."
 publish_to: 'none'
-version: 1.15.23+125
+version: 1.15.24+126
 
 environment:
   sdk: ^3.7.0
@@ -17,7 +17,7 @@ dependencies:
   uuid: ^4.5.3
   firebase_core: ^4.4.0
   cloud_firestore: ^6.1.2
-  firebase_auth: ^6.1.4
+  firebase_auth: ^6.6.1
   patrol: ^4.2.0
   google_sign_in: ^6.2.0
   # Apple Sign-In (App Store 審査要件: Google 等の第三者サインインを提供する
