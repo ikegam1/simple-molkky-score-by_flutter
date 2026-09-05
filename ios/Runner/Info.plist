@@ -24,6 +24,16 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!--
+		Export Compliance: このアプリは HTTPS/TLS (Apple OS 標準の暗号化) 経由の
+		通信のみ (Firebase Auth / Firestore など) で、独自の暗号アルゴリズムや
+		エンドツーエンド暗号化は実装していない。米国輸出規制の免除対象なので
+		ITSAppUsesNonExemptEncryption = false を宣言する。
+		これで TestFlight / App Store 提出時に「輸出コンプライアンス」の
+		手動申告が不要になる (自動で「exempt」扱いになる)。
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
