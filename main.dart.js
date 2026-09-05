@@ -106142,10 +106142,7 @@ for(r=0;r<10;++r){q=A.b([],f)
 if(r>0)q.push(B.kG)
 q.push(e[r])
 B.b.L(s,q)}s.push(B.IU)
-s.push(B.mf)
-s.push(B.hO)
-s.push(B.aka)
-s.push(B.IU)
+B.b.L(s,A.b([B.mf,B.hO,B.aka,B.IU],f))
 return A.xR(g,p,A.y4(A.ch(s,B.aM,B.r,B.D),B.iJ,B.an),!1)}}
 A.a_M.prototype={
 M(a){var s,r=null,q=A.SW(a).gdn()==="ja",p=A.a_(a),o=A.W(q?"Android\u30a2\u30d7\u30ea":"Android App",r,r,r,B.Jq,r,r),n=A.W(q?"\u30b9\u30de\u30fc\u30c8\u30d5\u30a9\u30f3\u3067\u3082\u4f7f\u3048\u308bAndroid\u30a2\u30d7\u30ea\u3092\u516c\u958b\u3057\u3066\u3044\u307e\u3059\u3002":"An Android app is available on the Play Store.",r,r,r,B.hR,r,r),m=A.aP_(A.h0(8),new A.Dd(A.b9C(r,r,new A.xn("https://api.qrserver.com/v1/create-qr-code/?size=120x120&data="+A.M0(2,u.r,B.aL,!1),1,r,B.aia)),new A.axp(),120,120,r),B.cL),l=q?"QR\u30b3\u30fc\u30c9\u3092\u8aad\u307f\u53d6\u308b\u304b\u3001\u4e0b\u306e\u30dc\u30bf\u30f3\u304b\u3089\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u3067\u304d\u307e\u3059\u3002":"Scan the QR code or tap the button below."
