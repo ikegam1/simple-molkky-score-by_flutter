@@ -30,6 +30,11 @@ const String _kAppVersion = '1.15.18+120';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
 const String _kDisplayVersion = 'v1.15.18';
 
+/// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
+/// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
+const String _kPrivacyPolicyUrl =
+    'https://easy-molkky-score.ikegam1.com/privacy.html';
+
 /// 累計試合完了数（勝者確定 or 引き分けを1件としてカウント）。
 /// 3件以上で Google Play In-App Review を試合終了直後に発火させる。
 const String _kCompletedMatchCountPrefsKey = 'completed_match_count_v1';
@@ -1671,6 +1676,8 @@ class _SetupScreenState extends State<SetupScreen> {
                     _kDisplayVersion,
                     style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),
+                  const SizedBox(height: 6),
+                  _PrivacyPolicyFooterLink(),
                 ],
               ),
             );
@@ -1938,6 +1945,8 @@ class _SetupScreenState extends State<SetupScreen> {
                     style: TextStyle(color: Colors.grey, fontSize: 11),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 6),
+                  _PrivacyPolicyFooterLink(compact: true),
                 ],
               ),
             ),
@@ -6210,6 +6219,35 @@ class HelpPage extends StatelessWidget {
 
 const _kPlayStoreUrl =
     'https://play.google.com/store/apps/details?id=jp.ikegam1.simple_molkky_score';
+
+/// トップ画面フッターに置く「プライバシーポリシー」外部リンク。
+/// タップで既定ブラウザで [_kPrivacyPolicyUrl] を開く。
+/// [compact] true のときは横向きレイアウト向けに font-size を小さくする。
+class _PrivacyPolicyFooterLink extends StatelessWidget {
+  const _PrivacyPolicyFooterLink({this.compact = false});
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        final uri = Uri.parse(_kPrivacyPolicyUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Text(
+        'プライバシーポリシー / Privacy Policy',
+        style: TextStyle(
+          color: Colors.blueGrey,
+          fontSize: compact ? 10 : 11,
+          decoration: TextDecoration.underline,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
 
 class _AndroidAppPromoSection extends StatelessWidget {
   const _AndroidAppPromoSection();
