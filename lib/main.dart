@@ -569,11 +569,10 @@ class _SetupScreenState extends State<SetupScreen> {
     final prefs = await SharedPreferences.getInstance();
     final List<String>? savedJsonList = prefs.getStringList('saved_players_v2');
     if (savedJsonList != null) {
-      final List<Player> loadedPlayers =
-          savedJsonList.map((jsonStr) {
-            final Map<String, dynamic> data = jsonDecode(jsonStr);
-            return Player(id: data['id'], name: data['name'], initialOrder: 0);
-          }).toList();
+      final List<Player> loadedPlayers = savedJsonList.map((jsonStr) {
+        final Map<String, dynamic> data = jsonDecode(jsonStr);
+        return Player(id: data['id'], name: data['name'], initialOrder: 0);
+      }).toList();
       setState(() {
         _registeredPlayers.addAll(loadedPlayers);
       });
@@ -582,10 +581,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
   Future<void> _savePlayers() async {
     final prefs = await SharedPreferences.getInstance();
-    final List<String> jsonList =
-        _registeredPlayers
-            .map((p) => jsonEncode({'id': p.id, 'name': p.name}))
-            .toList();
+    final List<String> jsonList = _registeredPlayers
+        .map((p) => jsonEncode({'id': p.id, 'name': p.name}))
+        .toList();
     await prefs.setStringList('saved_players_v2', jsonList);
   }
 
@@ -827,49 +825,48 @@ class _SetupScreenState extends State<SetupScreen> {
     final showApple = kIsWeb || (Platform.isIOS || Platform.isMacOS);
     final result = await showDialog<String>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Row(
-              children: <Widget>[
-                Icon(Icons.person_outline, size: 22),
-                SizedBox(width: 8),
-                Expanded(child: Text('アカウント連携')),
-              ],
-            ),
-            content: const Text(
-              'ログインすると、これまでの戦歴がアカウントに紐づき、'
-              '別端末や環境でログインした場合も保持されるようになります。\n\n'
-              'ログイン方法を選択してください:',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, null),
-                child: const Text('キャンセル'),
-              ),
-              if (showApple)
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(ctx, 'apple'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: const Icon(Icons.apple, size: 18),
-                  label: const Text('Appleでログイン'),
-                ),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.pop(ctx, 'google'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4285F4),
-                  foregroundColor: Colors.white,
-                ),
-                icon: const Text(
-                  'G',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                label: const Text('Googleでログイン'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: <Widget>[
+            Icon(Icons.person_outline, size: 22),
+            SizedBox(width: 8),
+            Expanded(child: Text('アカウント連携')),
+          ],
+        ),
+        content: const Text(
+          'ログインすると、これまでの戦歴がアカウントに紐づき、'
+          '別端末や環境でログインした場合も保持されるようになります。\n\n'
+          'ログイン方法を選択してください:',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('キャンセル'),
           ),
+          if (showApple)
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'apple'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.apple, size: 18),
+              label: const Text('Appleでログイン'),
+            ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, 'google'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4285F4),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Text(
+              'G',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            label: const Text('Googleでログイン'),
+          ),
+        ],
+      ),
     );
     if (result == 'google') {
       await _signInWithGoogle();
@@ -899,7 +896,9 @@ class _SetupScreenState extends State<SetupScreen> {
         'Google Sign-In Firebase Error: code=${e.code} message=${e.message}',
       );
       if (mounted) {
-        _showError('Googleログインに失敗しました (${e.code}: ${e.message ?? "no message"})');
+        _showError(
+          'Googleログインに失敗しました (${e.code}: ${e.message ?? "no message"})',
+        );
       }
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
@@ -1072,13 +1071,12 @@ class _SetupScreenState extends State<SetupScreen> {
         nonce: hashedNonce,
         // Web / Android 経路が必要な場合はここに webAuthenticationOptions を
         // 追加する。iOS / macOS ではネイティブ dialog を使うので不要。
-        webAuthenticationOptions:
-            kIsWeb
-                ? WebAuthenticationOptions(
-                  clientId: _kAppleServicesId,
-                  redirectUri: Uri.parse(_kAppleWebRedirectUri),
-                )
-                : null,
+        webAuthenticationOptions: kIsWeb
+            ? WebAuthenticationOptions(
+                clientId: _kAppleServicesId,
+                redirectUri: Uri.parse(_kAppleWebRedirectUri),
+              )
+            : null,
       );
       final identityToken = apple.identityToken;
       if (identityToken == null || identityToken.isEmpty) {
@@ -1099,75 +1097,46 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
       );
 
-      // linkWithCredential を試みる。以下のエラーはすべて
-      // signInWithCredential (fresh sign-in) にフォールバックする:
-      // - credential-already-in-use: Apple provider が別 UID に紐付き済 (通常ケース)
-      // - provider-already-linked: 現 user に既に Apple が紐付き済
-      // - email-already-in-use: 同じ email の別 provider ユーザがいる
-      // 上記いずれも「既存 Apple ユーザとしてサインイン」で復帰できる。
-      // (サインアウト → 再サインインで再現する不具合対策)
-      const fallbackCodes = <String>{
-        'credential-already-in-use',
-        'provider-already-linked',
-        'email-already-in-use',
-      };
+      // Apple Sign-In は nonce ベース認証のため、linkWithCredential が
+      // credential-already-in-use で失敗すると nonce が消費され、
+      // 同じ credential で signInWithCredential しても
+      // "Duplicate credential received" になる。
+      // そのため linkWithCredential → fallback パターンは使わず、
+      // 常に signInWithCredential を使い、データマージは手動で行う。
+
+      // 1. まだ匿名 UID として認証中のうちにデータを読み取る
+      List<Map<String, dynamic>> oldData = <Map<String, dynamic>>[];
       try {
-        final userCredential = await currentUser.linkWithCredential(credential);
-        final newUid = userCredential.user!.uid;
-        setState(() {
-          _firebaseUid = newUid;
-          _isAppleLinked = true;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Appleアカウントと連携しました！'),
-              backgroundColor: Colors.green,
-            ),
-          );
+        oldData = await _fetchAllScoreData(oldUid);
+      } catch (fetchErr) {
+        debugPrint('Apple: fetchAllScoreData failed (継続): $fetchErr');
+      }
+
+      // 2. Apple credential でサインイン (既存ユーザなら復帰、新規なら作成)
+      final result = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      final newUid = result.user!.uid;
+
+      // 3. UID が変わった場合、匿名 UID のデータを新 UID にマージ
+      if (oldUid != newUid && oldData.isNotEmpty) {
+        try {
+          await _writeScoreDataAsNewUid(oldData, newUid);
+        } catch (writeErr) {
+          debugPrint('Apple: writeScoreDataAsNewUid failed (継続): $writeErr');
         }
-      } on FirebaseAuthException catch (e) {
-        if (fallbackCodes.contains(e.code)) {
-          // 匿名 UID のデータを Apple UID にマージする
-          // (Google 経路と同じ手順)。fetch/write は失敗しても
-          // サインイン自体は継続 (データマージ失敗はデータ紛失に
-          // なるが、認証失敗より軽微)。
-          List<Map<String, dynamic>> oldData = <Map<String, dynamic>>[];
-          try {
-            oldData = await _fetchAllScoreData(oldUid);
-          } catch (fetchErr) {
-            debugPrint(
-              'Apple fallback: fetchAllScoreData failed (継続): $fetchErr',
-            );
-          }
-          final result = await FirebaseAuth.instance.signInWithCredential(
-            credential,
-          );
-          final newUid = result.user!.uid;
-          if (oldUid != newUid && oldData.isNotEmpty) {
-            try {
-              await _writeScoreDataAsNewUid(oldData, newUid);
-            } catch (writeErr) {
-              debugPrint(
-                'Apple fallback: writeScoreDataAsNewUid failed (継続): $writeErr',
-              );
-            }
-          }
-          setState(() {
-            _firebaseUid = newUid;
-            _isAppleLinked = true;
-          });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Appleアカウントでログインしました！'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } else {
-          rethrow;
-        }
+      }
+      setState(() {
+        _firebaseUid = newUid;
+        _isAppleLinked = true;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Appleアカウントでログインしました！'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } on SignInWithAppleAuthorizationException catch (e) {
       // ユーザキャンセルはエラー表示しない
@@ -1178,8 +1147,13 @@ class _SetupScreenState extends State<SetupScreen> {
       // Firebase 連携失敗時は code / message を SnackBar に含めて
       // 原因追跡できるようにする (サインアウト→再サインインで再現する
       // 想定バグの調査用)
-      debugPrint('Apple Sign-In Firebase Error: code=${e.code} message=${e.message}');
-      if (mounted) _showError('Appleログインに失敗しました (${e.code}: ${e.message ?? "no message"})');
+      debugPrint(
+        'Apple Sign-In Firebase Error: code=${e.code} message=${e.message}',
+      );
+      if (mounted)
+        _showError(
+          'Appleログインに失敗しました (${e.code}: ${e.message ?? "no message"})',
+        );
     } catch (e) {
       debugPrint('Apple Sign-In Error: $e');
       if (mounted) _showError('Appleログインに失敗しました: $e');
@@ -1195,21 +1169,20 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _signOut() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('サインアウト'),
-            content: const Text('現在のアカウントからサインアウトします。ローカルの試合履歴は残ります。'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('キャンセル'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('サインアウト'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('サインアウト'),
+        content: const Text('現在のアカウントからサインアウトします。ローカルの試合履歴は残ります。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('サインアウト'),
+          ),
+        ],
+      ),
     );
     if (ok != true || !mounted) return;
     try {
@@ -1266,28 +1239,27 @@ class _SetupScreenState extends State<SetupScreen> {
     // 2 段階確認: 削除される内容を明示
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('アカウントを削除しますか？'),
-            content: const Text(
-              'アカウントと関連する以下データを完全削除します。この操作は取り消せません。\n\n'
-              '・試合履歴 (Firestore の全スコア記録)\n'
-              '・ログイン情報 (Firebase Auth のアカウント自体)\n\n'
-              'ローカルデバイス上のデータ (プレイヤー名候補など) は残ります。',
-              style: TextStyle(fontSize: 13),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('キャンセル'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('削除する'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('アカウントを削除しますか？'),
+        content: const Text(
+          'アカウントと関連する以下データを完全削除します。この操作は取り消せません。\n\n'
+          '・試合履歴 (Firestore の全スコア記録)\n'
+          '・ログイン情報 (Firebase Auth のアカウント自体)\n\n'
+          'ローカルデバイス上のデータ (プレイヤー名候補など) は残ります。',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
           ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
     );
     if (confirmed != true || !mounted) return;
 
@@ -1296,12 +1268,11 @@ class _SetupScreenState extends State<SetupScreen> {
       // 1) Firestore の scores コレクションから該当 uid の docs を batch 削除
       const batchSize = 400;
       while (true) {
-        final snap =
-            await FirebaseFirestore.instance
-                .collection('scores')
-                .where('appUserId', isEqualTo: uid)
-                .limit(batchSize)
-                .get();
+        final snap = await FirebaseFirestore.instance
+            .collection('scores')
+            .where('appUserId', isEqualTo: uid)
+            .limit(batchSize)
+            .get();
         if (snap.docs.isEmpty) break;
         final batch = FirebaseFirestore.instance.batch();
         for (final d in snap.docs) {
@@ -1330,9 +1301,7 @@ class _SetupScreenState extends State<SetupScreen> {
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
         if (mounted) {
-          _showError(
-            'セキュリティ上、最近のサインインが必要です。一旦サインアウトして再サインインしてから削除してください',
-          );
+          _showError('セキュリティ上、最近のサインインが必要です。一旦サインアウトして再サインインしてから削除してください');
         }
       } else {
         debugPrint('Delete account error: ${e.code} ${e.message}');
@@ -1362,12 +1331,11 @@ class _SetupScreenState extends State<SetupScreen> {
     final List<Map<String, dynamic>> all = [];
     const batchSize = 500;
     while (true) {
-      final snapshot =
-          await FirebaseFirestore.instance
-              .collection('scores')
-              .where('appUserId', isEqualTo: uid)
-              .limit(batchSize)
-              .get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('scores')
+          .where('appUserId', isEqualTo: uid)
+          .limit(batchSize)
+          .get();
       all.addAll(snapshot.docs.map((d) => d.data()));
       if (snapshot.docs.length < batchSize) break;
     }
@@ -1459,10 +1427,9 @@ class _SetupScreenState extends State<SetupScreen> {
       final ordered = await showDialog<List<Player>>(
         context: context,
         barrierDismissible: false,
-        builder:
-            (ctx) => _ThrowOrderRouletteDialog(
-              players: List<Player>.from(_registeredPlayers),
-            ),
+        builder: (ctx) => _ThrowOrderRouletteDialog(
+          players: List<Player>.from(_registeredPlayers),
+        ),
       );
       if (!mounted) return;
       if (ordered == null) return; // ユーザキャンセル (システム back 等)
@@ -1473,26 +1440,23 @@ class _SetupScreenState extends State<SetupScreen> {
       });
     }
 
-    final playersForMatch =
-        _registeredPlayers
-            .asMap()
-            .entries
-            .map(
-              (e) => Player(
-                id: e.value.id,
-                name: e.value.name,
-                initialOrder: e.key,
-              ),
-            )
-            .toList();
+    final playersForMatch = _registeredPlayers
+        .asMap()
+        .entries
+        .map(
+          (e) =>
+              Player(id: e.value.id, name: e.value.name, initialOrder: e.key),
+        )
+        .toList();
     MolkkyMatch match;
     final isSelfTurnMode = _selectedModeKey == -1 || _selectedModeKey == -3;
-    final turnLimit =
-        isSelfTurnMode || _selectedTurnLimit == 0 ? null : _selectedTurnLimit;
+    final turnLimit = isSelfTurnMode || _selectedTurnLimit == 0
+        ? null
+        : _selectedTurnLimit;
     final matchTimeLimitSeconds =
         isSelfTurnMode || _selectedTimeLimitMinutes == 0
-            ? null
-            : _selectedTimeLimitMinutes * 60;
+        ? null
+        : _selectedTimeLimitMinutes * 60;
 
     // プレイヤー人数ごとに追加できる sets 系モード (n 人でプレイ、キリの良い
     // セット数)。key は sentinel の負値で衝突回避 (既存 raceTo の 3/5/7/9/11
@@ -1540,10 +1504,9 @@ class _SetupScreenState extends State<SetupScreen> {
         matchTimeLimitSeconds: matchTimeLimitSeconds,
       );
     } else {
-      MatchType type =
-          [1, 2, 10].contains(_selectedModeKey)
-              ? MatchType.fixedSets
-              : MatchType.raceTo;
+      MatchType type = [1, 2, 10].contains(_selectedModeKey)
+          ? MatchType.fixedSets
+          : MatchType.raceTo;
       int limit = _selectedModeKey;
       if (type == MatchType.raceTo && _selectedModeKey != 11)
         limit = (_selectedModeKey / 2).ceil();
@@ -1558,12 +1521,11 @@ class _SetupScreenState extends State<SetupScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (c) => GameScreen(
-              appUserId: _firebaseUid,
-              match: match,
-              appLocale: Localizations.localeOf(context),
-            ),
+        builder: (c) => GameScreen(
+          appUserId: _firebaseUid,
+          match: match,
+          appLocale: Localizations.localeOf(context),
+        ),
       ),
     );
   }
@@ -1635,39 +1597,35 @@ class _SetupScreenState extends State<SetupScreen> {
             icon: Icon(
               _isAppleLinked ? Icons.apple : Icons.account_circle,
               size: 22,
-              color:
-                  (_isGoogleLinked || _isAppleLinked)
-                      ? Colors.green
-                      : const Color(0xFF4285F4),
+              color: (_isGoogleLinked || _isAppleLinked)
+                  ? Colors.green
+                  : const Color(0xFF4285F4),
             ),
             onPressed: _showGoogleSignInDialog,
-            tooltip:
-                _isGoogleLinked
-                    ? 'Google連携済み'
-                    : _isAppleLinked
-                    ? 'Apple連携済み'
-                    : 'アカウント連携',
+            tooltip: _isGoogleLinked
+                ? 'Google連携済み'
+                : _isAppleLinked
+                ? 'Apple連携済み'
+                : 'アカウント連携',
           ),
           IconButton(
             icon: const Icon(Icons.help_outline),
-            onPressed:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (c) => const HelpPage()),
-                ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (c) => const HelpPage()),
+            ),
             tooltip: t.get('help_title'),
           ),
           IconButton(
             icon: const Icon(Icons.history),
-            onPressed:
-                _firebaseUid.isEmpty
-                    ? null
-                    : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (c) => GlobalHistoryPage(uid: _firebaseUid),
-                      ),
+            onPressed: _firebaseUid.isEmpty
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (c) => GlobalHistoryPage(uid: _firebaseUid),
                     ),
+                  ),
             tooltip: t.get('match_history'),
           ),
         ],
@@ -1765,21 +1723,20 @@ class _SetupScreenState extends State<SetupScreen> {
                   if (!_nameFocusNode.hasFocus) ...[
                     DropdownButtonFormField<int>(
                       value: _selectedModeKey,
-                      items:
-                          options.entries.map((e) {
-                            final isSelfTurnMode = e.key == -1 || e.key == -3;
-                            final enabled = !isSelfTurnMode || selfTurnEnabled;
-                            return DropdownMenuItem<int>(
-                              value: e.key,
-                              enabled: enabled,
-                              child: Text(
-                                e.value,
-                                style: TextStyle(
-                                  color: enabled ? null : Colors.grey,
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                      items: options.entries.map((e) {
+                        final isSelfTurnMode = e.key == -1 || e.key == -3;
+                        final enabled = !isSelfTurnMode || selfTurnEnabled;
+                        return DropdownMenuItem<int>(
+                          value: e.key,
+                          enabled: enabled,
+                          child: Text(
+                            e.value,
+                            style: TextStyle(
+                              color: enabled ? null : Colors.grey,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                       onChanged: (v) {
                         if (v != null) setState(() => _selectedModeKey = v);
                       },
@@ -1790,17 +1747,14 @@ class _SetupScreenState extends State<SetupScreen> {
                     const SizedBox(height: 10),
                     DropdownButtonFormField<int>(
                       value: _selectedTurnLimit,
-                      items:
-                          turnLimitOptions
-                              .map(
-                                (v) => DropdownMenuItem<int>(
-                                  value: v,
-                                  child: Text(
-                                    v == 0 ? t.get('no_limit') : '$v',
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                      items: turnLimitOptions
+                          .map(
+                            (v) => DropdownMenuItem<int>(
+                              value: v,
+                              child: Text(v == 0 ? t.get('no_limit') : '$v'),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (v) {
                         if (v != null) setState(() => _selectedTurnLimit = v);
                       },
@@ -1811,22 +1765,21 @@ class _SetupScreenState extends State<SetupScreen> {
                     const SizedBox(height: 10),
                     DropdownButtonFormField<int>(
                       value: _selectedTimeLimitMinutes,
-                      items:
-                          timeLimitOptions
-                              .map(
-                                (v) => DropdownMenuItem<int>(
-                                  value: v,
-                                  child: Text(
-                                    v == 0
-                                        ? t.get('no_limit')
-                                        : t.get(
-                                          'minutes_suffix',
-                                          args: {'n': '$v'},
-                                        ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                      items: timeLimitOptions
+                          .map(
+                            (v) => DropdownMenuItem<int>(
+                              value: v,
+                              child: Text(
+                                v == 0
+                                    ? t.get('no_limit')
+                                    : t.get(
+                                        'minutes_suffix',
+                                        args: {'n': '$v'},
+                                      ),
+                              ),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (v) {
                         if (v != null)
                           setState(() => _selectedTimeLimitMinutes = v);
@@ -1841,12 +1794,9 @@ class _SetupScreenState extends State<SetupScreen> {
                   // タイトルのみコンパクトに、説明文は載せない (ユーザ要望)
                   if (_registeredPlayers.length >= 2)
                     InkWell(
-                      onTap:
-                          () => setState(
-                            () =>
-                                _useThrowOrderRoulette =
-                                    !_useThrowOrderRoulette,
-                          ),
+                      onTap: () => setState(
+                        () => _useThrowOrderRoulette = !_useThrowOrderRoulette,
+                      ),
                       child: Row(
                         children: [
                           SizedBox(
@@ -1854,10 +1804,9 @@ class _SetupScreenState extends State<SetupScreen> {
                             height: 24,
                             child: Checkbox(
                               value: _useThrowOrderRoulette,
-                              onChanged:
-                                  (v) => setState(
-                                    () => _useThrowOrderRoulette = v ?? false,
-                                  ),
+                              onChanged: (v) => setState(
+                                () => _useThrowOrderRoulette = v ?? false,
+                              ),
                               visualDensity: VisualDensity.compact,
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
@@ -2028,24 +1977,21 @@ class _SetupScreenState extends State<SetupScreen> {
                       children: [
                         DropdownButtonFormField<int>(
                           value: _selectedModeKey,
-                          items:
-                              options.entries.map((e) {
-                                final isSelfTurnMode =
-                                    e.key == -1 || e.key == -3;
-                                final enabled =
-                                    !isSelfTurnMode || selfTurnEnabled;
-                                return DropdownMenuItem<int>(
-                                  value: e.key,
-                                  enabled: enabled,
-                                  child: Text(
-                                    e.value,
-                                    style: TextStyle(
-                                      color: enabled ? null : Colors.grey,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                          items: options.entries.map((e) {
+                            final isSelfTurnMode = e.key == -1 || e.key == -3;
+                            final enabled = !isSelfTurnMode || selfTurnEnabled;
+                            return DropdownMenuItem<int>(
+                              value: e.key,
+                              enabled: enabled,
+                              child: Text(
+                                e.value,
+                                style: TextStyle(
+                                  color: enabled ? null : Colors.grey,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                           onChanged: (v) {
                             if (v != null) {
                               setState(() => _selectedModeKey = v);
@@ -2059,18 +2005,17 @@ class _SetupScreenState extends State<SetupScreen> {
                         const SizedBox(height: 8),
                         DropdownButtonFormField<int>(
                           value: _selectedTurnLimit,
-                          items:
-                              turnLimitOptions
-                                  .map(
-                                    (v) => DropdownMenuItem<int>(
-                                      value: v,
-                                      child: Text(
-                                        v == 0 ? t.get('no_limit') : '$v',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
+                          items: turnLimitOptions
+                              .map(
+                                (v) => DropdownMenuItem<int>(
+                                  value: v,
+                                  child: Text(
+                                    v == 0 ? t.get('no_limit') : '$v',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (v) {
                             if (v != null) {
                               setState(() => _selectedTurnLimit = v);
@@ -2084,23 +2029,22 @@ class _SetupScreenState extends State<SetupScreen> {
                         const SizedBox(height: 8),
                         DropdownButtonFormField<int>(
                           value: _selectedTimeLimitMinutes,
-                          items:
-                              timeLimitOptions
-                                  .map(
-                                    (v) => DropdownMenuItem<int>(
-                                      value: v,
-                                      child: Text(
-                                        v == 0
-                                            ? t.get('no_limit')
-                                            : t.get(
-                                              'minutes_suffix',
-                                              args: {'n': '$v'},
-                                            ),
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
+                          items: timeLimitOptions
+                              .map(
+                                (v) => DropdownMenuItem<int>(
+                                  value: v,
+                                  child: Text(
+                                    v == 0
+                                        ? t.get('no_limit')
+                                        : t.get(
+                                            'minutes_suffix',
+                                            args: {'n': '$v'},
+                                          ),
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (v) {
                             if (v != null) {
                               setState(() => _selectedTimeLimitMinutes = v);
@@ -2118,12 +2062,9 @@ class _SetupScreenState extends State<SetupScreen> {
                   // 投げ順ルーレット (2 人以上のときのみ表示)
                   if (_registeredPlayers.length >= 2)
                     InkWell(
-                      onTap:
-                          () => setState(
-                            () =>
-                                _useThrowOrderRoulette =
-                                    !_useThrowOrderRoulette,
-                          ),
+                      onTap: () => setState(
+                        () => _useThrowOrderRoulette = !_useThrowOrderRoulette,
+                      ),
                       child: Row(
                         children: [
                           SizedBox(
@@ -2131,10 +2072,9 @@ class _SetupScreenState extends State<SetupScreen> {
                             height: 20,
                             child: Checkbox(
                               value: _useThrowOrderRoulette,
-                              onChanged:
-                                  (v) => setState(
-                                    () => _useThrowOrderRoulette = v ?? false,
-                                  ),
+                              onChanged: (v) => setState(
+                                () => _useThrowOrderRoulette = v ?? false,
+                              ),
                               visualDensity: VisualDensity.compact,
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
@@ -2290,12 +2230,11 @@ class _GameScreenState extends State<GameScreen>
   bool get _isSelfTurnMode =>
       widget.match.type == MatchType.self5Turn ||
       widget.match.type == MatchType.self6Turn;
-  int get _selfTurnLimit =>
-      widget.match.type == MatchType.self5Turn
-          ? 5
-          : widget.match.type == MatchType.self6Turn
-          ? 6
-          : 0;
+  int get _selfTurnLimit => widget.match.type == MatchType.self5Turn
+      ? 5
+      : widget.match.type == MatchType.self6Turn
+      ? 6
+      : 0;
   bool get _hasTurnLimit => widget.match.turnLimitPerSet != null;
   bool get _hasMatchTimeLimit => widget.match.matchTimeLimitSeconds != null;
   bool get _isLastLimitedTurn =>
@@ -2378,28 +2317,27 @@ class _GameScreenState extends State<GameScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(t.get('time_limit_reached')),
-            content: Text(t.get('time_limit_finish_detail')),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _finishMatchByTimeLimit();
-                },
-                child: Text(t.get('end_now')),
-              ),
-              ElevatedButton(
-                autofocus: true,
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  setState(() => _matchTimeExpired = true);
-                },
-                child: Text(t.get('continue_game')),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(t.get('time_limit_reached')),
+        content: Text(t.get('time_limit_finish_detail')),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _finishMatchByTimeLimit();
+            },
+            child: Text(t.get('end_now')),
           ),
+          ElevatedButton(
+            autofocus: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _matchTimeExpired = true);
+            },
+            child: Text(t.get('continue_game')),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2476,8 +2414,9 @@ class _GameScreenState extends State<GameScreen>
       if (widget.match.type == MatchType.hyakin &&
           widget.match.currentSetIndex == 2) {
         final int hyakinPreMisses = player.consecutiveMisses;
-        final set1Score =
-            player.setFinalScores.isNotEmpty ? player.setFinalScores[0] : 0;
+        final set1Score = player.setFinalScores.isNotEmpty
+            ? player.setFinalScores[0]
+            : 0;
         GameLogic.processHyakinSet2Throw(
           player,
           selectedSkitels,
@@ -2489,8 +2428,9 @@ class _GameScreenState extends State<GameScreen>
         turnInProgressScores[player.id] = hyakinPoints;
 
         // Survivor logic for hyakin Set 2
-        final survivors2 =
-            widget.match.players.where((p) => !p.isDisqualified).toList();
+        final survivors2 = widget.match.players
+            .where((p) => !p.isDisqualified)
+            .toList();
         if (widget.match.players.length >= 2 && survivors2.length == 1) {
           final s = survivors2.first;
           final sSet1 = s.setFinalScores.isNotEmpty ? s.setFinalScores[0] : 0;
@@ -2659,8 +2599,9 @@ class _GameScreenState extends State<GameScreen>
       }
       // === End Self Turn mode ===
 
-      final survivors =
-          widget.match.players.where((p) => !p.isDisqualified).toList();
+      final survivors = widget.match.players
+          .where((p) => !p.isDisqualified)
+          .toList();
 
       if (widget.match.players.length >= 2 && survivors.length == 1) {
         final s = survivors.first;
@@ -2761,11 +2702,11 @@ class _GameScreenState extends State<GameScreen>
             )..add(widget.match.currentSetRecord);
             final bool matchTrulyOver =
                 (widget.match.type == MatchType.fixedSets ||
-                        widget.match.type == MatchType.threeGame)
-                    ? tempCompleted.length >= widget.match.limit
-                    : widget.match.type == MatchType.raceTo &&
-                        decision.winner != null &&
-                        widget.match.isMatchOver;
+                    widget.match.type == MatchType.threeGame)
+                ? tempCompleted.length >= widget.match.limit
+                : widget.match.type == MatchType.raceTo &&
+                      decision.winner != null &&
+                      widget.match.isMatchOver;
 
             widget.match.finalizeCurrentSetIfNeeded();
 
@@ -2853,75 +2794,74 @@ class _GameScreenState extends State<GameScreen>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Text(t.get('reorder_hint')),
-                content: SizedBox(
-                  width: double.maxFinite,
-                  height: 200,
-                  child: ReorderableListView(
-                    buildDefaultDragHandles: false,
-                    shrinkWrap: true,
-                    onReorder: (o, n) {
-                      setDialogState(() {
-                        if (o < n) n -= 1;
-                        reorderList.insert(n, reorderList.removeAt(o));
-                      });
-                    },
-                    children: [
-                      for (int i = 0; i < reorderList.length; i++)
-                        ReorderableDragStartListener(
-                          key: Key(reorderList[i].id),
-                          index: i,
-                          child: ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.drag_handle, size: 20),
-                            title: Text(reorderList[i].name),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  if (_prevSetSnapshot != null)
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.orange[700],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(t.get('reorder_hint')),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 200,
+              child: ReorderableListView(
+                buildDefaultDragHandles: false,
+                shrinkWrap: true,
+                onReorder: (o, n) {
+                  setDialogState(() {
+                    if (o < n) n -= 1;
+                    reorderList.insert(n, reorderList.removeAt(o));
+                  });
+                },
+                children: [
+                  for (int i = 0; i < reorderList.length; i++)
+                    ReorderableDragStartListener(
+                      key: Key(reorderList[i].id),
+                      index: i,
+                      child: ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.drag_handle, size: 20),
+                        title: Text(reorderList[i].name),
                       ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _undoToPreviousSet();
-                      },
-                      child: const Text('前のセットに戻る'),
                     ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(t.get('cancel')),
-                  ),
-                  TextButton(
-                    autofocus: true,
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      setState(() {
-                        widget.match.applyManualOrder(reorderList);
-                        currentPlayerIndex = 0;
-                        currentTurnInSet = 1;
-                        isSetFinished = false;
-                        turnInProgressScores.clear();
-                        systemCalculatedIds.clear();
-                        selectedSkitels.clear();
-                        _playersBurstedThisSet.clear();
-                      });
-                      _resetElapsedTimer();
-                    },
-                    child: Text(t.get('ok')),
-                  ),
                 ],
-              );
-            },
-          ),
+              ),
+            ),
+            actions: [
+              if (_prevSetSnapshot != null)
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.orange[700],
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _undoToPreviousSet();
+                  },
+                  child: const Text('前のセットに戻る'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(t.get('cancel')),
+              ),
+              TextButton(
+                autofocus: true,
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    widget.match.applyManualOrder(reorderList);
+                    currentPlayerIndex = 0;
+                    currentTurnInSet = 1;
+                    isSetFinished = false;
+                    turnInProgressScores.clear();
+                    systemCalculatedIds.clear();
+                    selectedSkitels.clear();
+                    _playersBurstedThisSet.clear();
+                  });
+                  _resetElapsedTimer();
+                },
+                child: Text(t.get('ok')),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -2942,17 +2882,16 @@ class _GameScreenState extends State<GameScreen>
     _pickerAnnotation.value = 0;
     _annotationPickerEntry?.remove();
     _annotationPickerEntry = OverlayEntry(
-      builder:
-          (_) => _AnnotationPicker(
-            center: globalPos,
-            pickerAnnotation: _pickerAnnotation,
-            onDismiss: () {
-              // 長押し途中でキャンセルされた場合: スコアなしで閉じる
-              _annotationPickerEntry?.remove();
-              _annotationPickerEntry = null;
-              _pickerAnnotation.value = 0;
-            },
-          ),
+      builder: (_) => _AnnotationPicker(
+        center: globalPos,
+        pickerAnnotation: _pickerAnnotation,
+        onDismiss: () {
+          // 長押し途中でキャンセルされた場合: スコアなしで閉じる
+          _annotationPickerEntry?.remove();
+          _annotationPickerEntry = null;
+          _pickerAnnotation.value = 0;
+        },
+      ),
     );
     Overlay.of(context).insert(_annotationPickerEntry!);
   }
@@ -2962,19 +2901,17 @@ class _GameScreenState extends State<GameScreen>
     _pickerAnnotation.value = 0;
     _annotationPickerEntry?.remove();
     _annotationPickerEntry = OverlayEntry(
-      builder:
-          (_) => _AnnotationPicker(
-            center: globalPos,
-            pickerAnnotation: _pickerAnnotation,
-            onDismiss: () {
-              final ann = _pickerAnnotation.value;
-              _annotationPickerEntry?.remove();
-              _annotationPickerEntry = null;
-              _pickerAnnotation.value = 0;
-              if (ann != 0)
-                setState(() => _updateLastAnnotation(playerId, ann));
-            },
-          ),
+      builder: (_) => _AnnotationPicker(
+        center: globalPos,
+        pickerAnnotation: _pickerAnnotation,
+        onDismiss: () {
+          final ann = _pickerAnnotation.value;
+          _annotationPickerEntry?.remove();
+          _annotationPickerEntry = null;
+          _pickerAnnotation.value = 0;
+          if (ann != 0) setState(() => _updateLastAnnotation(playerId, ann));
+        },
+      ),
     );
     Overlay.of(context).insert(_annotationPickerEntry!);
   }
@@ -3000,26 +2937,25 @@ class _GameScreenState extends State<GameScreen>
     }
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('ライブ表示URLを発行'),
-            content: const Text(
-              'OBS等で利用できるライブ表示URLを発行します。\n'
-              'URLを知っている人は誰でも閲覧できます。\n'
-              '試合終了から24時間後に自動削除されます。',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('キャンセル'),
-              ),
-              ElevatedButton(
-                autofocus: true,
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('発行する'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('ライブ表示URLを発行'),
+        content: const Text(
+          'OBS等で利用できるライブ表示URLを発行します。\n'
+          'URLを知っている人は誰でも閲覧できます。\n'
+          '試合終了から24時間後に自動削除されます。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
           ),
+          ElevatedButton(
+            autofocus: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('発行する'),
+          ),
+        ],
+      ),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _liveIssuing = true);
@@ -3047,60 +2983,56 @@ class _GameScreenState extends State<GameScreen>
     final url = 'https://easy-molkky-score.ikegam1.com/#/live/$liveId';
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('ライブ表示URL'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'このURLをOBS等のブラウザソースに設定すると、リアルタイムでスコアが表示されます。',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: SelectableText(
-                    url,
-                    style: const TextStyle(fontSize: 13, fontFamily: 'Courier'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '※ URLを知っている人は誰でも閲覧できます。\n※ 試合終了から24時間後に自動削除されます。',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('ライブ表示URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'このURLをOBS等のブラウザソースに設定すると、リアルタイムでスコアが表示されます。',
+              style: TextStyle(fontSize: 13),
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: url));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('URLをコピーしました'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: const Text('コピー'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              TextButton(
-                autofocus: true,
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('閉じる'),
+              child: SelectableText(
+                url,
+                style: const TextStyle(fontSize: 13, fontFamily: 'Courier'),
               ),
-            ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '※ URLを知っている人は誰でも閲覧できます。\n※ 試合終了から24時間後に自動削除されます。',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: url));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('URLをコピーしました'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('コピー'),
           ),
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3198,23 +3130,22 @@ class _GameScreenState extends State<GameScreen>
       currentTurnInSet: currentTurnInSet,
       currentSetRecord: widget.match.currentSetRecord,
       completedSetsLen: widget.match.completedSets.length,
-      playerStates:
-          widget.match.players
-              .map(
-                (p) => <String, dynamic>{
-                  'id': p.id,
-                  'currentScore': p.currentScore,
-                  'consecutiveMisses': p.consecutiveMisses,
-                  'isDisqualified': p.isDisqualified,
-                  'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
-                  'scoreHistory': List<int>.from(p.scoreHistory),
-                  'scoreSnapshot': List<int>.from(p.scoreSnapshot),
-                  'missSnapshot': List<int>.from(p.missSnapshot),
-                  'matchScoreHistoryLen': p.matchScoreHistory.length,
-                  'setFinalScoresLen': p.setFinalScores.length,
-                },
-              )
-              .toList(),
+      playerStates: widget.match.players
+          .map(
+            (p) => <String, dynamic>{
+              'id': p.id,
+              'currentScore': p.currentScore,
+              'consecutiveMisses': p.consecutiveMisses,
+              'isDisqualified': p.isDisqualified,
+              'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
+              'scoreHistory': List<int>.from(p.scoreHistory),
+              'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+              'missSnapshot': List<int>.from(p.missSnapshot),
+              'matchScoreHistoryLen': p.matchScoreHistory.length,
+              'setFinalScoresLen': p.setFinalScores.length,
+            },
+          )
+          .toList(),
     );
   }
 
@@ -3228,27 +3159,25 @@ class _GameScreenState extends State<GameScreen>
       currentTurnInSet: currentTurnInSet,
       currentSetRecord: widget.match.currentSetRecord,
       completedSetsLen: widget.match.completedSets.length,
-      playerStates:
-          widget.match.players
-              .map(
-                (p) => <String, dynamic>{
-                  'id': p.id,
-                  'currentScore': p.currentScore,
-                  'consecutiveMisses': p.consecutiveMisses,
-                  'isDisqualified': p.isDisqualified,
-                  'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
-                  'scoreHistory': List<int>.from(p.scoreHistory),
-                  'scoreSnapshot': List<int>.from(p.scoreSnapshot),
-                  'missSnapshot': List<int>.from(p.missSnapshot),
-                  'matchScoreHistoryLen': p.matchScoreHistory.length,
-                  // 試合終了処理の finalize で +1 されているため、-1 補正
-                  'setFinalScoresLen':
-                      p.setFinalScores.isEmpty
-                          ? 0
-                          : p.setFinalScores.length - 1,
-                },
-              )
-              .toList(),
+      playerStates: widget.match.players
+          .map(
+            (p) => <String, dynamic>{
+              'id': p.id,
+              'currentScore': p.currentScore,
+              'consecutiveMisses': p.consecutiveMisses,
+              'isDisqualified': p.isDisqualified,
+              'setsWon': p == setWinner ? p.setsWon - 1 : p.setsWon,
+              'scoreHistory': List<int>.from(p.scoreHistory),
+              'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+              'missSnapshot': List<int>.from(p.missSnapshot),
+              'matchScoreHistoryLen': p.matchScoreHistory.length,
+              // 試合終了処理の finalize で +1 されているため、-1 補正
+              'setFinalScoresLen': p.setFinalScores.isEmpty
+                  ? 0
+                  : p.setFinalScores.length - 1,
+            },
+          )
+          .toList(),
     );
   }
 
@@ -3285,8 +3214,9 @@ class _GameScreenState extends State<GameScreen>
       p.scoreSnapshot = List<int>.from(ps['scoreSnapshot'] as List);
       // missSnapshot は 0.6.x 以前のスナップショットに含まれないので absent なら空。
       final missSnapRaw = ps['missSnapshot'];
-      p.missSnapshot =
-          missSnapRaw is List ? List<int>.from(missSnapRaw) : <int>[];
+      p.missSnapshot = missSnapRaw is List
+          ? List<int>.from(missSnapRaw)
+          : <int>[];
       while (p.matchScoreHistory.length > (ps['matchScoreHistoryLen'] as int))
         p.matchScoreHistory.removeLast();
       while (p.setFinalScores.length > (ps['setFinalScoresLen'] as int))
@@ -3336,39 +3266,38 @@ class _GameScreenState extends State<GameScreen>
     final t = L10n.of(context);
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.info_outline, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  t.get('annotation_tip_title'),
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ],
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              t.get('annotation_tip_title'),
+              style: const TextStyle(fontSize: 16),
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _tipRow('👆 ', 'タップ', '通常スコア入力'),
-                _tipRow('👆👆', 'ダブルタップ(0.3秒)', '◯囲み（単品狙い成功）'),
-                const Divider(height: 16),
-                _tipRow('⬆️', '長押し＋上フリック', '□囲み（本数ガシャ成功）'),
-                _tipRow('⬇️', '長押し＋下フリック', '◯囲み（同上）'),
-                _tipRow('⬅️', '長押し＋左フリック', '寄せ成功'),
-                _tipRow('➡️', '長押し＋右フリック', '飛ばし成功'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                autofocus: true,
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
-              ),
-            ],
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _tipRow('👆 ', 'タップ', '通常スコア入力'),
+            _tipRow('👆👆', 'ダブルタップ(0.3秒)', '◯囲み（単品狙い成功）'),
+            const Divider(height: 16),
+            _tipRow('⬆️', '長押し＋上フリック', '□囲み（本数ガシャ成功）'),
+            _tipRow('⬇️', '長押し＋下フリック', '◯囲み（同上）'),
+            _tipRow('⬅️', '長押し＋左フリック', '寄せ成功'),
+            _tipRow('➡️', '長押し＋右フリック', '飛ばし成功'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
           ),
+        ],
+      ),
     );
   }
 
@@ -3473,37 +3402,37 @@ class _GameScreenState extends State<GameScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(
-              '${t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})} ${t.get('self5turn_success')}',
-            ),
-            content: Text(
-              t.get(
-                'consecutive_success',
-                args: {'n': '${widget.match.consecutiveSuccesses}'},
-              ),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            actions: [
-              ElevatedButton(
-                autofocus: true,
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _startNextChallenge();
-                },
-                child: Text(t.get('next_challenge')),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          '${t.get('self5turn_challenge_n', args: {'n': '${widget.match.currentSetIndex}'})} ${t.get('self5turn_success')}',
+        ),
+        content: Text(
+          t.get(
+            'consecutive_success',
+            args: {'n': '${widget.match.consecutiveSuccesses}'},
           ),
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          ElevatedButton(
+            autofocus: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startNextChallenge();
+            },
+            child: Text(t.get('next_challenge')),
+          ),
+        ],
+      ),
     );
   }
 
   void _showSelf5TurnFailureDialog() {
     final t = L10n.of(context);
     final n = widget.match.consecutiveSuccesses;
-    final playerName =
-        widget.match.players.isNotEmpty ? widget.match.players.first.name : '';
+    final playerName = widget.match.players.isNotEmpty
+        ? widget.match.players.first.name
+        : '';
     String resultMsg;
     if (n == 0) {
       resultMsg = t.get('self5turn_failure');
@@ -3521,63 +3450,60 @@ class _GameScreenState extends State<GameScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(resultMsg, style: const TextStyle(fontSize: 20)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  t.get('consecutive_success', args: {'n': '$n'}),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueAccent,
+      builder: (ctx) => AlertDialog(
+        title: Text(resultMsg, style: const TextStyle(fontSize: 20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              t.get('consecutive_success', args: {'n': '$n'}),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.blueAccent,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.popUntil(context, (r) => r.isFirst);
+            },
+            child: Text(t.get('back_to_top')),
+          ),
+          ElevatedButton(
+            autofocus: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              final newPlayers = widget.match.players
+                  .map(
+                    (p) => Player(
+                      id: p.id,
+                      name: p.name,
+                      initialOrder: p.initialOrder,
+                    ),
+                  )
+                  .toList();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => GameScreen(
+                    appUserId: widget.appUserId,
+                    match: MolkkyMatch(
+                      players: newPlayers,
+                      limit: 99,
+                      type: widget.match.type,
+                    ),
                   ),
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.popUntil(context, (r) => r.isFirst);
-                },
-                child: Text(t.get('back_to_top')),
-              ),
-              ElevatedButton(
-                autofocus: true,
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  final newPlayers =
-                      widget.match.players
-                          .map(
-                            (p) => Player(
-                              id: p.id,
-                              name: p.name,
-                              initialOrder: p.initialOrder,
-                            ),
-                          )
-                          .toList();
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (c) => GameScreen(
-                            appUserId: widget.appUserId,
-                            match: MolkkyMatch(
-                              players: newPlayers,
-                              limit: 99,
-                              type: widget.match.type,
-                            ),
-                          ),
-                    ),
-                  );
-                },
-                child: Text(t.get('next_challenge')),
-              ),
-            ],
+              );
+            },
+            child: Text(t.get('next_challenge')),
           ),
+        ],
+      ),
     );
   }
 
@@ -3628,28 +3554,27 @@ class _GameScreenState extends State<GameScreen>
           'turnLimitPerSet': match.turnLimitPerSet,
         if (match.matchTimeLimitSeconds != null)
           'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
-        'players':
-            match.players.map((p) => {'id': p.id, 'name': p.name}).toList(),
-        'history':
-            setsToUpload
-                .map(
-                  (s) => {
-                    'setNumber': s.setNumber,
-                    'turns':
-                        s.turns
-                            .map(
-                              (t) => {
-                                'turnNumber': t.turnNumber,
-                                'scores': t.scores,
-                                if (t.scoreAnnotations.isNotEmpty)
-                                  'annotations': t.scoreAnnotations,
-                              },
-                            )
-                            .toList(),
-                    'finalScores': s.finalCumulativeScores,
-                  },
-                )
-                .toList(),
+        'players': match.players
+            .map((p) => {'id': p.id, 'name': p.name})
+            .toList(),
+        'history': setsToUpload
+            .map(
+              (s) => {
+                'setNumber': s.setNumber,
+                'turns': s.turns
+                    .map(
+                      (t) => {
+                        'turnNumber': t.turnNumber,
+                        'scores': t.scores,
+                        if (t.scoreAnnotations.isNotEmpty)
+                          'annotations': t.scoreAnnotations,
+                      },
+                    )
+                    .toList(),
+                'finalScores': s.finalCumulativeScores,
+              },
+            )
+            .toList(),
       };
       // 修正後の再保存は既存ドキュメントを上書き、新規保存ならaddで自動ID生成
       final col = FirebaseFirestore.instance.collection('scores');
@@ -3690,41 +3615,38 @@ class _GameScreenState extends State<GameScreen>
           'turnLimitPerSet': match.turnLimitPerSet,
         if (match.matchTimeLimitSeconds != null)
           'matchTimeLimitSeconds': match.matchTimeLimitSeconds,
-        'players':
-            match.players
-                .map(
-                  (p) => {
-                    'id': p.id,
-                    'name': p.name,
-                    'setsWon': p.setsWon,
-                    'totalScore': p.totalMatchScore,
-                  },
-                )
-                .toList(),
-        'history':
-            setsToUpload
-                .map(
-                  (s) => {
-                    'setNumber': s.setNumber,
-                    'starterId': s.starterPlayerId,
-                    'playerOrder': s.playerOrder,
-                    'finalScores': s.finalCumulativeScores,
-                    'turns':
-                        s.turns
-                            .map(
-                              (t) => {
-                                'turnNumber': t.turnNumber,
-                                'scores': t.scores,
-                                'systemCalculated':
-                                    t.systemCalculatedPlayerIds.toList(),
-                                if (t.scoreAnnotations.isNotEmpty)
-                                  'annotations': t.scoreAnnotations,
-                              },
-                            )
+        'players': match.players
+            .map(
+              (p) => {
+                'id': p.id,
+                'name': p.name,
+                'setsWon': p.setsWon,
+                'totalScore': p.totalMatchScore,
+              },
+            )
+            .toList(),
+        'history': setsToUpload
+            .map(
+              (s) => {
+                'setNumber': s.setNumber,
+                'starterId': s.starterPlayerId,
+                'playerOrder': s.playerOrder,
+                'finalScores': s.finalCumulativeScores,
+                'turns': s.turns
+                    .map(
+                      (t) => {
+                        'turnNumber': t.turnNumber,
+                        'scores': t.scores,
+                        'systemCalculated': t.systemCalculatedPlayerIds
                             .toList(),
-                  },
-                )
-                .toList(),
+                        if (t.scoreAnnotations.isNotEmpty)
+                          'annotations': t.scoreAnnotations,
+                      },
+                    )
+                    .toList(),
+              },
+            )
+            .toList(),
       };
       // 修正後の再保存は既存ドキュメントを上書き、新規保存ならaddで自動ID生成
       final col = FirebaseFirestore.instance.collection('scores');
@@ -3769,21 +3691,21 @@ class _GameScreenState extends State<GameScreen>
     }
     String? resolvedWinnerName;
     if (widget.match.isMatchOver) {
-      resolvedWinnerName =
-          widget.match.isMatchDraw ? 'DRAW' : widget.match.matchWinner?.name;
+      resolvedWinnerName = widget.match.isMatchDraw
+          ? 'DRAW'
+          : widget.match.matchWinner?.name;
     }
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (c) => HistoryPage(
-              match: widget.match,
-              sets: allSets,
-              isSelf5Turn: _isSelfTurnMode,
-              isHyakin: widget.match.type == MatchType.hyakin,
-              consecutiveSuccesses: widget.match.consecutiveSuccesses,
-              winnerName: resolvedWinnerName,
-            ),
+        builder: (c) => HistoryPage(
+          match: widget.match,
+          sets: allSets,
+          isSelf5Turn: _isSelfTurnMode,
+          isHyakin: widget.match.type == MatchType.hyakin,
+          consecutiveSuccesses: widget.match.consecutiveSuccesses,
+          winnerName: resolvedWinnerName,
+        ),
       ),
     );
   }
@@ -3812,82 +3734,78 @@ class _GameScreenState extends State<GameScreen>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Text(
-                  t.get('set_n', args: {'n': '$finishedSetNum'}),
-                ), // 修正：終わったセットの番号を表示
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(winMsg),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    Text(
-                      t.get('reorder_hint'),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.maxFinite,
-                      height: 200,
-                      child: ReorderableListView(
-                        buildDefaultDragHandles: false,
-                        shrinkWrap: true,
-                        onReorder: (o, n) {
-                          setDialogState(() {
-                            if (o < n) n -= 1;
-                            reorderList.insert(n, reorderList.removeAt(o));
-                          });
-                        },
-                        children: [
-                          for (int i = 0; i < reorderList.length; i++)
-                            ReorderableDragStartListener(
-                              key: Key(reorderList[i].id),
-                              index: i,
-                              child: ListTile(
-                                dense: true,
-                                leading: const Icon(
-                                  Icons.drag_handle,
-                                  size: 20,
-                                ),
-                                title: Text(reorderList[i].name),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(
+              t.get('set_n', args: {'n': '$finishedSetNum'}),
+            ), // 修正：終わったセットの番号を表示
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(winMsg),
+                const SizedBox(height: 16),
+                const Divider(),
+                Text(
+                  t.get('reorder_hint'),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: _goToHistory,
-                    child: Text(t.get('match_history')),
-                  ),
-                  TextButton(
-                    autofocus: true,
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      setState(() {
-                        widget.match.applyManualOrder(reorderList);
-                        currentPlayerIndex = 0;
-                        currentTurnInSet = 1;
-                        isSetFinished = false;
-                        turnInProgressScores.clear();
-                        systemCalculatedIds.clear();
-                        selectedSkitels.clear();
-                        _playersBurstedThisSet.clear();
+                const SizedBox(height: 8),
+                Container(
+                  width: double.maxFinite,
+                  height: 200,
+                  child: ReorderableListView(
+                    buildDefaultDragHandles: false,
+                    shrinkWrap: true,
+                    onReorder: (o, n) {
+                      setDialogState(() {
+                        if (o < n) n -= 1;
+                        reorderList.insert(n, reorderList.removeAt(o));
                       });
-                      _resetElapsedTimer();
                     },
-                    child: Text(t.get('next_set')),
+                    children: [
+                      for (int i = 0; i < reorderList.length; i++)
+                        ReorderableDragStartListener(
+                          key: Key(reorderList[i].id),
+                          index: i,
+                          child: ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.drag_handle, size: 20),
+                            title: Text(reorderList[i].name),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: _goToHistory,
+                child: Text(t.get('match_history')),
+              ),
+              TextButton(
+                autofocus: true,
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    widget.match.applyManualOrder(reorderList);
+                    currentPlayerIndex = 0;
+                    currentTurnInSet = 1;
+                    isSetFinished = false;
+                    turnInProgressScores.clear();
+                    systemCalculatedIds.clear();
+                    selectedSkitels.clear();
+                    _playersBurstedThisSet.clear();
+                  });
+                  _resetElapsedTimer();
+                },
+                child: Text(t.get('next_set')),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -3934,44 +3852,43 @@ class _GameScreenState extends State<GameScreen>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(
-              '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}',
-            ),
-            content: SingleChildScrollView(
-              child: DownloadableMatchResult(
-                match: widget.match,
-                sets: allSets,
-                isMatchDraw: false,
-                winnerName: winner.name,
-                matchTypeName: _matchTypeLabel(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _enterPostMatchEditMode();
-                },
-                child: const Text('点数を修正する'),
-              ),
-              TextButton(
-                autofocus: true,
-                onPressed: () {
-                  Navigator.popUntil(context, (r) => r.isFirst);
-                  // ホーム画面に戻った直後に In-App Review を試行する。
-                  // 累計 3 試合以上プレイしたユーザーのみ、Play が許可した
-                  // ときだけダイアログが表示される。
-                  Future<void>.delayed(
-                    const Duration(milliseconds: 400),
-                    _handleMatchFinishedAndMaybeRequestReview,
-                  );
-                },
-                child: Text(t.get('finish')),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}',
+        ),
+        content: SingleChildScrollView(
+          child: DownloadableMatchResult(
+            match: widget.match,
+            sets: allSets,
+            isMatchDraw: false,
+            winnerName: winner.name,
+            matchTypeName: _matchTypeLabel(),
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _enterPostMatchEditMode();
+            },
+            child: const Text('点数を修正する'),
+          ),
+          TextButton(
+            autofocus: true,
+            onPressed: () {
+              Navigator.popUntil(context, (r) => r.isFirst);
+              // ホーム画面に戻った直後に In-App Review を試行する。
+              // 累計 3 試合以上プレイしたユーザーのみ、Play が許可した
+              // ときだけダイアログが表示される。
+              Future<void>.delayed(
+                const Duration(milliseconds: 400),
+                _handleMatchFinishedAndMaybeRequestReview,
+              );
+            },
+            child: Text(t.get('finish')),
+          ),
+        ],
+      ),
     );
   }
 
@@ -4001,82 +3918,78 @@ class _GameScreenState extends State<GameScreen>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Text(
-                  '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('set_draw')}',
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(
+              '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('set_draw')}',
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(t.get('set_draw_detail')),
+                const SizedBox(height: 16),
+                const Divider(),
+                Text(
+                  t.get('reorder_hint'),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(t.get('set_draw_detail')),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    Text(
-                      t.get('reorder_hint'),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.maxFinite,
-                      height: 200,
-                      child: ReorderableListView(
-                        buildDefaultDragHandles: false,
-                        shrinkWrap: true,
-                        onReorder: (o, n) {
-                          setDialogState(() {
-                            if (o < n) n -= 1;
-                            reorderList.insert(n, reorderList.removeAt(o));
-                          });
-                        },
-                        children: [
-                          for (int i = 0; i < reorderList.length; i++)
-                            ReorderableDragStartListener(
-                              key: Key(reorderList[i].id),
-                              index: i,
-                              child: ListTile(
-                                dense: true,
-                                leading: const Icon(
-                                  Icons.drag_handle,
-                                  size: 20,
-                                ),
-                                title: Text(reorderList[i].name),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: _goToHistory,
-                    child: Text(t.get('match_history')),
-                  ),
-                  TextButton(
-                    autofocus: true,
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      setState(() {
-                        widget.match.applyManualOrder(reorderList);
-                        currentPlayerIndex = 0;
-                        currentTurnInSet = 1;
-                        isSetFinished = false;
-                        turnInProgressScores.clear();
-                        systemCalculatedIds.clear();
-                        selectedSkitels.clear();
-                        _playersBurstedThisSet.clear();
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.maxFinite,
+                  height: 200,
+                  child: ReorderableListView(
+                    buildDefaultDragHandles: false,
+                    shrinkWrap: true,
+                    onReorder: (o, n) {
+                      setDialogState(() {
+                        if (o < n) n -= 1;
+                        reorderList.insert(n, reorderList.removeAt(o));
                       });
-                      _resetElapsedTimer();
                     },
-                    child: Text(t.get('next_set')),
+                    children: [
+                      for (int i = 0; i < reorderList.length; i++)
+                        ReorderableDragStartListener(
+                          key: Key(reorderList[i].id),
+                          index: i,
+                          child: ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.drag_handle, size: 20),
+                            title: Text(reorderList[i].name),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: _goToHistory,
+                child: Text(t.get('match_history')),
+              ),
+              TextButton(
+                autofocus: true,
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    widget.match.applyManualOrder(reorderList);
+                    currentPlayerIndex = 0;
+                    currentTurnInSet = 1;
+                    isSetFinished = false;
+                    turnInProgressScores.clear();
+                    systemCalculatedIds.clear();
+                    selectedSkitels.clear();
+                    _playersBurstedThisSet.clear();
+                  });
+                  _resetElapsedTimer();
+                },
+                child: Text(t.get('next_set')),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -4091,41 +4004,40 @@ class _GameScreenState extends State<GameScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(
-              '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}',
-            ),
-            content: SingleChildScrollView(
-              child: DownloadableMatchResult(
-                match: widget.match,
-                sets: allSets,
-                isMatchDraw: true,
-                winnerName: 'Draw',
-                matchTypeName: _matchTypeLabel(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _enterPostMatchEditMode();
-                },
-                child: const Text('点数を修正する'),
-              ),
-              TextButton(
-                autofocus: true,
-                onPressed: () {
-                  Navigator.popUntil(context, (r) => r.isFirst);
-                  Future<void>.delayed(
-                    const Duration(milliseconds: 400),
-                    _handleMatchFinishedAndMaybeRequestReview,
-                  );
-                },
-                child: Text(t.get('finish')),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          '${t.get('set_n', args: {'n': '$finishedSetNum'})} - ${t.get('match_over')}',
+        ),
+        content: SingleChildScrollView(
+          child: DownloadableMatchResult(
+            match: widget.match,
+            sets: allSets,
+            isMatchDraw: true,
+            winnerName: 'Draw',
+            matchTypeName: _matchTypeLabel(),
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _enterPostMatchEditMode();
+            },
+            child: const Text('点数を修正する'),
+          ),
+          TextButton(
+            autofocus: true,
+            onPressed: () {
+              Navigator.popUntil(context, (r) => r.isFirst);
+              Future<void>.delayed(
+                const Duration(milliseconds: 400),
+                _handleMatchFinishedAndMaybeRequestReview,
+              );
+            },
+            child: Text(t.get('finish')),
+          ),
+        ],
+      ),
     );
   }
 
@@ -4187,9 +4099,18 @@ class _GameScreenState extends State<GameScreen>
             color: color,
           ),
           children: [
-            TextSpan(text: minutes, style: TextStyle(fontSize: fontSize)),
-            TextSpan(text: ':', style: TextStyle(fontSize: fontSize)),
-            TextSpan(text: seconds, style: TextStyle(fontSize: fontSize)),
+            TextSpan(
+              text: minutes,
+              style: TextStyle(fontSize: fontSize),
+            ),
+            TextSpan(
+              text: ':',
+              style: TextStyle(fontSize: fontSize),
+            ),
+            TextSpan(
+              text: seconds,
+              style: TextStyle(fontSize: fontSize),
+            ),
           ],
         ),
       ),
@@ -4258,17 +4179,16 @@ class _GameScreenState extends State<GameScreen>
       // 現在の投擲者はアンダーライン強調（2ミス時は赤）
       cells.add(
         Container(
-          decoration:
-              isCurrent
-                  ? BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: is2Miss ? Colors.red : Colors.white,
-                        width: 3.0,
-                      ),
+          decoration: isCurrent
+              ? BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: is2Miss ? Colors.red : Colors.white,
+                      width: 3.0,
                     ),
-                  )
-                  : null,
+                  ),
+                )
+              : null,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -4314,18 +4234,18 @@ class _GameScreenState extends State<GameScreen>
     String missIcons = '';
     if (currentPlayer.consecutiveMisses == 1) missIcons = ' ☠';
     if (currentPlayer.consecutiveMisses == 2) missIcons = ' ☠☠';
-    Color nameColor =
-        currentPlayer.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
+    Color nameColor = currentPlayer.consecutiveMisses >= 2
+        ? Colors.red
+        : Colors.blue;
 
     // アガリガイドメッセージ
     String? reachMsg;
     if (!isSetFinished) {
       if (widget.match.type == MatchType.hyakin &&
           widget.match.currentSetIndex == 2) {
-        final set1 =
-            currentPlayer.setFinalScores.isNotEmpty
-                ? currentPlayer.setFinalScores[0]
-                : 0;
+        final set1 = currentPlayer.setFinalScores.isNotEmpty
+            ? currentPlayer.setFinalScores[0]
+            : 0;
         final remaining = (100 - set1) - currentPlayer.currentScore;
         if (remaining <= 12 && remaining > 0) {
           reachMsg = t.get(
@@ -4364,24 +4284,23 @@ class _GameScreenState extends State<GameScreen>
         if (didPop) return;
         final confirmed = await showDialog<bool>(
           context: context,
-          builder:
-              (ctx) => AlertDialog(
-                content: const Text('試合が無効になってしまいますが、最初の画面に戻って良いですか？'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('キャンセル'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('最初の画面に戻る'),
-                  ),
-                ],
+          builder: (ctx) => AlertDialog(
+            content: const Text('試合が無効になってしまいますが、最初の画面に戻って良いですか？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('キャンセル'),
               ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('最初の画面に戻る'),
+              ),
+            ],
+          ),
         );
         if (confirmed == true && context.mounted) {
           Navigator.popUntil(context, (r) => r.isFirst);
@@ -4392,13 +4311,13 @@ class _GameScreenState extends State<GameScreen>
           title: Text(
             isSelfTurn
                 ? t.get(
-                  'self5turn_challenge_n',
-                  args: {'n': '${widget.match.currentSetIndex}'},
-                )
+                    'self5turn_challenge_n',
+                    args: {'n': '${widget.match.currentSetIndex}'},
+                  )
                 : t.get(
-                  'set_n',
-                  args: {'n': '${widget.match.currentSetIndex}'},
-                ),
+                    'set_n',
+                    args: {'n': '${widget.match.currentSetIndex}'},
+                  ),
           ),
           actions: [
             IconButton(
@@ -4514,47 +4433,42 @@ class _GameScreenState extends State<GameScreen>
                                         final num = i + 1;
                                         return _PinButton(
                                           num: num,
-                                          onTap:
-                                              isSetFinished
-                                                  ? null
-                                                  : (pos) =>
-                                                      _handlePinTap(num, pos),
-                                          onLongPressStart:
-                                              isSetFinished
-                                                  ? null
-                                                  : (details) =>
-                                                      _showAnnotationPickerForNewScore(
-                                                        details.globalPosition,
-                                                        num,
-                                                      ),
-                                          onLongPressMoveUpdate:
-                                              isSetFinished
-                                                  ? null
-                                                  : (details) {
-                                                    _pickerAnnotation.value =
-                                                        _annotationFromOffset(
-                                                          details
-                                                              .offsetFromOrigin,
-                                                        );
-                                                  },
-                                          onLongPressEnd:
-                                              isSetFinished
-                                                  ? null
-                                                  : (details) {
-                                                    final ann =
-                                                        _pickerAnnotation.value;
-                                                    _annotationPickerEntry
-                                                        ?.remove();
-                                                    _annotationPickerEntry =
-                                                        null;
-                                                    _pickerAnnotation.value = 0;
-                                                    _lastTapNum = null;
-                                                    setState(() {
-                                                      selectedSkitels = [num];
-                                                      _throwAnnotation = ann;
-                                                    });
-                                                    _submitThrow();
-                                                  },
+                                          onTap: isSetFinished
+                                              ? null
+                                              : (pos) =>
+                                                    _handlePinTap(num, pos),
+                                          onLongPressStart: isSetFinished
+                                              ? null
+                                              : (details) =>
+                                                    _showAnnotationPickerForNewScore(
+                                                      details.globalPosition,
+                                                      num,
+                                                    ),
+                                          onLongPressMoveUpdate: isSetFinished
+                                              ? null
+                                              : (details) {
+                                                  _pickerAnnotation.value =
+                                                      _annotationFromOffset(
+                                                        details
+                                                            .offsetFromOrigin,
+                                                      );
+                                                },
+                                          onLongPressEnd: isSetFinished
+                                              ? null
+                                              : (details) {
+                                                  final ann =
+                                                      _pickerAnnotation.value;
+                                                  _annotationPickerEntry
+                                                      ?.remove();
+                                                  _annotationPickerEntry = null;
+                                                  _pickerAnnotation.value = 0;
+                                                  _lastTapNum = null;
+                                                  setState(() {
+                                                    selectedSkitels = [num];
+                                                    _throwAnnotation = ann;
+                                                  });
+                                                  _submitThrow();
+                                                },
                                           fontSize: 20,
                                         );
                                       },
@@ -4659,10 +4573,9 @@ class _GameScreenState extends State<GameScreen>
                                                   fontSize: 26,
                                                   fontFamily: 'Courier',
                                                   fontWeight: FontWeight.w900,
-                                                  color:
-                                                      _elapsedSeconds >= 60
-                                                          ? Colors.red
-                                                          : Colors.black87,
+                                                  color: _elapsedSeconds >= 60
+                                                      ? Colors.red
+                                                      : Colors.black87,
                                                   letterSpacing: 1,
                                                 ),
                                               ),
@@ -4761,42 +4674,38 @@ class _GameScreenState extends State<GameScreen>
                               final num = i + 1;
                               return _PinButton(
                                 num: num,
-                                onTap:
-                                    isSetFinished
-                                        ? null
-                                        : (pos) => _handlePinTap(num, pos),
-                                onLongPressStart:
-                                    isSetFinished
-                                        ? null
-                                        : (details) =>
-                                            _showAnnotationPickerForNewScore(
-                                              details.globalPosition,
-                                              num,
-                                            ),
-                                onLongPressMoveUpdate:
-                                    isSetFinished
-                                        ? null
-                                        : (details) {
-                                          _pickerAnnotation
-                                              .value = _annotationFromOffset(
-                                            details.offsetFromOrigin,
-                                          );
-                                        },
-                                onLongPressEnd:
-                                    isSetFinished
-                                        ? null
-                                        : (details) {
-                                          final ann = _pickerAnnotation.value;
-                                          _annotationPickerEntry?.remove();
-                                          _annotationPickerEntry = null;
-                                          _pickerAnnotation.value = 0;
-                                          _lastTapNum = null;
-                                          setState(() {
-                                            selectedSkitels = [num];
-                                            _throwAnnotation = ann;
-                                          });
-                                          _submitThrow();
-                                        },
+                                onTap: isSetFinished
+                                    ? null
+                                    : (pos) => _handlePinTap(num, pos),
+                                onLongPressStart: isSetFinished
+                                    ? null
+                                    : (details) =>
+                                          _showAnnotationPickerForNewScore(
+                                            details.globalPosition,
+                                            num,
+                                          ),
+                                onLongPressMoveUpdate: isSetFinished
+                                    ? null
+                                    : (details) {
+                                        _pickerAnnotation.value =
+                                            _annotationFromOffset(
+                                              details.offsetFromOrigin,
+                                            );
+                                      },
+                                onLongPressEnd: isSetFinished
+                                    ? null
+                                    : (details) {
+                                        final ann = _pickerAnnotation.value;
+                                        _annotationPickerEntry?.remove();
+                                        _annotationPickerEntry = null;
+                                        _pickerAnnotation.value = 0;
+                                        _lastTapNum = null;
+                                        setState(() {
+                                          selectedSkitels = [num];
+                                          _throwAnnotation = ann;
+                                        });
+                                        _submitThrow();
+                                      },
                                 fontSize: 26,
                               );
                             },
@@ -4877,10 +4786,9 @@ class _GameScreenState extends State<GameScreen>
                                       fontSize: 32,
                                       fontFamily: 'Courier',
                                       fontWeight: FontWeight.w900,
-                                      color:
-                                          _elapsedSeconds >= 60
-                                              ? Colors.red
-                                              : Colors.black87,
+                                      color: _elapsedSeconds >= 60
+                                          ? Colors.red
+                                          : Colors.black87,
                                       letterSpacing: 1,
                                     ),
                                   ),
@@ -4929,10 +4837,9 @@ class _GameScreenState extends State<GameScreen>
     EdgeInsets margin = const EdgeInsets.all(8),
     EdgeInsets padding = const EdgeInsets.all(8),
   }) {
-    final turnLabel =
-        _isLastLimitedTurn
-            ? t.get('last_turn')
-            : t.get('turn_n', args: {'n': '$currentTurnInSet'});
+    final turnLabel = _isLastLimitedTurn
+        ? t.get('last_turn')
+        : t.get('turn_n', args: {'n': '$currentTurnInSet'});
     final turnColor = _isLastLimitedTurn ? Colors.orange : nameColor;
     final nameWidget = RichText(
       text: TextSpan(
@@ -4943,8 +4850,14 @@ class _GameScreenState extends State<GameScreen>
         ),
         children: [
           TextSpan(text: '${currentPlayer.name} '),
-          TextSpan(text: '($turnLabel)', style: TextStyle(color: turnColor)),
-          TextSpan(text: missIcons, style: const TextStyle(color: Colors.red)),
+          TextSpan(
+            text: '($turnLabel)',
+            style: TextStyle(color: turnColor),
+          ),
+          TextSpan(
+            text: missIcons,
+            style: const TextStyle(color: Colors.red),
+          ),
         ],
       ),
     );
@@ -4976,9 +4889,8 @@ class _GameScreenState extends State<GameScreen>
           if (shouldBlink)
             AnimatedBuilder(
               animation: _blinkOpacity,
-              builder:
-                  (_, child) =>
-                      Opacity(opacity: _blinkOpacity.value, child: child),
+              builder: (_, child) =>
+                  Opacity(opacity: _blinkOpacity.value, child: child),
               child: nameWidget,
             )
           else
@@ -5072,12 +4984,10 @@ class _GameScreenState extends State<GameScreen>
         const colSpacing = 10.0;
         final numPlayers = widget.match.players.length;
         final available = constraints.maxWidth - containerMargin;
-        final playerColW = ((available -
-                    2 * dtHMargin -
-                    turnColW -
-                    colSpacing * numPlayers) /
-                numPlayers)
-            .clamp(60.0, 200.0);
+        final playerColW =
+            ((available - 2 * dtHMargin - turnColW - colSpacing * numPlayers) /
+                    numPlayers)
+                .clamp(60.0, 200.0);
         final cellW = (playerColW / 2).floorToDouble();
         final headerNameSize = (cellW * 0.14).clamp(9.0, 13.0);
         final headerSubSize = (cellW * 0.11).clamp(8.0, 10.0);
@@ -5111,8 +5021,9 @@ class _GameScreenState extends State<GameScreen>
                     if (p.isDisqualified) {
                       colNameColor = Colors.grey;
                     } else if (isCurrentCol) {
-                      colNameColor =
-                          p.consecutiveMisses >= 2 ? Colors.red : Colors.blue;
+                      colNameColor = p.consecutiveMisses >= 2
+                          ? Colors.red
+                          : Colors.blue;
                     } else {
                       colNameColor = Colors.black;
                     }
@@ -5139,16 +5050,18 @@ class _GameScreenState extends State<GameScreen>
                                     t.get('points'),
                                     style: TextStyle(
                                       fontSize: headerSubSize,
-                                      color:
-                                          p.isDisqualified ? Colors.grey : null,
+                                      color: p.isDisqualified
+                                          ? Colors.grey
+                                          : null,
                                     ),
                                   ),
                                   Text(
                                     t.get('total'),
                                     style: TextStyle(
                                       fontSize: headerSubSize,
-                                      color:
-                                          p.isDisqualified ? Colors.grey : null,
+                                      color: p.isDisqualified
+                                          ? Colors.grey
+                                          : null,
                                     ),
                                   ),
                                 ],
@@ -5164,10 +5077,9 @@ class _GameScreenState extends State<GameScreen>
                   int turn = currentTurnInSet - i;
                   final isCurrent = i == 0;
                   return DataRow(
-                    color:
-                        isCurrent
-                            ? WidgetStateProperty.all(const Color(0xFFFFF9C4))
-                            : null,
+                    color: isCurrent
+                        ? WidgetStateProperty.all(const Color(0xFFFFF9C4))
+                        : null,
                     cells: [
                       DataCell(Center(child: Text('$turn'))),
                       ...widget.match.players.expand((p) {
@@ -5179,10 +5091,9 @@ class _GameScreenState extends State<GameScreen>
                         if (hasScore) {
                           score = p.scoreHistory[turn - 1];
                           if (isHyakinSet2) {
-                            final pSet1 =
-                                p.setFinalScores.isNotEmpty
-                                    ? p.setFinalScores[0]
-                                    : 0;
+                            final pSet1 = p.setFinalScores.isNotEmpty
+                                ? p.setFinalScores[0]
+                                : 0;
                             final pTarget = 100 - pSet1;
                             final pBurst = 75 - pSet1;
                             int tmp = 0;
@@ -5215,12 +5126,12 @@ class _GameScreenState extends State<GameScreen>
                         } else {
                           nextThrowBorderColor = Colors.yellow[700]!;
                         }
-                        final Color? textColor =
-                            p.isDisqualified
-                                ? Colors.grey
-                                : (isFault ? Colors.red : null);
-                        final Color totalTextColor =
-                            p.isDisqualified ? Colors.grey : Colors.black;
+                        final Color? textColor = p.isDisqualified
+                            ? Colors.grey
+                            : (isFault ? Colors.red : null);
+                        final Color totalTextColor = p.isDisqualified
+                            ? Colors.grey
+                            : Colors.black;
                         return [
                           DataCell(
                             Row(
@@ -5228,15 +5139,14 @@ class _GameScreenState extends State<GameScreen>
                                 Container(
                                   width: cellW,
                                   alignment: Alignment.center,
-                                  decoration:
-                                      isNextThrow
-                                          ? BoxDecoration(
-                                            border: Border.all(
-                                              color: nextThrowBorderColor,
-                                              width: 2,
-                                            ),
-                                          )
-                                          : null,
+                                  decoration: isNextThrow
+                                      ? BoxDecoration(
+                                          border: Border.all(
+                                            color: nextThrowBorderColor,
+                                            width: 2,
+                                          ),
+                                        )
+                                      : null,
                                   child: Builder(
                                     builder: (_) {
                                       if (!hasScore || isFault) {
@@ -5245,24 +5155,22 @@ class _GameScreenState extends State<GameScreen>
                                           style: TextStyle(
                                             fontSize: fontSize,
                                             color: textColor,
-                                            fontWeight:
-                                                isFault
-                                                    ? FontWeight.bold
-                                                    : null,
+                                            fontWeight: isFault
+                                                ? FontWeight.bold
+                                                : null,
                                           ),
                                         );
                                       }
                                       final turns =
                                           widget.match.currentSetRecord.turns;
-                                      final ann =
-                                          isCurrent
-                                              ? (_turnAnnotations[p.id] ?? 0)
-                                              : (turns.length >= turn
-                                                  ? (turns[turn - 1]
+                                      final ann = isCurrent
+                                          ? (_turnAnnotations[p.id] ?? 0)
+                                          : (turns.length >= turn
+                                                ? (turns[turn - 1]
                                                           .scoreAnnotations[p
                                                           .id] ??
                                                       0)
-                                                  : 0);
+                                                : 0);
                                       return _annotatedScoreWidget(
                                         score,
                                         ann,
@@ -5336,11 +5244,10 @@ class _FaultButtonWithHillu37State extends State<_FaultButtonWithHillu37> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onLongPressStart:
-          (_) => setState(() {
-            _showHint = true;
-            _hillu37Ready = false;
-          }),
+      onLongPressStart: (_) => setState(() {
+        _showHint = true;
+        _hillu37Ready = false;
+      }),
       onLongPressMoveUpdate: (details) {
         final ready = details.localOffsetFromOrigin.dy < -20;
         if (ready != _hillu37Ready) {
@@ -5355,11 +5262,10 @@ class _FaultButtonWithHillu37State extends State<_FaultButtonWithHillu37> {
         });
         if (wasReady) widget.onHillu37();
       },
-      onLongPressCancel:
-          () => setState(() {
-            _showHint = false;
-            _hillu37Ready = false;
-          }),
+      onLongPressCancel: () => setState(() {
+        _showHint = false;
+        _hillu37Ready = false;
+      }),
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
@@ -5386,8 +5292,9 @@ class _FaultButtonWithHillu37State extends State<_FaultButtonWithHillu37> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color:
-                      _hillu37Ready ? Colors.red.shade900 : Colors.red.shade700,
+                  color: _hillu37Ready
+                      ? Colors.red.shade900
+                      : Colors.red.shade700,
                   borderRadius: BorderRadius.circular(4),
                   boxShadow: const [
                     BoxShadow(
@@ -5552,10 +5459,9 @@ class HistoryPage extends StatelessWidget {
               text: '${wins[a.id] ?? 0}',
               style: TextStyle(
                 fontSize: 16,
-                fontWeight:
-                    (wins[a.id] ?? 0) == maxWins && maxWins > 0
-                        ? FontWeight.w800
-                        : FontWeight.w500,
+                fontWeight: (wins[a.id] ?? 0) == maxWins && maxWins > 0
+                    ? FontWeight.w800
+                    : FontWeight.w500,
                 color: Colors.indigo,
               ),
             ),
@@ -5567,10 +5473,9 @@ class HistoryPage extends StatelessWidget {
               text: '${wins[b.id] ?? 0}',
               style: TextStyle(
                 fontSize: 16,
-                fontWeight:
-                    (wins[b.id] ?? 0) == maxWins && maxWins > 0
-                        ? FontWeight.w800
-                        : FontWeight.w500,
+                fontWeight: (wins[b.id] ?? 0) == maxWins && maxWins > 0
+                    ? FontWeight.w800
+                    : FontWeight.w500,
                 color: Colors.indigo,
               ),
             ),
@@ -5581,21 +5486,19 @@ class HistoryPage extends StatelessWidget {
 
     return Wrap(
       spacing: 10,
-      children:
-          allPlayers
-              .map(
-                (p) => Text(
-                  '${p.name}:${wins[p.id] ?? 0}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight:
-                        (wins[p.id] ?? 0) == maxWins && maxWins > 0
-                            ? FontWeight.w800
-                            : FontWeight.w500,
-                  ),
-                ),
-              )
-              .toList(),
+      children: allPlayers
+          .map(
+            (p) => Text(
+              '${p.name}:${wins[p.id] ?? 0}',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: (wins[p.id] ?? 0) == maxWins && maxWins > 0
+                    ? FontWeight.w800
+                    : FontWeight.w500,
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -5775,9 +5678,9 @@ class HistoryPage extends StatelessWidget {
                 child: Text(
                   (isSelf5Turn || isSelf6Turn)
                       ? t.get(
-                        'self5turn_challenge_n',
-                        args: {'n': '${set.setNumber}'},
-                      )
+                          'self5turn_challenge_n',
+                          args: {'n': '${set.setNumber}'},
+                        )
                       : t.get('set_n', args: {'n': '${set.setNumber}'}),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
@@ -5913,12 +5816,11 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
     return Scaffold(
       appBar: AppBar(title: Text(t.get('match_history'))),
       body: StreamBuilder<QuerySnapshot>(
-        stream:
-            FirebaseFirestore.instance
-                .collection('scores')
-                .where('appUserId', isEqualTo: widget.uid)
-                .orderBy('startTime', descending: true)
-                .snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('scores')
+            .where('appUserId', isEqualTo: widget.uid)
+            .orderBy('startTime', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             final error = snapshot.error.toString();
@@ -5960,18 +5862,17 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
               (!showFilter && (hasSelf5Turn || hasSelf6Turn));
 
           // Filter
-          var filtered =
-              showFilter && _filter != 'all'
-                  ? allDocs.where((d) {
-                    final data = d.data() as Map<String, dynamic>;
-                    final mType = data['matchType'];
-                    if (_filter == 'self5Turn')
-                      return mType == 'MatchType.self5Turn';
-                    if (_filter == 'self6Turn')
-                      return mType == 'MatchType.self6Turn';
-                    return !_isSelfTurnRecord(data);
-                  }).toList()
-                  : List.from(allDocs);
+          var filtered = showFilter && _filter != 'all'
+              ? allDocs.where((d) {
+                  final data = d.data() as Map<String, dynamic>;
+                  final mType = data['matchType'];
+                  if (_filter == 'self5Turn')
+                    return mType == 'MatchType.self5Turn';
+                  if (_filter == 'self6Turn')
+                    return mType == 'MatchType.self6Turn';
+                  return !_isSelfTurnRecord(data);
+                }).toList()
+              : List.from(allDocs);
 
           // Sort for selfTurn view
           if (showingSelfTurn) {
@@ -5995,8 +5896,10 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
 
           // Pagination
           final totalDocs = filtered.length;
-          final totalPages =
-              (totalDocs / _pageSize).ceil().clamp(1, double.maxFinite).toInt();
+          final totalPages = (totalDocs / _pageSize)
+              .ceil()
+              .clamp(1, double.maxFinite)
+              .toInt();
           final safePage = _currentPage.clamp(0, totalPages - 1);
           final pageStart = safePage * _pageSize;
           final pageEnd = (pageStart + _pageSize).clamp(0, totalDocs);
@@ -6129,11 +6032,9 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.chevron_left),
-                        onPressed:
-                            safePage > 0
-                                ? () =>
-                                    setState(() => _currentPage = safePage - 1)
-                                : null,
+                        onPressed: safePage > 0
+                            ? () => setState(() => _currentPage = safePage - 1)
+                            : null,
                       ),
                       Text(
                         '${safePage + 1} / $totalPages',
@@ -6141,11 +6042,9 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.chevron_right),
-                        onPressed:
-                            safePage < totalPages - 1
-                                ? () =>
-                                    setState(() => _currentPage = safePage + 1)
-                                : null,
+                        onPressed: safePage < totalPages - 1
+                            ? () => setState(() => _currentPage = safePage + 1)
+                            : null,
                       ),
                     ],
                   ),
@@ -6164,59 +6063,53 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
   ) {
     final t = L10n.of(context);
     try {
-      final List<Player> players =
-          (data['players'] as List)
-              .map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0))
-              .toList();
+      final List<Player> players = (data['players'] as List)
+          .map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0))
+          .toList();
       final mType = data['matchType'] ?? '';
       final isSelf5Turn = mType == 'MatchType.self5Turn';
       final isSelf6Turn = mType == 'MatchType.self6Turn';
       final isSelfTurnMode = isSelf5Turn || isSelf6Turn;
       final consecutiveSuccesses = data['consecutiveSuccesses'] as int? ?? 0;
-      final List<SetRecord> sets =
-          (data['history'] as List).map((s) {
-            final playerOrder =
-                isSelfTurnMode
-                    ? players.map((p) => p.id).toList()
-                    : List<String>.from(s['playerOrder'] ?? []);
-            final starterId =
-                isSelfTurnMode ? players.first.id : (s['starterId'] ?? '');
-            final set = SetRecord(s['setNumber'], starterId, playerOrder);
-            (s['turns'] as List).forEach(
-              (t) => set.turns.add(
-                TurnRecord(
-                  t['turnNumber'],
-                  Map<String, int>.from(t['scores']),
-                  systemCalculated: Set<String>.from(
-                    t['systemCalculated'] ?? [],
-                  ),
-                  scoreAnnotations:
-                      t['annotations'] != null
-                          ? Map<String, int>.from(t['annotations'])
-                          : {},
-                ),
-              ),
-            );
-            (s['finalScores'] as Map).forEach(
-              (k, v) => set.finalCumulativeScores[k] = v as int,
-            );
-            return set;
-          }).toList();
+      final List<SetRecord> sets = (data['history'] as List).map((s) {
+        final playerOrder = isSelfTurnMode
+            ? players.map((p) => p.id).toList()
+            : List<String>.from(s['playerOrder'] ?? []);
+        final starterId = isSelfTurnMode
+            ? players.first.id
+            : (s['starterId'] ?? '');
+        final set = SetRecord(s['setNumber'], starterId, playerOrder);
+        (s['turns'] as List).forEach(
+          (t) => set.turns.add(
+            TurnRecord(
+              t['turnNumber'],
+              Map<String, int>.from(t['scores']),
+              systemCalculated: Set<String>.from(t['systemCalculated'] ?? []),
+              scoreAnnotations: t['annotations'] != null
+                  ? Map<String, int>.from(t['annotations'])
+                  : {},
+            ),
+          ),
+        );
+        (s['finalScores'] as Map).forEach(
+          (k, v) => set.finalCumulativeScores[k] = v as int,
+        );
+        return set;
+      }).toList();
       final isHyakin = data['matchType'] == 'MatchType.hyakin';
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (c) => HistoryPage(
-                sets: sets,
-                startTime: start,
-                players: players,
-                winnerName: isSelfTurnMode ? null : data['winner'] as String?,
-                isSelf5Turn: isSelf5Turn,
-                isSelf6Turn: isSelf6Turn,
-                isHyakin: isHyakin,
-                consecutiveSuccesses: consecutiveSuccesses,
-              ),
+          builder: (c) => HistoryPage(
+            sets: sets,
+            startTime: start,
+            players: players,
+            winnerName: isSelfTurnMode ? null : data['winner'] as String?,
+            isSelf5Turn: isSelf5Turn,
+            isSelf6Turn: isSelf6Turn,
+            isHyakin: isHyakin,
+            consecutiveSuccesses: consecutiveSuccesses,
+          ),
         ),
       );
     } catch (e) {
@@ -6575,12 +6468,11 @@ class _AndroidAppPromoSection extends StatelessWidget {
                 '?size=120x120&data=${Uri.encodeComponent(_kPlayStoreUrl)}',
                 width: 120,
                 height: 120,
-                errorBuilder:
-                    (_, __, ___) => const SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: Icon(Icons.qr_code, size: 80, color: Colors.grey),
-                    ),
+                errorBuilder: (_, __, ___) => const SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: Icon(Icons.qr_code, size: 80, color: Colors.grey),
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -6596,11 +6488,10 @@ class _AndroidAppPromoSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed:
-                        () => launchUrl(
-                          Uri.parse(_kPlayStoreUrl),
-                          mode: LaunchMode.externalApplication,
-                        ),
+                    onPressed: () => launchUrl(
+                      Uri.parse(_kPlayStoreUrl),
+                      mode: LaunchMode.externalApplication,
+                    ),
                     icon: const Icon(Icons.android, size: 18),
                     label: Text(
                       isJa ? 'Google Playで入手' : 'Get it on Google Play',
@@ -6720,9 +6611,8 @@ class _PinButtonState extends State<_PinButton> {
       onLongPressCancel: () => setState(() => _pressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 70),
-        transform:
-            Matrix4.identity()
-              ..scale(_pressed ? 0.86 : 1.0, _pressed ? 0.86 : 1.0),
+        transform: Matrix4.identity()
+          ..scale(_pressed ? 0.86 : 1.0, _pressed ? 0.86 : 1.0),
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
           color: _pressed ? const Color(0xFFE3F2FD) : Colors.white,
@@ -6984,12 +6874,9 @@ class _ThrowOrderRouletteDialogState extends State<_ThrowOrderRouletteDialog> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      _done
-                          ? (i == 0
-                              ? Colors.orange.shade100
-                              : Colors.grey.shade100)
-                          : Colors.blue.shade50,
+                  color: _done
+                      ? (i == 0 ? Colors.orange.shade100 : Colors.grey.shade100)
+                      : Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: _done && i == 0 ? Colors.orange : Colors.transparent,
@@ -7005,10 +6892,9 @@ class _ThrowOrderRouletteDialogState extends State<_ThrowOrderRouletteDialog> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color:
-                              _done && i == 0
-                                  ? Colors.orange.shade800
-                                  : Colors.black54,
+                          color: _done && i == 0
+                              ? Colors.orange.shade800
+                              : Colors.black54,
                         ),
                       ),
                     ),
@@ -7017,8 +6903,9 @@ class _ThrowOrderRouletteDialogState extends State<_ThrowOrderRouletteDialog> {
                         _display[i].name,
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight:
-                              _done ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: _done
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
