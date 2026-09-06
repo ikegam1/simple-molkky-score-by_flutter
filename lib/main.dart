@@ -894,9 +894,16 @@ class _SetupScreenState extends State<SetupScreen> {
       } else {
         await _signInWithGoogleMobile(currentUser, oldUid);
       }
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+        'Google Sign-In Firebase Error: code=${e.code} message=${e.message}',
+      );
+      if (mounted) {
+        _showError('Googleログインに失敗しました (${e.code}: ${e.message ?? "no message"})');
+      }
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
-      if (mounted) _showError('Googleログインに失敗しました');
+      if (mounted) _showError('Googleログインに失敗しました: $e');
     }
   }
 
@@ -1119,9 +1126,15 @@ class _SetupScreenState extends State<SetupScreen> {
       if (e.code == AuthorizationErrorCode.canceled) return;
       debugPrint('Apple Sign-In cancelled/failed: ${e.code} ${e.message}');
       if (mounted) _showError('Appleログインに失敗しました (${e.code})');
+    } on FirebaseAuthException catch (e) {
+      // Firebase 連携失敗時は code / message を SnackBar に含めて
+      // 原因追跡できるようにする (サインアウト→再サインインで再現する
+      // 想定バグの調査用)
+      debugPrint('Apple Sign-In Firebase Error: code=${e.code} message=${e.message}');
+      if (mounted) _showError('Appleログインに失敗しました (${e.code}: ${e.message ?? "no message"})');
     } catch (e) {
       debugPrint('Apple Sign-In Error: $e');
-      if (mounted) _showError('Appleログインに失敗しました');
+      if (mounted) _showError('Appleログインに失敗しました: $e');
     }
   }
 
@@ -1152,6 +1165,22 @@ class _SetupScreenState extends State<SetupScreen> {
     );
     if (ok != true || !mounted) return;
     try {
+      // Google Sign-In (mobile) のキャッシュも消す。これをしないと
+      // 再サインイン時に signIn() が最後の user を silent 返して
+      // 別ユーザで再ログインしたい場合や、権限リセットしたい場合に
+      // 意図しない挙動 (or crash) が起きる (Discord 実機報告)。
+      if (!kIsWeb) {
+        try {
+          final googleSignIn = GoogleSignIn(
+            serverClientId:
+                '52196197674-342o533f0npiujhr6u61nlkplko95laa.apps.googleusercontent.com',
+          );
+          await googleSignIn.signOut();
+        } catch (e) {
+          // Google Sign-In 未初期化状態でもエラーにはしない
+          debugPrint('googleSignIn.signOut error (ignored): $e');
+        }
+      }
       await FirebaseAuth.instance.signOut();
       // 次回サインインで anonymous に戻るよう currentUser を作り直す
       final cred = await FirebaseAuth.instance.signInAnonymously();
