@@ -970,6 +970,14 @@ class _SetupScreenState extends State<SetupScreen> {
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
+    // linkWithCredential を試みる。Apple 側と同じ fallback code 群で
+    // 「既存 Google ユーザとしてサインイン」に切り替える (サインアウト後の
+    // 再サインインで crash / 失敗する不具合対策)。
+    const fallbackCodes = <String>{
+      'credential-already-in-use',
+      'provider-already-linked',
+      'email-already-in-use',
+    };
     try {
       final userCredential = await currentUser.linkWithCredential(credential);
       final newUid = userCredential.user!.uid;
@@ -986,9 +994,16 @@ class _SetupScreenState extends State<SetupScreen> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'credential-already-in-use') {
+      if (fallbackCodes.contains(e.code)) {
         // 1. まだ oldUid(匿名)として認証中のうちにデータを読み取る
-        final oldData = await _fetchAllScoreData(oldUid);
+        List<Map<String, dynamic>> oldData = <Map<String, dynamic>>[];
+        try {
+          oldData = await _fetchAllScoreData(oldUid);
+        } catch (fetchErr) {
+          debugPrint(
+            'Google fallback: fetchAllScoreData failed (継続): $fetchErr',
+          );
+        }
 
         // 2. Google認証に切り替え
         final result = await FirebaseAuth.instance.signInWithCredential(
@@ -998,7 +1013,13 @@ class _SetupScreenState extends State<SetupScreen> {
 
         // 3. newUidとして認証された状態で新規ドキュメントを作成
         if (oldUid != newUid && oldData.isNotEmpty) {
-          await _writeScoreDataAsNewUid(oldData, newUid);
+          try {
+            await _writeScoreDataAsNewUid(oldData, newUid);
+          } catch (writeErr) {
+            debugPrint(
+              'Google fallback: writeScoreDataAsNewUid failed (継続): $writeErr',
+            );
+          }
         }
         setState(() {
           _firebaseUid = newUid;
@@ -1007,7 +1028,7 @@ class _SetupScreenState extends State<SetupScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Googleアカウントでログインし、戦歴をマージしました！'),
+              content: Text('Googleアカウントでログインしました！'),
               backgroundColor: Colors.green,
             ),
           );
@@ -1078,6 +1099,18 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
       );
 
+      // linkWithCredential を試みる。以下のエラーはすべて
+      // signInWithCredential (fresh sign-in) にフォールバックする:
+      // - credential-already-in-use: Apple provider が別 UID に紐付き済 (通常ケース)
+      // - provider-already-linked: 現 user に既に Apple が紐付き済
+      // - email-already-in-use: 同じ email の別 provider ユーザがいる
+      // 上記いずれも「既存 Apple ユーザとしてサインイン」で復帰できる。
+      // (サインアウト → 再サインインで再現する不具合対策)
+      const fallbackCodes = <String>{
+        'credential-already-in-use',
+        'provider-already-linked',
+        'email-already-in-use',
+      };
       try {
         final userCredential = await currentUser.linkWithCredential(credential);
         final newUid = userCredential.user!.uid;
@@ -1094,16 +1127,31 @@ class _SetupScreenState extends State<SetupScreen> {
           );
         }
       } on FirebaseAuthException catch (e) {
-        if (e.code == 'credential-already-in-use') {
+        if (fallbackCodes.contains(e.code)) {
           // 匿名 UID のデータを Apple UID にマージする
-          // (Google 経路と同じ手順)。
-          final oldData = await _fetchAllScoreData(oldUid);
+          // (Google 経路と同じ手順)。fetch/write は失敗しても
+          // サインイン自体は継続 (データマージ失敗はデータ紛失に
+          // なるが、認証失敗より軽微)。
+          List<Map<String, dynamic>> oldData = <Map<String, dynamic>>[];
+          try {
+            oldData = await _fetchAllScoreData(oldUid);
+          } catch (fetchErr) {
+            debugPrint(
+              'Apple fallback: fetchAllScoreData failed (継続): $fetchErr',
+            );
+          }
           final result = await FirebaseAuth.instance.signInWithCredential(
             credential,
           );
           final newUid = result.user!.uid;
           if (oldUid != newUid && oldData.isNotEmpty) {
-            await _writeScoreDataAsNewUid(oldData, newUid);
+            try {
+              await _writeScoreDataAsNewUid(oldData, newUid);
+            } catch (writeErr) {
+              debugPrint(
+                'Apple fallback: writeScoreDataAsNewUid failed (継続): $writeErr',
+              );
+            }
           }
           setState(() {
             _firebaseUid = newUid;
@@ -1112,7 +1160,7 @@ class _SetupScreenState extends State<SetupScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Appleアカウントでログインし、戦歴をマージしました！'),
+                content: Text('Appleアカウントでログインしました！'),
                 backgroundColor: Colors.green,
               ),
             );
