@@ -1125,6 +1125,148 @@ class _SetupScreenState extends State<SetupScreen> {
     }
   }
 
+  /// サインアウト。Firebase Auth から現在の user を signOut し、
+  /// UI 状態 (_isGoogleLinked / _isAppleLinked) をリセット。
+  /// 匿名ユーザで再ログインは _initApp が次回起動時に自動処理する
+  /// (ここでは手動でも signInAnonymously を呼ばない — シンプルに保つ)。
+  /// サインアウト直後は Google / Apple どちらの provider にも紐付いていない
+  /// 状態になり、再度サインインダイアログが出せる。
+  Future<void> _signOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('サインアウト'),
+            content: const Text('現在のアカウントからサインアウトします。ローカルの試合履歴は残ります。'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('サインアウト'),
+              ),
+            ],
+          ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await FirebaseAuth.instance.signOut();
+      // 次回サインインで anonymous に戻るよう currentUser を作り直す
+      final cred = await FirebaseAuth.instance.signInAnonymously();
+      if (!mounted) return;
+      setState(() {
+        _firebaseUid = cred.user!.uid;
+        _isGoogleLinked = false;
+        _isAppleLinked = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('サインアウトしました'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Sign out error: $e');
+      if (mounted) _showError('サインアウトに失敗しました');
+    }
+  }
+
+  /// アカウント削除。Firebase Auth の user と、その uid に紐付く
+  /// Firestore 上の全 scores ドキュメントを削除する。
+  /// 匿名 UID にも適用可能 (削除後は _initApp で新規 anonymous 発行)。
+  ///
+  /// Apple / Google Sign-In 済みユーザは、Firebase Auth の user.delete()
+  /// が requires-recent-login を返す場合がある。その場合は sign out → 再
+  /// サインインを促すメッセージを出す。
+  Future<void> _deleteAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showError('サインイン情報がありません');
+      return;
+    }
+    // 2 段階確認: 削除される内容を明示
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('アカウントを削除しますか？'),
+            content: const Text(
+              'アカウントと関連する以下データを完全削除します。この操作は取り消せません。\n\n'
+              '・試合履歴 (Firestore の全スコア記録)\n'
+              '・ログイン情報 (Firebase Auth のアカウント自体)\n\n'
+              'ローカルデバイス上のデータ (プレイヤー名候補など) は残ります。',
+              style: TextStyle(fontSize: 13),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('削除する'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final uid = user.uid;
+      // 1) Firestore の scores コレクションから該当 uid の docs を batch 削除
+      const batchSize = 400;
+      while (true) {
+        final snap =
+            await FirebaseFirestore.instance
+                .collection('scores')
+                .where('appUserId', isEqualTo: uid)
+                .limit(batchSize)
+                .get();
+        if (snap.docs.isEmpty) break;
+        final batch = FirebaseFirestore.instance.batch();
+        for (final d in snap.docs) {
+          batch.delete(d.reference);
+        }
+        await batch.commit();
+        if (snap.docs.length < batchSize) break;
+      }
+      // 2) Firebase Auth の user を削除
+      await user.delete();
+      // 3) anonymous に戻す (次のサインインまで匿名利用可)
+      final cred = await FirebaseAuth.instance.signInAnonymously();
+      if (!mounted) return;
+      setState(() {
+        _firebaseUid = cred.user!.uid;
+        _isGoogleLinked = false;
+        _isAppleLinked = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('アカウントと関連データを削除しました'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        if (mounted) {
+          _showError(
+            'セキュリティ上、最近のサインインが必要です。一旦サインアウトして再サインインしてから削除してください',
+          );
+        }
+      } else {
+        debugPrint('Delete account error: ${e.code} ${e.message}');
+        if (mounted) _showError('削除に失敗しました (${e.code})');
+      }
+    } catch (e) {
+      debugPrint('Delete account error: $e');
+      if (mounted) _showError('削除に失敗しました');
+    }
+  }
+
   /// Apple / Firebase 用の暗号学的 nonce を生成する。
   /// 32 byte 分の SecureRandom を [A-Za-z0-9] にエンコード。
   static String _generateNonce([int length = 32]) {
@@ -1678,6 +1820,16 @@ class _SetupScreenState extends State<SetupScreen> {
                   ),
                   const SizedBox(height: 6),
                   _PrivacyPolicyFooterLink(),
+                  // サインイン済ユーザ (Google or Apple) のみサインアウト /
+                  // アカウント削除リンクを footer に出す。匿名ユーザ (誰も
+                  // linked していない状態) は「アカウント」概念がないので不要。
+                  if (_isGoogleLinked || _isAppleLinked) ...<Widget>[
+                    const SizedBox(height: 4),
+                    _AccountActionsFooterLinks(
+                      onSignOut: _signOut,
+                      onDeleteAccount: _deleteAccount,
+                    ),
+                  ],
                 ],
               ),
             );
@@ -1947,6 +2099,14 @@ class _SetupScreenState extends State<SetupScreen> {
                   ),
                   const SizedBox(height: 6),
                   _PrivacyPolicyFooterLink(compact: true),
+                  if (_isGoogleLinked || _isAppleLinked) ...<Widget>[
+                    const SizedBox(height: 4),
+                    _AccountActionsFooterLinks(
+                      compact: true,
+                      onSignOut: _signOut,
+                      onDeleteAccount: _deleteAccount,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -6245,6 +6405,57 @@ class _PrivacyPolicyFooterLink extends StatelessWidget {
         ),
         textAlign: TextAlign.center,
       ),
+    );
+  }
+}
+
+/// トップ画面フッターに置く「サインアウト / アカウント削除」リンク。
+/// サインイン済 (Google or Apple) のときのみ表示する想定なので、内部で
+/// signed-in ガードはしない (呼び出し側で条件表示)。
+/// [onSignOut] / [onDeleteAccount] は _SetupScreenState のメソッドを渡す。
+class _AccountActionsFooterLinks extends StatelessWidget {
+  const _AccountActionsFooterLinks({
+    this.compact = false,
+    required this.onSignOut,
+    required this.onDeleteAccount,
+  });
+  final bool compact;
+  final Future<void> Function() onSignOut;
+  final Future<void> Function() onDeleteAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseSize = compact ? 10.0 : 11.0;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        InkWell(
+          onTap: onSignOut,
+          child: Text(
+            'サインアウト',
+            style: TextStyle(
+              color: Colors.blueGrey,
+              fontSize: baseSize,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+        Text(
+          ' / ',
+          style: TextStyle(color: Colors.blueGrey, fontSize: baseSize),
+        ),
+        InkWell(
+          onTap: onDeleteAccount,
+          child: Text(
+            'アカウント削除',
+            style: TextStyle(
+              color: Colors.red.shade400,
+              fontSize: baseSize,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
