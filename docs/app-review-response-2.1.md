@@ -51,8 +51,8 @@ Differentiation from other Mölkky scoreboard apps:
   → select score → confirm), which slows down live match play.
 - **Rich variety of match formats**: 1v1, team battles, round-robin,
   3-game series, self-play modes (5-turn / 6-turn solo practice), and
-  a "100-kin" (Japanese 100-yen shop -themed casual mode). Most
-  competing apps only support basic 1v1 or free-form scoring.
+  a "100-kin" casual variant mode. Most competing apps only support
+  basic 1v1 or free-form scoring.
 
 Value delivered: eliminates scorekeeping errors, records match history,
 and supports up to 8 players with multiple tournament formats. The
