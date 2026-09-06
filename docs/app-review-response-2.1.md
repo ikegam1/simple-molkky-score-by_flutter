@@ -44,9 +44,20 @@ to focus on gameplay. Target audience:
   popularity globally)
 - Community groups holding recreational matches
 
+Differentiation from other Mölkky scoreboard apps:
+- **One-tap score input**: numeric buttons 1-9 are always visible on
+  the main score screen, so a single tap records the pin number or
+  miss. Competing apps often require multi-step dialogs (select player
+  → select score → confirm), which slows down live match play.
+- **Rich variety of match formats**: 1v1, team battles, round-robin,
+  3-game series, self-play modes (5-turn / 6-turn solo practice), and
+  a "100-yen shop" beginner mode. Most competing apps only support
+  basic 1v1 or free-form scoring.
+
 Value delivered: eliminates scorekeeping errors, records match history,
-supports up to 8 players with multiple tournament formats (round-robin,
-knockout, 3-game series).
+and supports up to 8 players with multiple tournament formats. The
+one-tap UX means scorekeepers can enter a full match's scores in real
+time without pausing gameplay.
 
 ===============================
 3. SETUP AND ACCESS INSTRUCTIONS
