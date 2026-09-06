@@ -45,14 +45,14 @@ to focus on gameplay. Target audience:
 - Community groups holding recreational matches
 
 Differentiation from other Mölkky scoreboard apps:
-- **One-tap score input**: numeric buttons 1-9 are always visible on
-  the main score screen, so a single tap records the pin number or
-  miss. Competing apps often require multi-step dialogs (select player
+- **One-tap score input**: numeric buttons 1-12 (matching Mölkky's
+  12 numbered pins) are always visible on the main score screen, so
+  a single tap records the pin number or miss. Competing apps often require multi-step dialogs (select player
   → select score → confirm), which slows down live match play.
 - **Rich variety of match formats**: 1v1, team battles, round-robin,
   3-game series, self-play modes (5-turn / 6-turn solo practice), and
-  a "100-yen shop" beginner mode. Most competing apps only support
-  basic 1v1 or free-form scoring.
+  a "100-kin" (Japanese 100-yen shop -themed casual mode). Most
+  competing apps only support basic 1v1 or free-form scoring.
 
 Value delivered: eliminates scorekeeping errors, records match history,
 and supports up to 8 players with multiple tournament formats. The
@@ -69,8 +69,9 @@ To reproduce the main flow:
 2. Enter one or more player names (e.g. "Player 1", "Player 2") and
    tap the plus icon after each.
 3. Tap "ゲーム開始" (Start Match) to begin.
-4. Tap the numeric buttons (1-9) to record which pin was knocked
-   down, or "0 (miss)" for a missed throw.
+4. Tap the numeric buttons (1-12) to record which pin was knocked
+   down (Mölkky uses 12 numbered pins), or "0 (miss)" for a missed
+   throw.
 5. Continue until a player reaches exactly 50 points or is disqualified.
 6. Tap "OK" on the result dialog to return to the top screen.
 
