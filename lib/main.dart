@@ -26,9 +26,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.18+120';
+const String _kAppVersion = '1.15.41+143';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.18';
+const String _kDisplayVersion = 'v1.15.41';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -803,16 +803,15 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  /// サインイン導線。Google と Apple の 2 択を提示する。
+  /// サインイン導線。iOS / macOS では Google と Apple の 2 択を提示する。
   ///
   /// App Store Review Guidelines 4.8: 第三者ソーシャルログイン (Google 等) を
   /// 提供する場合、Sign in with Apple を並列で提供する必要がある。
   ///
-  /// Sign in with Apple が使えるプラットフォーム:
+  /// Apple ログインの表示対象:
   /// - iOS 13+ / macOS 10.15+ / iPadOS 13+
-  /// - Android / Web (web-based flow でどこからでも使える)
-  /// が、iOS 以外では Apple 連携済ユーザ以外にはメリットが薄いため、
-  /// **iOS + Web に限定**で Apple ボタンを出す (Android は Google のみ)。
+  /// Android / Web の認証導線からは Apple ログインを提供しない。
+  /// **iOS + macOS に限定**で Apple ボタンを出す (Android / Web は Google のみ)。
   Future<void> _showGoogleSignInDialog() async {
     if (_isGoogleLinked || _isAppleLinked) {
       final label = _isGoogleLinked ? 'Google' : 'Apple';
@@ -821,8 +820,9 @@ class _SetupScreenState extends State<SetupScreen> {
       ).showSnackBar(SnackBar(content: Text('$label アカウントと連携済みです')));
       return;
     }
-    // Apple ボタンを出すか。iOS または Web のみ (Android は Google 一択)。
-    final showApple = kIsWeb || (Platform.isIOS || Platform.isMacOS);
+    // Apple ボタンを出すか。ネイティブ iOS / macOS のみ。
+    // Android と Web は Google 一択とし、Apple の認証フローへ進ませない。
+    final showApple = !kIsWeb && (Platform.isIOS || Platform.isMacOS);
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1040,11 +1040,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
   /// Sign in with Apple の共通エントリ。
   /// - iOS / macOS: OS ネイティブの Apple ID ダイアログ
-  /// - Web (kIsWeb): `webAuthenticationOptions` (Services ID + redirectUri) を
-  ///   渡して Apple の HTTPS ページ経由の OAuth flow
-  /// - Android: 実装はしていない (UI 側でも Apple ボタン非表示。将来
-  ///   `webAuthenticationOptions` を渡せば web-based flow で可能だが、
-  ///   Android ユーザは Google 一択と割り切っている)
+  /// - Web / Android: 認証導線では提供しない
   ///
   /// Firebase Auth 側で client を validate するために **nonce の hash**
   /// (SHA-256) を Apple に渡し、返ってきた identityToken に含まれる nonce と

@@ -1,7 +1,7 @@
 name: simple_molkky_score
 description: "A simple Molkky scoreboard app."
 publish_to: 'none'
-version: 1.15.40+142
+version: 1.15.41+143
 
 environment:
   sdk: ^3.7.0
@@ -15,9 +15,13 @@ dependencies:
   intl: ^0.20.2
   shared_preferences: ^2.5.3
   uuid: ^4.5.3
-  firebase_core: ^4.4.0
+  # firebase_core 4.14.0 selects firebase_core_web 3.11.0, which requires a
+  # newer Dart JS interop API than the project's Flutter 3.41.2 SDK provides.
+  # Keep the latest compatible 4.13.x release so Web builds remain supported.
+  firebase_core: '>=4.4.0 <4.14.0'
   cloud_firestore: ^6.1.2
-  firebase_auth: ^6.6.1
+  # Keep in sync with the Firebase Core Web compatibility cap above.
+  firebase_auth: '>=6.5.7 <6.6.0'
   patrol: ^4.2.0
   google_sign_in: ^6.2.0
   # Apple Sign-In (App Store 審査要件: Google 等の第三者サインインを提供する
@@ -42,6 +46,12 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.4
+
+# firebase_core 4.13.x allows both firebase_core_web 3.10.x and 3.11.x.
+# Pin 3.10.x because 3.11.x uses Object.isA, which is unavailable in the
+# Flutter 3.41.2 / Dart 3.11 SDK used for this project.
+dependency_overrides:
+  firebase_core_web: '>=3.10.0 <3.11.0'
 
 flutter_launcher_icons:
   android: "launcher_icon"
