@@ -49,7 +49,7 @@ Not applicable. Mölkky rules are publicly documented with no licensing restrict
 
 CONTACT
 Developer: ikegami
-Email: takesiba.masrao@gmail.com
+Email: masrao2002@outlook.com
 Response time: within 24-48 hours
 ```
 
