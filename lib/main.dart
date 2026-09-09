@@ -1741,48 +1741,69 @@ class _SetupScreenState extends State<SetupScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    DropdownButtonFormField<int>(
-                      value: _selectedTurnLimit,
-                      items: turnLimitOptions
-                          .map(
-                            (v) => DropdownMenuItem<int>(
-                              value: v,
-                              child: Text(v == 0 ? t.get('no_limit') : '$v'),
+                    // ターン制限と試合時間制限は同じ行に置き、設定を一目で
+                    // 確認・変更できるようにする。
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: _selectedTurnLimit,
+                            isExpanded: true,
+                            items: turnLimitOptions
+                                .map(
+                                  (v) => DropdownMenuItem<int>(
+                                    value: v,
+                                    child: Text(
+                                      v == 0 ? t.get('no_limit') : '$v',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _selectedTurnLimit = v);
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: t.get('turn_limit_setting'),
                             ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) setState(() => _selectedTurnLimit = v);
-                      },
-                      decoration: InputDecoration(
-                        labelText: t.get('turn_limit_setting'),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<int>(
-                      value: _selectedTimeLimitMinutes,
-                      items: timeLimitOptions
-                          .map(
-                            (v) => DropdownMenuItem<int>(
-                              value: v,
-                              child: Text(
-                                v == 0
-                                    ? t.get('no_limit')
-                                    : t.get(
-                                        'minutes_suffix',
-                                        args: {'n': '$v'},
-                                      ),
-                              ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: _selectedTimeLimitMinutes,
+                            isExpanded: true,
+                            items: timeLimitOptions
+                                .map(
+                                  (v) => DropdownMenuItem<int>(
+                                    value: v,
+                                    child: Text(
+                                      v == 0
+                                          ? t.get('no_limit')
+                                          : t.get(
+                                              'minutes_suffix',
+                                              args: {'n': '$v'},
+                                            ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(
+                                  () => _selectedTimeLimitMinutes = v,
+                                );
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: t.get('time_limit_setting'),
                             ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null)
-                          setState(() => _selectedTimeLimitMinutes = v);
-                      },
-                      decoration: InputDecoration(
-                        labelText: t.get('time_limit_setting'),
-                      ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                   const SizedBox(height: 10),
@@ -1827,31 +1848,15 @@ class _SetupScreenState extends State<SetupScreen> {
                       style: const TextStyle(color: Colors.white, fontSize: 18),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  if (_firebaseUid.isNotEmpty)
-                    Text(
-                      t.get(
-                        'anonymous_id',
-                        args: {'id': _firebaseUid.substring(0, 8)},
-                      ),
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
-                  const Text(
-                    _kDisplayVersion,
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  const SizedBox(height: 8),
+                  // リンクを先に置く。Android のシステムナビゲーションに近い
+                  // 位置へ情報を置かず、1 行にまとめて十分なタップ領域を確保する。
+                  _SetupFooter(
+                    firebaseUid: _firebaseUid,
+                    showAccountActions: _isGoogleLinked || _isAppleLinked,
+                    onSignOut: _signOut,
+                    onDeleteAccount: _deleteAccount,
                   ),
-                  const SizedBox(height: 6),
-                  _PrivacyPolicyFooterLink(),
-                  // サインイン済ユーザ (Google or Apple) のみサインアウト /
-                  // アカウント削除リンクを footer に出す。匿名ユーザ (誰も
-                  // linked していない状態) は「アカウント」概念がないので不要。
-                  if (_isGoogleLinked || _isAppleLinked) ...<Widget>[
-                    const SizedBox(height: 4),
-                    _AccountActionsFooterLinks(
-                      onSignOut: _signOut,
-                      onDeleteAccount: _deleteAccount,
-                    ),
-                  ],
                 ],
               ),
             );
@@ -2096,30 +2101,13 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  if (_firebaseUid.isNotEmpty)
-                    Text(
-                      t.get(
-                        'anonymous_id',
-                        args: {'id': _firebaseUid.substring(0, 8)},
-                      ),
-                      style: const TextStyle(fontSize: 9, color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                  const Text(
-                    _kDisplayVersion,
-                    style: TextStyle(color: Colors.grey, fontSize: 11),
-                    textAlign: TextAlign.center,
+                  _SetupFooter(
+                    compact: true,
+                    firebaseUid: _firebaseUid,
+                    showAccountActions: _isGoogleLinked || _isAppleLinked,
+                    onSignOut: _signOut,
+                    onDeleteAccount: _deleteAccount,
                   ),
-                  const SizedBox(height: 6),
-                  _PrivacyPolicyFooterLink(compact: true),
-                  if (_isGoogleLinked || _isAppleLinked) ...<Widget>[
-                    const SizedBox(height: 4),
-                    _AccountActionsFooterLinks(
-                      compact: true,
-                      onSignOut: _signOut,
-                      onDeleteAccount: _deleteAccount,
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -6346,80 +6334,117 @@ class HelpPage extends StatelessWidget {
 const _kPlayStoreUrl =
     'https://play.google.com/store/apps/details?id=jp.ikegam1.simple_molkky_score';
 
-/// トップ画面フッターに置く「プライバシーポリシー」外部リンク。
-/// タップで既定ブラウザで [_kPrivacyPolicyUrl] を開く。
-/// [compact] true のときは横向きレイアウト向けに font-size を小さくする。
-class _PrivacyPolicyFooterLink extends StatelessWidget {
-  const _PrivacyPolicyFooterLink({this.compact = false});
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        final uri = Uri.parse(_kPrivacyPolicyUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      },
-      child: Text(
-        'プライバシーポリシー / Privacy Policy',
-        style: TextStyle(
-          color: Colors.blueGrey,
-          fontSize: compact ? 10 : 11,
-          decoration: TextDecoration.underline,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-}
-
-/// トップ画面フッターに置く「サインアウト / アカウント削除」リンク。
-/// サインイン済 (Google or Apple) のときのみ表示する想定なので、内部で
-/// signed-in ガードはしない (呼び出し側で条件表示)。
-/// [onSignOut] / [onDeleteAccount] は _SetupScreenState のメソッドを渡す。
-class _AccountActionsFooterLinks extends StatelessWidget {
-  const _AccountActionsFooterLinks({
+/// セットアップ画面のフッター。
+/// リンクを一番上に 1 行で置くことで、OS のナビゲーション領域に隠れず
+/// タップできる位置を確保する。Firebase ID とバージョンは 1 行にまとめる。
+class _SetupFooter extends StatelessWidget {
+  const _SetupFooter({
     this.compact = false,
+    required this.firebaseUid,
+    required this.showAccountActions,
     required this.onSignOut,
     required this.onDeleteAccount,
   });
+
   final bool compact;
+  final String firebaseUid;
+  final bool showAccountActions;
   final Future<void> Function() onSignOut;
   final Future<void> Function() onDeleteAccount;
 
+  TextButton _linkButton({
+    required VoidCallback onPressed,
+    required String label,
+    required Color color,
+    required double fontSize,
+  }) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: color,
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+        minimumSize: const Size(0, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: fontSize,
+          decoration: TextDecoration.underline,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPrivacyPolicy(BuildContext context) async {
+    final uri = Uri.parse(_kPrivacyPolicyUrl);
+    // Android 11+ では canLaunchUrl が manifest の queries に左右される。
+    // HTTPS URL は直接 launchUrl し、既定ブラウザで確実に開く。
+    var launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched) {
+      launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('プライバシーポリシーを開けませんでした')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final baseSize = compact ? 10.0 : 11.0;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        InkWell(
-          onTap: onSignOut,
-          child: Text(
-            'サインアウト',
-            style: TextStyle(
-              color: Colors.blueGrey,
-              fontSize: baseSize,
-              decoration: TextDecoration.underline,
-            ),
+    final fontSize = compact ? 10.0 : 11.0;
+    final infoFontSize = compact ? 9.0 : 10.0;
+    final idText = firebaseUid.isEmpty
+        ? _kDisplayVersion
+        : 'Firebase ID: ${firebaseUid.substring(0, 8)}  ·  $_kDisplayVersion';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // FittedBox で画面が狭くても改行させず、リンクを常に 1 行に保つ。
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _linkButton(
+                onPressed: () => _openPrivacyPolicy(context),
+                label: 'プライバシーポリシー / Privacy Policy',
+                color: Colors.blueGrey,
+                fontSize: fontSize,
+              ),
+              if (showAccountActions) ...[
+                Text(
+                  ' / ',
+                  style: TextStyle(color: Colors.blueGrey, fontSize: fontSize),
+                ),
+                _linkButton(
+                  onPressed: onSignOut,
+                  label: 'サインアウト',
+                  color: Colors.blueGrey,
+                  fontSize: fontSize,
+                ),
+                Text(
+                  ' / ',
+                  style: TextStyle(color: Colors.blueGrey, fontSize: fontSize),
+                ),
+                _linkButton(
+                  onPressed: onDeleteAccount,
+                  label: 'アカウント削除',
+                  color: Colors.red.shade400,
+                  fontSize: fontSize,
+                ),
+              ],
+            ],
           ),
         ),
+        const SizedBox(height: 1),
         Text(
-          ' / ',
-          style: TextStyle(color: Colors.blueGrey, fontSize: baseSize),
-        ),
-        InkWell(
-          onTap: onDeleteAccount,
-          child: Text(
-            'アカウント削除',
-            style: TextStyle(
-              color: Colors.red.shade400,
-              fontSize: baseSize,
-              decoration: TextDecoration.underline,
-            ),
-          ),
+          idText,
+          style: TextStyle(color: Colors.grey, fontSize: infoFontSize),
+          textAlign: TextAlign.center,
         ),
       ],
     );
