@@ -26,9 +26,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.43+145';
+const String _kAppVersion = '1.15.44+146';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.43';
+const String _kDisplayVersion = 'v1.15.44';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -6446,6 +6446,9 @@ class _SetupFooter extends StatelessWidget {
           style: TextStyle(color: Colors.grey, fontSize: infoFontSize),
           textAlign: TextAlign.center,
         ),
+        // システムナビゲーションの透明オーバーレイと重ならないよう、
+        // ID・バージョンの下に文字1行分の余白を確保する。
+        SizedBox(height: compact ? 12 : 16),
       ],
     );
   }
