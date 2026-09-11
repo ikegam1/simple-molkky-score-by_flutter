@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../models/game_models.dart';
 import '../utils/image_downloader.dart';
+import '../utils/photo_permission.dart';
 
 const _kAppUrl = 'easy-molkky-score.ikegam1.com';
 
@@ -346,23 +347,81 @@ class _DownloadableMatchResultState extends State<DownloadableMatchResult> {
   final _key = GlobalKey();
   bool _downloading = false;
 
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _download() async {
     setState(() => _downloading = true);
     try {
       final boundary =
           _key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
+      if (boundary == null) {
+        _showMessage('画像を生成できませんでした');
+        return;
+      }
       final image = await boundary.toImage(pixelRatio: 3.0);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (data == null) return;
+      final ByteData? data;
+      try {
+        data = await image.toByteData(format: ui.ImageByteFormat.png);
+      } finally {
+        // toByteData 後は GPU 側のリソースを保持し続ける必要がない。
+        image.dispose();
+      }
+      if (data == null) {
+        _showMessage('画像を生成できませんでした');
+        return;
+      }
       final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      await downloadPng(
-        Uint8List.view(data.buffer),
-        'easy_molkky_result_$ts.png',
+      // buffer をそのまま view すると、ByteData が buffer の一部を指している
+      // 場合に余計なバイトまで含んでしまう。offset と length を明示する。
+      final bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
       );
+      await downloadPng(bytes, 'easy_molkky_result_$ts.png');
+      _showMessage('画像を保存しました');
+    } catch (e) {
+      // 権限拒否などは例外で返る。従来は握り潰されて無反応だったため、
+      // 何が起きたかを伝え、設定アプリへ誘導する。
+      debugPrint('image download failed: $e');
+      if (isPhotoAccessDenied(e)) {
+        _showPermissionDeniedDialog();
+      } else {
+        _showMessage('画像を保存できませんでした: ${describePhotoSaveError(e)}');
+      }
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
+  }
+
+  /// 写真へのアクセスが拒否されている場合の案内。設定アプリを開けるようにする。
+  void _showPermissionDeniedDialog() {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('写真へのアクセスが必要です'),
+            content: const Text('試合結果の画像を保存するには、設定で写真へのアクセスを許可してください。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('閉じる'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  openPhotoSettings();
+                },
+                child: const Text('設定を開く'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override

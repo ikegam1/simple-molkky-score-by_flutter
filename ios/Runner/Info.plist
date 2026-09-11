@@ -38,6 +38,17 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>音声でスコアを入力するために使用します</string>
+	<!--
+		試合結果の画像を写真に保存するために必要。
+		iOS はこの記述が無いまま写真ライブラリへアクセスすると、
+		ダイアログを出さずにアプリを即座に強制終了させる。
+		(gal パッケージの必須要件: NSPhotoLibraryAddUsageDescription は保存用、
+		 NSPhotoLibraryUsageDescription は iOS 13 以前およびアルバム保存用)
+	-->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>試合結果の画像を写真に保存するために使用します</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>試合結果の画像を写真に保存するために使用します</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>音声でスコアを入力するために使用します</string>
 	<key>UIApplicationSceneManifest</key>
