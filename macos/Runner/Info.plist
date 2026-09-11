@@ -32,5 +32,10 @@
 	<string>音声入力でスコアを入力するためにマイクを使用します。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>音声でスコアを認識するために音声認識を使用します。</string>
+	<!-- 試合結果の画像を写真に保存するために必要 (iOS と同じ理由) -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>試合結果の画像を写真に保存するために使用します</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>試合結果の画像を写真に保存するために使用します</string>
 </dict>
 </plist>
