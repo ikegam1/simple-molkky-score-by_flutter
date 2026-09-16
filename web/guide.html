@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>モルックのルールと使い方 — Easy Molkky Score</title>
+<meta name="description" content="モルック（Mölkky）の基本ルールと、Easy Molkky Score でのスコアの付け方。50点ちょうどのルール、3回ミスで失格、試合形式の選び方、最大8人での運用、OBS に重ねられるライブスコア表示まで解説します。">
+<meta name="keywords" content="モルック,Mölkky,ルール,遊び方,スコア,得点,数え方,スコアボード,得点表,サバイバル,100均,OBS,アプリ,使い方">
+<link rel="canonical" href="https://easy-molkky-score.ikegam1.com/guide.html">
+<meta property="og:site_name" content="Easy Molkky Score">
+<meta property="og:title" content="モルックのルールと使い方 — Easy Molkky Score">
+<meta property="og:description" content="モルックの基本ルールと、Easy Molkky Score でのスコアの付け方を解説します。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://easy-molkky-score.ikegam1.com/guide.html">
+<meta property="og:image" content="https://easy-molkky-score.ikegam1.com/icons/Icon-512.png">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1c19;
+    --muted: #5f655c;
+    --line: #e2e5df;
+    --accent: #2e6b45;
+    --card: #f5f7f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14170f;
+      --fg: #e8eae3;
+      --muted: #9aa295;
+      --line: #2c3126;
+      --accent: #83c199;
+      --card: #1c2017;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 20px 64px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.85;
+    font-size: 16px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 27px; line-height: 1.4; margin: 0 0 6px; }
+  h2 {
+    font-size: 21px;
+    margin: 48px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--line);
+  }
+  h3 { font-size: 17px; margin: 30px 0 8px; }
+  p { margin: 0 0 15px; }
+  .sub { color: var(--muted); margin: 0 0 30px; }
+  a { color: var(--accent); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 0 0 22px;
+  }
+  .card p:last-child { margin-bottom: 0; }
+  ul, ol { padding-left: 1.4em; margin: 0 0 16px; }
+  li { margin-bottom: 8px; }
+  .table-scroll { overflow-x: auto; margin: 0 0 20px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 420px; }
+  th, td {
+    text-align: left;
+    padding: 10px 14px 10px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: 14px; }
+  .k { white-space: nowrap; font-weight: 600; }
+  .lead {
+    font-size: 17px;
+    background: var(--card);
+    border-left: 4px solid var(--accent);
+    padding: 16px 20px;
+    border-radius: 0 6px 6px 0;
+    margin: 0 0 26px;
+  }
+  .lead p:last-child { margin-bottom: 0; }
+  nav.toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 20px 16px 36px;
+    margin: 0 0 36px;
+  }
+  nav.toc ol { margin: 0; padding-left: 0; }
+  nav.toc li { margin-bottom: 4px; }
+  footer {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  footer a { margin-right: 16px; display: inline-block; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "モルックのルールと使い方",
+  "description": "モルック（Mölkky）の基本ルールと、Easy Molkky Score でのスコアの付け方。",
+  "inLanguage": "ja",
+  "mainEntityOfPage": "https://easy-molkky-score.ikegam1.com/guide.html",
+  "author": {"@type": "Person", "name": "ikegam1"},
+  "publisher": {"@type": "Organization", "name": "Easy Molkky Score"}
+}
+</script>
+</head>
+<body>
+<main>
+
+  <h1>モルックのルールと使い方</h1>
+  <p class="sub">Easy Molkky Score — モルックのスコアをかんたんに管理できる無料アプリ</p>
+
+  <div class="lead">
+    <p>モルックは、木の棒を投げて数字の書かれたピンを倒す、フィンランド生まれのスポーツです。ルールはシンプルですが、<strong>50点ちょうど</strong>を狙う計算と、超えたら<strong>25点に戻される</strong>緊張感が独特の面白さを生みます。</p>
+    <p>このページでは、モルックの基本ルールと、Easy Molkky Score でのスコアの付け方をまとめています。<strong>アプリは Web・iOS・Android で無料で使えます。</strong></p>
+  </div>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#rule">モルックの基本ルール</a></li>
+      <li><a href="#start">試合を始める</a></li>
+      <li><a href="#score">点数の入れ方</a></li>
+      <li><a href="#annotation">投擲の内容を記号で残す</a></li>
+      <li><a href="#mode">試合形式を選ぶ</a></li>
+      <li><a href="#solo">1人用モードと100均モード</a></li>
+      <li><a href="#live">OBS に重ねるライブスコア表示</a></li>
+      <li><a href="#tips">入力を速くする</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="rule">モルックの基本ルール</h2>
+
+  <p>モルック（Mölkky）は1996年にフィンランドで生まれました。倒す対象は<strong>1から12までの数字が書かれた12本の木製ピン</strong>（スキットル）で、これを<strong>モルック棒</strong>と呼ばれる木の棒を投げて倒します。</p>
+
+  <h3>得点の数え方</h3>
+  <p>ここがモルック最大の特徴です。倒れた本数によって点数の数え方が変わります。</p>
+
+  <div class="table-scroll">
+    <table>
+      <tr><th>倒れたピン</th><th>入る点数</th></tr>
+      <tr><td class="k">1本だけ</td><td><strong>そのピンに書かれた数字</strong>がそのまま点数（例: 12 を倒したら12点）</td></tr>
+      <tr><td class="k">2本以上</td><td><strong>倒れた本数</strong>が点数（例: 5本倒したら5点）</td></tr>
+      <tr><td class="k">0本</td><td>ミス。0点</td></tr>
+    </table>
+  </div>
+
+  <p>つまり、大量得点を狙うなら1本だけを正確に狙う必要があります。狙いが甘くて何本も倒すと、かえって点数が伸びません。</p>
+
+  <h3>50点ちょうどで勝ち</h3>
+  <p>先に<strong>ちょうど50点</strong>に到達したプレイヤーの勝ちです。</p>
+  <p><strong>50点を超えてしまうと、得点が25点に戻ります。</strong> 残り数点というところで大きく倒してしまい、振り出しに近いところまで戻される——これがモルックの醍醐味です。終盤は「何点を狙って投げるか」の駆け引きになります。</p>
+
+  <h3>3回続けて外すと失格</h3>
+  <p>1本も倒せない投擲が<strong>3回続くと失格</strong>になり、その試合から抜けることになります。安全に小さい数字を狙うか、勝負に出るかの判断が必要です。</p>
+
+  <h3>倒れたピンは、その場に立て直す</h3>
+  <p>倒れたピンは元の位置には戻さず、<strong>倒れた場所にそのまま立て直します</strong>。試合が進むにつれてピンは散らばっていき、狙いにくくなっていきます。</p>
+
+  <div class="card">
+    <p><strong>Easy Molkky Score はこれらのルールを自動で処理します。</strong>50点ちょうどの判定、超過時の25点への戻し、3回連続ミスによる失格、失格者を飛ばした順番管理——手計算や記憶に頼る必要はありません。<strong>最大8人</strong>まで登録できます。</p>
+  </div>
+
+  <h2 id="start">試合を始める</h2>
+
+  <ol>
+    <li><strong>プレイヤー名を追加します。</strong>一度入力した名前は次回から候補に出るので、いつものメンバーなら選ぶだけです</li>
+    <li><strong>試合形式を選びます</strong>（後述）</li>
+    <li>必要ならターン制限や試合時間制限を設定します</li>
+    <li><strong>「ゲーム開始」</strong>を押します</li>
+  </ol>
+
+  <p><strong>サインインは不要です。</strong>そのまま始められます。アカウントでログインすると、戦績が別の端末にも引き継がれます。</p>
+
+  <h3>投げる順番をルーレットで決める</h3>
+  <p>「投げ順ルーレット」をオンにしておくと、試合開始時に順番をランダムに決められます。じゃんけんの代わりに使えます。</p>
+
+  <h2 id="score">点数の入れ方</h2>
+
+  <ul>
+    <li><strong>1本だけ倒れたら、そのピンの番号</strong>を押します</li>
+    <li><strong>複数倒れたら、倒れた本数</strong>を押します</li>
+    <li><strong>ミスは 0</strong> を押します</li>
+    <li>間違えたら<strong>「戻る」</strong>でひとつ前に戻せます</li>
+  </ul>
+
+  <p>試合が終わった直後でも、結果画面の<strong>「点数を修正する」</strong>から直前の投擲に戻って直せます。</p>
+
+  <h3>37点ルール</h3>
+  <p>大会などで使われることがあるローカルルールにも対応しています。<strong>「0（ミス）」を長押ししながら上にフリック</strong>すると <code>[25↓] 37点ルール</code> のバッジが出ます。指を離すと、<strong>そのとき投げているプレイヤーが37点以上であれば、得点を25点に戻します</strong>（1ミスとしてもカウントされます）。<strong>対象は手番のプレイヤーだけ</strong>で、他の人の得点は変わりません。37点未満のときは何も起きず、その旨が表示されます。</p>
+
+  <h2 id="annotation">投擲の内容を記号で残す</h2>
+
+  <p>「何点入ったか」だけでなく、<strong>どういう狙いが成功したか</strong>を残せます。あとで戦績を見返すときに、試合の流れを思い出せます。</p>
+
+  <div class="table-scroll">
+    <table>
+      <tr><th>操作</th><th>記録される内容</th></tr>
+      <tr><td class="k">再タップ（0.3秒以内に同じボタン）</td><td>◯囲み — 単品狙いの成功</td></tr>
+      <tr><td class="k">長押し中に上フリック</td><td>□囲み — 本数ガシャの成功</td></tr>
+      <tr><td class="k">長押し中に下フリック</td><td>◯囲み（同上）</td></tr>
+      <tr><td class="k">長押し中に左フリック</td><td>寄せ成功（数字に ← を重ねて表示）</td></tr>
+      <tr><td class="k">長押し中に右フリック</td><td>飛ばし成功（数字に ↑ を重ねて表示）</td></tr>
+    </table>
+  </div>
+
+  <p>付けた記号は、スコア表・戦績・結果カードのすべてに反映されます。</p>
+
+  <h2 id="mode">試合形式を選ぶ</h2>
+
+  <div class="table-scroll">
+    <table>
+      <tr><th>形式</th><th>内容</th></tr>
+      <tr><td class="k">先取（〇先）</td><td>決められたセット数を先に取ったほうが勝ち。<strong>2先・3先・4先・5先・11先</strong>から選べます</td></tr>
+      <tr><td class="k">セット数固定（〇番）</td><td><strong>1・2・10セット</strong>を戦い、通算で勝敗を決めます</td></tr>
+      <tr><td class="k">3番（3セット）</td><td>3セット固定で戦う形式です</td></tr>
+      <tr><td class="k">ターン制限</td><td>上限ターンを決めて、終了時点で一番点数が高い人が勝ち。同点トップなら引き分けです</td></tr>
+      <tr><td class="k">試合時間制限</td><td>開始後にカウントダウンが始まります。時間切れのとき、そこで終えるか続けるかを選べます</td></tr>
+    </table>
+  </div>
+
+  <p>3人・4人で遊ぶときは、人数に応じたセット数（6・9・8・12セットなど）も選べます。</p>
+
+  <h3>サバイバルルール</h3>
+  <p>多人数で遊ぶとき、失格になったプレイヤーは自動的に順番から飛ばされます。最後の1人になった時点で試合終了です。</p>
+
+  <h2 id="solo">1人用モードと100均モード</h2>
+
+  <h3>セルフ5ターン / セルフ6ターン</h3>
+  <p>プレイヤーが1人のときに選べる練習モードです。<strong>決められたターン数以内に50点ちょうど</strong>を作れたら成功。連続成功回数を伸ばしていく、記録更新型の遊び方です。</p>
+
+  <h3>100均モード</h3>
+  <p>2セットを使った変則ルールです。1セット目は通常どおり50点を目指します。<strong>2セット目は、1セット目との合計で100点ちょうど</strong>を狙います。合計が100点を超えると75点に戻ります。</p>
+
+  <h2 id="live">OBS に重ねるライブスコア表示</h2>
+
+  <p>試合の様子を配信しているとき、<strong>視聴者にスコアを見せられます</strong>。配信ソフトに重ねて使う、透過背景のスコアボードです。</p>
+
+  <ol>
+    <li>試合画面の右上にある<strong>ビデオアイコン</strong>をタップします</li>
+    <li>ライブ表示用の<strong>URL が発行されます</strong></li>
+    <li>そのURLを OBS などの<strong>「ブラウザソース」</strong>に設定します</li>
+  </ol>
+
+  <p><strong>背景が透明</strong>なので、カメラ映像やゲーム画面にそのまま重ねられます。スコアを入力すると<strong>リアルタイムで反映</strong>されます。</p>
+
+  <h3>表示される内容</h3>
+  <ul>
+    <li>プレイヤー名</li>
+    <li>現在の得点</li>
+    <li>直近3投</li>
+    <li>ターン数</li>
+    <li>獲得セット数</li>
+  </ul>
+
+  <h3>公開範囲と有効期限</h3>
+  <p><strong>URLを知っている人は誰でも見られます。</strong>パスワードはかかりません。配信のコメント欄などに貼ると、誰でもスコアを追えるようになります。</p>
+  <p>発行したURLは<strong>試合終了から24時間後に自動で削除されます。</strong></p>
+
+  <h2 id="tips">入力を速くする</h2>
+
+  <div class="card">
+    <p><strong>Bluetoothのテンキーを接続すると、数字キーでそのまま入力できます。</strong>画面をタップするより速く、手元を見ずに打てます。記録係を置いて試合を回すときに効きます。</p>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <tr><th>キー</th><th>動作</th></tr>
+      <tr><td class="k">1〜9</td><td>ピン番号</td></tr>
+      <tr><td class="k">0</td><td>ミス</td></tr>
+      <tr><td class="k">*</td><td>10点</td></tr>
+      <tr><td class="k">−</td><td>11点</td></tr>
+      <tr><td class="k">+</td><td>12点</td></tr>
+      <tr><td class="k">バックスペース</td><td>戻る</td></tr>
+      <tr><td class="k">エンター</td><td>ダイアログを次へ進める</td></tr>
+    </table>
+  </div>
+
+  <p><strong>数字キー（0〜9）はPCの通常キーボードでも使えます。</strong>ただし <strong>10・11・12 はテンキー専用のキー</strong>に割り当てているため、これらを入力するにはテンキーが必要です。</p>
+
+  <h2>戦績を見る</h2>
+  <p>試合結果は保存され、各セットの投擲内容まで振り返れます。アカウントでログインしていれば、機種変更しても引き継がれます。</p>
+
+  <h2>アプリを使う</h2>
+  <p>Web ブラウザでそのまま使えます。インストールすると起動が速く、オフラインでもスコアを付けられます。</p>
+  <ul>
+    <li><a href="/">ブラウザで開く</a></li>
+    <li><a href="https://apps.apple.com/us/app/easy-molkky-score/id6808499633" target="_blank" rel="noopener">App Store（iPhone / iPad）</a></li>
+    <li><a href="https://play.google.com/store/apps/details?id=jp.ikegam1.simple_molkky_score" target="_blank" rel="noopener">Google Play（Android）</a></li>
+  </ul>
+  <p>いずれも無料です。</p>
+
+  <footer>
+    <a href="/">アプリを開く</a>
+    <a href="/privacy.html">プライバシーポリシー</a>
+    <p style="margin-top:16px">&copy; 2026 ikegam1</p>
+  </footer>
+
+</main>
+</body>
+</html>
