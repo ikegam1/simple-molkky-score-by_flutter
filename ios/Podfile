@@ -39,5 +39,22 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    target.build_configurations.each do |config|
+      # Pod 側の deployment target を 15.0 に引き上げる。
+      #
+      # Podfile の `platform :ios, '15.0'` は Runner には効くが、**Pods
+      # プロジェクト内の各ターゲットには波及しない**。GoogleUtilities (12.0) や
+      # patrol (13.0) のように古い値を持ったままの Pod が残り、新しい Xcode では
+      #   "The iOS deployment target is set to 12.0, but the range of
+      #    supported deployment target versions is 15.0 to 27.0.x"
+      # でビルドが落ちる (Xcode Cloud で発生)。
+      #
+      # 既に 15.0 以上のものは触らない。
+      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+      if current.nil? || current.to_f < 15.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      end
+    end
   end
 end
