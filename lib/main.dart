@@ -2904,6 +2904,10 @@ class _GameScreenState extends State<GameScreen>
 
   // アノテーションピッカーを表示（新規スコア入力用）
   void _showAnnotationPickerForNewScore(Offset globalPos, int num) {
+    // 長押しのジェスチャーは 500ms を超えることが多く、その間に
+    // 2 桁入力のタイマーが発火して 1 が別の投擲として入ってしまう。
+    // ピッカーを開いた時点で待ちを捨てる。
+    _cancelPendingOne();
     _pickerAnnotation.value = 0;
     _annotationPickerEntry?.remove();
     _annotationPickerEntry = OverlayEntry(
@@ -2924,6 +2928,10 @@ class _GameScreenState extends State<GameScreen>
 
   // アノテーションピッカーを表示（直前スコアの修正用）
   void _showAnnotationPickerForModify(Offset globalPos, String playerId) {
+    // 長押しのジェスチャーは 500ms を超えることが多く、その間に
+    // 2 桁入力のタイマーが発火して 1 が別の投擲として入ってしまう。
+    // ピッカーを開いた時点で待ちを捨てる。
+    _cancelPendingOne();
     _pickerAnnotation.value = 0;
     _annotationPickerEntry?.remove();
     _annotationPickerEntry = OverlayEntry(
