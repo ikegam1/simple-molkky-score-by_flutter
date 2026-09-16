@@ -20,15 +20,16 @@ import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
+import 'logic/two_digit_key_input.dart';
 import 'logic/player_name_history.dart';
 import 'widgets/match_result_card.dart';
 import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.47+149';
+const String _kAppVersion = '1.15.48+150';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.47';
+const String _kDisplayVersion = 'v1.15.48';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -2238,6 +2239,9 @@ class _GameScreenState extends State<GameScreen>
     _elapsedTimer?.cancel();
     _elapsedStartDelayTimer?.cancel();
     _matchTimer?.cancel();
+    // 2 桁入力の待ちが残ったまま破棄されると、画面を離れた後に
+    // setState が呼ばれてしまう。
+    _pendingOneTimer?.cancel();
     _pickerAnnotation.dispose();
     _annotationPickerEntry?.remove();
     super.dispose();
@@ -2420,6 +2424,11 @@ class _GameScreenState extends State<GameScreen>
 
   void _submitThrow({bool hillu37 = false}) {
     if (isSetFinished) return;
+    // 2 桁入力の待ちが残ったままだと、この投擲でターンが進んだ後に 1 が
+    // 確定し、**次のプレイヤーの得点になってしまう**。キー以外の入力
+    // (ミス・アノテーション・ピンのタップ) から来た場合もここを通るので、
+    // 入口でまとめて捨てる。
+    _cancelPendingOne();
     if (_hasMatchTimeLimit && !_matchTimerStarted) {
       _startMatchCountdown();
     }
@@ -3107,8 +3116,57 @@ class _GameScreenState extends State<GameScreen>
     return true;
   }
 
+  /// 「1」を押した直後、2 桁になるかを待っているタイマー。
+  /// 走っている間は 1 をまだ確定していない。
+  Timer? _pendingOneTimer;
+
   void _handleScoreKey(int score) {
     if (isSetFinished) return;
+
+    // 1 の直後 (kTwoDigitKeyWindow 以内) に 0 / 1 / 2 が来たら、2 桁として
+    // 1 投にまとめる。テンキーが無い環境でも 10 / 11 / 12 を打てるようにする。
+    if (_pendingOneTimer != null) {
+      _pendingOneTimer!.cancel();
+      _pendingOneTimer = null;
+      final combined = combineAfterOne(score);
+      if (combined != null) {
+        _submitScoreKey(combined);
+        return;
+      }
+      // 合成できない数字だった場合は、待たせていた 1 を先に確定してから
+      // 今回のキーを別の投擲として処理する。
+      _submitScoreKey(1);
+      _submitScoreKey(score);
+      return;
+    }
+
+    if (score == 1) {
+      // 続けて 0 / 1 / 2 が来るかもしれないので、少しだけ待ってから確定する。
+      _pendingOneTimer = Timer(kTwoDigitKeyWindow, () {
+        _pendingOneTimer = null;
+        _submitScoreKey(1);
+      });
+      return;
+    }
+
+    _submitScoreKey(score);
+  }
+
+  /// 2 桁入力の待ちを捨てる。
+  ///
+  /// 待っている間に別の入力 (ピンのタップ・ミス・アノテーション・Undo) が
+  /// 来たら、その操作を優先してこちらは無かったことにする。
+  ///
+  /// ここで「1 を確定させる」ことはしない。確定は _submitThrow を呼ぶこと
+  /// になり、外側の投擲処理の途中でターンが進んでしまうため、タップした
+  /// 内容が次のプレイヤーに記録される事故につながる。
+  void _cancelPendingOne() {
+    _pendingOneTimer?.cancel();
+    _pendingOneTimer = null;
+  }
+
+  void _submitScoreKey(int score) {
+    if (!mounted || isSetFinished) return;
     setState(() {
       selectedSkitels = score == 0 ? [] : [score];
       _throwAnnotation = 0;
@@ -3360,6 +3418,14 @@ class _GameScreenState extends State<GameScreen>
 
   void _undo() {
     if (isSetFinished) return;
+    // 2 桁入力を待っている最中の Undo は「いま押した 1 を取り消したい」という
+    // 意味に取る。ここで本物の Undo を走らせると、**ひとつ前の投擲**が消えた
+    // 上に、後から 1 が入ってしまう。物理 Backspace と画面のボタンで挙動を
+    // 揃えるため、判定はここに置く。
+    if (_pendingOneTimer != null) {
+      _cancelPendingOne();
+      return;
+    }
     if (currentTurnInSet == 1 && currentPlayerIndex == 0) {
       // 一投目の前 → 投げ順変更ダイアログを表示
       _showOrderChangeForCurrentSet();
