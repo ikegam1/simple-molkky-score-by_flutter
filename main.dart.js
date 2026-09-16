@@ -104815,7 +104815,7 @@ f=$.aST().F2()
 J.cn(k,"endTime",new A.ov(f,f))
 J.cn(k,"matchType",o.a.c.f.K())
 J.cn(k,"consecutiveSuccesses",n.as)
-J.cn(k,"appVersion","1.15.46+148")
+J.cn(k,"appVersion","1.15.47+149")
 J.cn(k,"platform",A.b_7())
 if(n.r!=null)J.cn(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cn(k,"matchTimeLimitSeconds",n.w)
@@ -104878,7 +104878,7 @@ J.cn(k,"limit",n.e)
 f=a0==null?null:a0.b
 if(f==null)f="DRAW"
 J.cn(k,"winner",f)
-J.cn(k,"appVersion","1.15.46+148")
+J.cn(k,"appVersion","1.15.47+149")
 J.cn(k,"platform",A.b_7())
 if(n.r!=null)J.cn(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.cn(k,"matchTimeLimitSeconds",n.w)
@@ -106494,7 +106494,7 @@ case 5:c=o
 case 4:if(!c&&a.e!=null){q=A.aQF(a)
 if(q!=null)q.iz(B.aag)}return A.x(null,r)}})
 return A.y($async$vH,r)},
-M(a){var s,r,q=this,p=null,o=q.c,n=o?10:11,m=o?9:10,l=q.d,k=l.length===0?"v1.15.46":"Firebase ID: "+B.c.ah(l,0,8)+"  \xb7  v1.15.46"
+M(a){var s,r,q=this,p=null,o=q.c,n=o?10:11,m=o?9:10,l=q.d,k=l.length===0?"v1.15.47":"Firebase ID: "+B.c.ah(l,0,8)+"  \xb7  v1.15.47"
 l=t.p
 s=A.b([q.HL(B.hu,n,"\u30d7\u30e9\u30a4\u30d0\u30b7\u30fc\u30dd\u30ea\u30b7\u30fc / Privacy Policy",new A.aJ0(q,a))],l)
 if(q.e)B.b.L(s,A.b([A.V(" / ",p,p,p,A.c5(p,p,B.hu,p,p,p,p,p,p,p,p,n,p,p,p,p,p,!0,p,p,p,p,p,p,p,p),p,p),q.HL(B.hu,n,"\u30b5\u30a4\u30f3\u30a2\u30a6\u30c8",q.f),A.V(" / ",p,p,p,A.c5(p,p,B.hu,p,p,p,p,p,p,p,p,n,p,p,p,p,p,!0,p,p,p,p,p,p,p,p),p,p),q.HL(B.qI,n,"\u30a2\u30ab\u30a6\u30f3\u30c8\u524a\u9664",q.r)],l))
