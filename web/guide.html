@@ -22,6 +22,8 @@
     --line: #e2e5df;
     --accent: #2e6b45;
     --card: #f5f7f3;
+    --note-bg: #fff8e6;
+    --note-line: #e8cf8f;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -31,6 +33,8 @@
       --line: #2c3126;
       --accent: #83c199;
       --card: #1c2017;
+      --note-bg: #241f14;
+      --note-line: #4a3f22;
     }
   }
   * { box-sizing: border-box; }
@@ -52,6 +56,7 @@
     border-bottom: 2px solid var(--line);
   }
   h3 { font-size: 17px; margin: 30px 0 8px; }
+  h4 { font-size: 15px; margin: 22px 0 8px; color: var(--muted); }
   p { margin: 0 0 15px; }
   .sub { color: var(--muted); margin: 0 0 30px; }
   a { color: var(--accent); }
@@ -63,6 +68,11 @@
     margin: 0 0 22px;
   }
   .card p:last-child { margin-bottom: 0; }
+  .card.note {
+    background: var(--note-bg);
+    border-color: var(--note-line);
+  }
+  .card.note ul:last-child, .card.note p:last-child { margin-bottom: 0; }
   ul, ol { padding-left: 1.4em; margin: 0 0 16px; }
   li { margin-bottom: 8px; }
   .table-scroll { overflow-x: auto; margin: 0 0 20px; }
@@ -287,6 +297,68 @@
   </div>
 
   <p><strong>数字キー（0〜9）はPCの通常キーボードでも使えます。</strong>ただし <strong>10・11・12 はテンキー専用のキー</strong>に割り当てているため、これらを入力するにはテンキーが必要です。</p>
+
+  <h3>テンキーを繋ぐと、名前が打てなくなることがあります</h3>
+
+  <div class="card note">
+    <p>iPhone・iPadは<strong>外付けキーボードが接続されている間、画面のキーボードを表示しません</strong>。テンキーには文字キーがないため、プレイヤー名の入力欄をタップしても何も出てこない、という状態になります。故障ではなく、iOSの仕様です。</p>
+    <p><strong>iPhoneなら、下の設定をしておくと背中を2回叩くだけでキーボードを呼び出せます。</strong>一度設定すれば、あとはテンキーを繋いだままで困りません。</p>
+    <p>背面タップはiPhone専用の機能です（iPhone 8以降）。<strong>iPadをお使いの場合は下の「iPad：ショートカットバーから呼び出す」</strong>をご覧ください。</p>
+  </div>
+
+  <h4>iPhone：最初に一度だけ設定する</h4>
+
+  <p><strong>① 画面のキーボードが出るようにする</strong></p>
+
+  <ol>
+    <li>「設定」アプリ →「アクセシビリティ」→「タッチ」を開く</li>
+    <li>「<strong>AssistiveTouch</strong>」を開く</li>
+    <li>「ポインティングデバイス」の中にある「<strong>オンスクリーンキーボード表示</strong>」を<strong>オン</strong>にする</li>
+  </ol>
+
+  <p>ここが肝心です。<strong>この設定をしていないと、次の手順をやってもキーボードは出ません。</strong>AssistiveTouch本体のスイッチは、いまはオフのままで構いません。</p>
+
+  <p><strong>② 背面タップで切り替えられるようにする</strong></p>
+
+  <ol>
+    <li>ひとつ前の「タッチ」の画面に戻る</li>
+    <li>一番下までスクロールして「<strong>背面タップ</strong>」を開く</li>
+    <li>「<strong>ダブルタップ</strong>」を選ぶ</li>
+    <li>一覧から「<strong>AssistiveTouch</strong>」を選ぶ</li>
+  </ol>
+
+  <h4>iPhone：使いかた</h4>
+
+  <ol>
+    <li>テンキーを繋いだまま、プレイヤー名の入力欄をタップする</li>
+    <li><strong>iPhoneの背面を2回叩く</strong></li>
+    <li>画面のキーボードが出るので、名前を入力する</li>
+    <li>入力が終わったら、<strong>もう一度背面を2回叩いて</strong>元に戻す</li>
+  </ol>
+
+  <p>AssistiveTouchがオンのあいだは画面に丸いボタンが表示されますが、そのままでも試合の入力に支障はありません。気になるときは背面を2回叩いて戻してください。</p>
+
+  <h4>iPad：ショートカットバーから呼び出す</h4>
+
+  <p>iPadには背面タップがありませんが、外付けキーボードを繋いでいるときは画面の下端に細いバー（ショートカットバー）が出ます。</p>
+
+  <ol>
+    <li>テンキーを繋いだまま、プレイヤー名の入力欄をタップする</li>
+    <li>画面の下端に出たバーの<strong>右端にあるキーボードのアイコンを長押し</strong>する</li>
+    <li>画面のキーボードを表示するメニューが出るので、それを選ぶ</li>
+  </ol>
+
+  <p>バーが出ていないときや、うまくいかないときは下の「ほかの方法」をお使いください。</p>
+
+  <h4>ほかの方法</h4>
+
+  <ul>
+    <li><strong>プレイヤー名を先に入力してから、テンキーを接続する。</strong>名前を決めてしまえば、試合中に文字入力を使う場面はありません</li>
+    <li><strong>コントロールセンターでBluetoothを一度オフにする。</strong>テンキーの接続が切れて画面のキーボードが戻ります</li>
+    <li>USB接続のテンキーなら、名前を入力するあいだだけ抜いておくのが手軽です</li>
+  </ul>
+
+  <p>Androidでは通常、外付けキーボードを繋いでも画面のキーボードがそのまま使えます。もし出ない場合は、「設定」→「システム」→「言語と入力」→「物理キーボード」に、画面のキーボードを表示するかどうかの設定があります（項目名や場所は機種によって異なります）。</p>
 
   <h2>戦績を見る</h2>
   <p>試合結果は保存され、各セットの投擲内容まで振り返れます。アカウントでログインしていれば、機種変更しても引き継がれます。</p>

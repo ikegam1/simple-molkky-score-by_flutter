@@ -27,9 +27,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.49+151';
+const String _kAppVersion = '1.15.50+152';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.49';
+const String _kDisplayVersion = 'v1.15.50';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -6382,6 +6382,7 @@ class HelpPage extends StatelessWidget {
         '* キー → 10点、− キー → 11点、+ キー → 12点',
         'バックスペースキー → 「戻る」と同じ',
         'ダイアログが出ているときはエンターキーで次へ進めます',
+        'iPhone・iPad はテンキーなどの外付けキーボードを繋いでいる間、画面のキーボードが出ません（iOS の仕様）。iPhone なら、「設定」→「アクセシビリティ」→「タッチ」→「AssistiveTouch」で「オンスクリーンキーボード表示」をオンにし、さらに「タッチ」→「背面タップ」→「ダブルタップ」に「AssistiveTouch」を割り当てておくと、背面を 2 回叩くだけでキーボードを呼び出せます。背面タップは iPhone 専用です。iPad では画面下端に出るショートカットバーの右端にあるキーボードのアイコンを長押しすると呼び出せます。Android でも画面のキーボードが出ない場合は「設定」→「システム」→「言語と入力」→「物理キーボード」を確認してください',
         '試合終了直後の結果ダイアログで「点数を修正する」を押すと、直前の投擲に戻って修正できます',
       ],
     ),
@@ -6478,6 +6479,7 @@ class HelpPage extends StatelessWidget {
         '* key → 10, − key → 11, + key → 12',
         'Backspace → same as Undo',
         'Press Enter to confirm when a dialog is open',
+        'On iPhone/iPad the on-screen keyboard stays hidden while an external keyboard (including a numpad) is connected. On iPhone, turn on Settings > Accessibility > Touch > AssistiveTouch > Show Onscreen Keyboard, then assign AssistiveTouch to Back Tap (Touch > Back Tap > Double Tap). You can then bring the keyboard up by tapping the back of the phone twice. Back Tap is iPhone-only. On iPad, press and hold the keyboard icon at the right end of the shortcut bar that appears at the bottom of the screen',
         'After the final result dialog, tap "Edit Scores" to undo the last throw and fix mistakes',
       ],
     ),
