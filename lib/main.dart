@@ -27,9 +27,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.49+151';
+const String _kAppVersion = '1.15.50+152';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.49';
+const String _kDisplayVersion = 'v1.15.50';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -6382,6 +6382,7 @@ class HelpPage extends StatelessWidget {
         '* キー → 10点、− キー → 11点、+ キー → 12点',
         'バックスペースキー → 「戻る」と同じ',
         'ダイアログが出ているときはエンターキーで次へ進めます',
+        'iPhone・iPad はテンキーなどの外付けキーボードを繋いでいる間、画面のキーボードが出ません（iOS の仕様）。テンキーには文字キーが無いため、プレイヤー名は先に入力しておくか、コントロールセンターで Bluetooth を一度オフにしてください。Android では起きません',
         '試合終了直後の結果ダイアログで「点数を修正する」を押すと、直前の投擲に戻って修正できます',
       ],
     ),
@@ -6478,6 +6479,7 @@ class HelpPage extends StatelessWidget {
         '* key → 10, − key → 11, + key → 12',
         'Backspace → same as Undo',
         'Press Enter to confirm when a dialog is open',
+        'On iPhone/iPad the on-screen keyboard stays hidden while an external keyboard (including a numpad) is connected. A numpad has no letter keys, so enter player names before connecting it, or turn Bluetooth off briefly from Control Center. This does not happen on Android',
         'After the final result dialog, tap "Edit Scores" to undo the last throw and fix mistakes',
       ],
     ),

@@ -22,6 +22,8 @@
     --line: #e2e5df;
     --accent: #2e6b45;
     --card: #f5f7f3;
+    --note-bg: #fff8e6;
+    --note-line: #e8cf8f;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -31,6 +33,8 @@
       --line: #2c3126;
       --accent: #83c199;
       --card: #1c2017;
+      --note-bg: #241f14;
+      --note-line: #4a3f22;
     }
   }
   * { box-sizing: border-box; }
@@ -63,6 +67,11 @@
     margin: 0 0 22px;
   }
   .card p:last-child { margin-bottom: 0; }
+  .card.note {
+    background: var(--note-bg);
+    border-color: var(--note-line);
+  }
+  .card.note ul:last-child, .card.note p:last-child { margin-bottom: 0; }
   ul, ol { padding-left: 1.4em; margin: 0 0 16px; }
   li { margin-bottom: 8px; }
   .table-scroll { overflow-x: auto; margin: 0 0 20px; }
@@ -287,6 +296,20 @@
   </div>
 
   <p><strong>数字キー（0〜9）はPCの通常キーボードでも使えます。</strong>ただし <strong>10・11・12 はテンキー専用のキー</strong>に割り当てているため、これらを入力するにはテンキーが必要です。</p>
+
+  <h3>テンキーを繋ぐと、名前が打てなくなることがあります</h3>
+
+  <div class="card note">
+    <p>iPhone・iPadは<strong>外付けキーボードが接続されている間、画面のキーボードを表示しません</strong>。テンキーには文字キーがないため、プレイヤー名の入力欄をタップしても何も出てこない、という状態になります。故障ではなく、iOSの仕様です。</p>
+    <p>次のどれかで回避できます。</p>
+    <ul>
+      <li><strong>プレイヤー名を先に入力してから、テンキーを接続する。</strong>いちばん確実です。名前を決めてしまえば、試合中に文字入力を使う場面はありません</li>
+      <li><strong>コントロールセンターでBluetoothを一度オフにする。</strong>テンキーの接続が切れて画面のキーボードが戻ります。名前を入力したらオンに戻してください</li>
+      <li>画面の下端に細いバー（ショートカットバー）が出ている場合は、<strong>右端のキーボードのアイコンを長押し</strong>すると画面のキーボードを呼び出せます。ただしiPhoneでは表示されないことが多く、iPadでの方法だと考えてください</li>
+    </ul>
+  </div>
+
+  <p>USB接続のテンキーの場合は、名前を入力するあいだだけ抜いておくのが手軽です。Androidは外付けキーボードを繋いでも画面のキーボードが使えるため、この問題は起きません。</p>
 
   <h2>戦績を見る</h2>
   <p>試合結果は保存され、各セットの投擲内容まで振り返れます。アカウントでログインしていれば、機種変更しても引き継がれます。</p>
