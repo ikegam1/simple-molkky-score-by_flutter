@@ -3857,6 +3857,12 @@ class _GameScreenState extends State<GameScreen>
     // ようにしたため (2026-09-19)、limit を確定してから次セットを作らないと
     // 変更前の形式で決まった投げ順が残る (raceTo は最終セットが近いと合計点順に
     // なる)。順序は nextSetOrder でプレビューだけ出し、確定時にまとめて適用する。
+    //
+    // ただし**終わったセットの確定だけは先に済ませる**。合計得点順の投げ順を
+    // 出すのに、いま終わったセットの得点が要るため (codex 指摘)。
+    // finalizeCurrentSetIfNeeded は重複追加を防ぐので、確定時に
+    // prepareNextSet から呼ばれても二重には入らない。
+    widget.match.finalizeCurrentSetIfNeeded();
     final int baseLimit = widget.match.limit;
     int pendingLimit = baseLimit;
     List<Player> reorderList = widget.match.nextSetOrder(
@@ -4153,7 +4159,9 @@ class _GameScreenState extends State<GameScreen>
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
     _saveSetSnapshot();
-    // prepareNextSet を確定時に回す理由は _showSetWinnerDialog と同じ。
+    // prepareNextSet を確定時に回す理由、先に確定させる理由は
+    // _showSetWinnerDialog と同じ。
+    widget.match.finalizeCurrentSetIfNeeded();
     final int baseLimit = widget.match.limit;
     int pendingLimit = baseLimit;
     List<Player> reorderList = widget.match.nextSetOrder(

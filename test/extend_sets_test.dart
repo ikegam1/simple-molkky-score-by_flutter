@@ -136,6 +136,43 @@ void main() {
       );
     });
 
+    test('合計点順は、いま終わったセットの得点を含んで並ぶ', () {
+      // セット終了ダイアログは prepareNextSet を確定時まで遅らせている。
+      // そのため **プレビューを出す前に finalizeCurrentSetIfNeeded を
+      // 呼んでおかないと**、いま終わったセットの得点が totalMatchScore に
+      // 入らず、投げ順が狂う。
+      //
+      // 3 人 2 先 → decidingSetThreshold = 3*(2-1)+1 = 4。
+      // 4 セット目 (nextIndex=4) は合計点順になる。
+      MolkkyMatch build() {
+        final m = _match(type: MatchType.raceTo, limit: 2, playerCount: 3);
+        m.currentSetIndex = 3;
+        // 3 セット目までの合計は a が最下位、c が最上位。
+        m.players[0].setFinalScores.addAll(<int>[10, 10]); // a: 20
+        m.players[1].setFinalScores.addAll(<int>[20, 20]); // b: 40
+        m.players[2].setFinalScores.addAll(<int>[25, 25]); // c: 50
+        // いま終わったセットで a だけが大量に取った。
+        m.players[0].currentScore = 50; // a: +50 → 70
+        m.players[1].currentScore = 5; // b: +5 → 45
+        m.players[2].currentScore = 0; // c: +0 → 50
+        return m;
+      }
+
+      final stale = build();
+      expect(
+        stale.nextSetOrder().map((p) => p.id).toList(),
+        ['c', 'b', 'a'],
+        reason: '確定前は、いま終わったセットの得点が入らない',
+      );
+
+      final fresh = build()..finalizeCurrentSetIfNeeded();
+      expect(fresh.nextSetOrder().map((p) => p.id).toList(), [
+        'a',
+        'c',
+        'b',
+      ], reason: '確定後は a が最上位になるはず');
+    });
+
     test('11 先は合計点順にしない', () {
       final m = _match(type: MatchType.raceTo, limit: 11, playerCount: 3);
       m.currentSetIndex = 30;
