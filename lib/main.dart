@@ -27,9 +27,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.50+152';
+const String _kAppVersion = '1.15.51+153';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.50';
+const String _kDisplayVersion = 'v1.15.51';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -133,6 +133,15 @@ class L10n {
       'sets_count': 'Sets: {n}',
       'race_to': 'First to {n} sets',
       'set_n': 'Set {n}',
+      'set_n_short': '{n} SET',
+      'fmt_race_to_short': 'First to {n}',
+      'fmt_sets_short': '{n} Sets',
+      'fmt_hyakin_short': 'Hyakin',
+      'fmt_self5_short': 'Self 5',
+      'fmt_self6_short': 'Self 6',
+      'fmt_three_game_short': '3 Sets',
+      'extend_sets': 'Add a set',
+      'extend_sets_to': 'Change to {label}',
       'turn_n': 'Turn {n}',
       'turn_label': 'T',
       'points': 'Pts',
@@ -232,6 +241,15 @@ class L10n {
       'sets_count': '{n}番 ({n}セット)',
       'race_to': '{n}先 ({n}本先取)',
       'set_n': '第 {n} セット',
+      'set_n_short': '{n}SET',
+      'fmt_race_to_short': '{n}先',
+      'fmt_sets_short': '{n}番',
+      'fmt_hyakin_short': '百均',
+      'fmt_self5_short': 'セルフ5',
+      'fmt_self6_short': 'セルフ6',
+      'fmt_three_game_short': '3番',
+      'extend_sets': 'セット数を追加',
+      'extend_sets_to': '{label} に変更',
       'turn_n': 'ターン {n}',
       'turn_label': 'ターン',
       'points': '得点',
@@ -3835,8 +3853,21 @@ class _GameScreenState extends State<GameScreen>
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex; // 現在のセット番号を保持
     _saveSetSnapshot(setWinner: winner);
-    widget.match.prepareNextSet(manualOrder: false);
-    List<Player> reorderList = List.from(widget.match.players);
+    // **prepareNextSet はここでは呼ばない。** ダイアログでセット数を延ばせる
+    // ようにしたため (2026-09-19)、limit を確定してから次セットを作らないと
+    // 変更前の形式で決まった投げ順が残る (raceTo は最終セットが近いと合計点順に
+    // なる)。順序は nextSetOrder でプレビューだけ出し、確定時にまとめて適用する。
+    //
+    // ただし**終わったセットの確定だけは先に済ませる**。合計得点順の投げ順を
+    // 出すのに、いま終わったセットの得点が要るため (codex 指摘)。
+    // finalizeCurrentSetIfNeeded は重複追加を防ぐので、確定時に
+    // prepareNextSet から呼ばれても二重には入らない。
+    widget.match.finalizeCurrentSetIfNeeded();
+    final int baseLimit = widget.match.limit;
+    int pendingLimit = baseLimit;
+    List<Player> reorderList = widget.match.nextSetOrder(
+      forLimit: pendingLimit,
+    );
 
     showDialog(
       context: context,
@@ -3855,6 +3886,25 @@ class _GameScreenState extends State<GameScreen>
                     Text(winMsg),
                     const SizedBox(height: 16),
                     const Divider(),
+                    if (_canExtendSets) ...<Widget>[
+                      _buildExtendSetsRow(
+                        context: context,
+                        baseLimit: baseLimit,
+                        pendingLimit: pendingLimit,
+                        onChanged: (v) {
+                          setDialogState(() {
+                            pendingLimit = v;
+                            // 投げ順は limit で変わる (raceTo は最終セットが
+                            // 近いと合計点順になる) ので、変えるたびに
+                            // 出し直す。手動で並べ替えていた分は破棄される。
+                            reorderList = widget.match.nextSetOrder(
+                              forLimit: v,
+                            );
+                          });
+                        },
+                      ),
+                      const Divider(),
+                    ],
                     Text(
                       t.get('reorder_hint'),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -3901,6 +3951,12 @@ class _GameScreenState extends State<GameScreen>
                     onPressed: () {
                       Navigator.pop(ctx);
                       setState(() {
+                        // 順序は limit に依存するので、延長 → 次セット作成 →
+                        // 手動順の適用、の順で行う。
+                        if (pendingLimit != baseLimit) {
+                          widget.match.extendLimit(pendingLimit);
+                        }
+                        widget.match.prepareNextSet(manualOrder: true);
                         widget.match.applyManualOrder(reorderList);
                         currentPlayerIndex = 0;
                         currentTurnInSet = 1;
@@ -3920,6 +3976,85 @@ class _GameScreenState extends State<GameScreen>
           ),
     );
   }
+
+  /// セット間ダイアログに置く「セット数を追加」の行。
+  ///
+  /// **増やすだけ。** ただし確定するまでは [baseLimit] まで戻せる
+  /// (「その場で追加した分をその場で減らす」ことはできる、という要望)。
+  Widget _buildExtendSetsRow({
+    required BuildContext context,
+    required int baseLimit,
+    required int pendingLimit,
+    required ValueChanged<int> onChanged,
+  }) {
+    final t = L10n.of(context);
+    final changed = pendingLimit != baseLimit;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Text(
+          t.get('extend_sets'),
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: '-1',
+          iconSize: 20,
+          visualDensity: VisualDensity.compact,
+          // 元の形式より短くはできない。
+          onPressed:
+              pendingLimit > baseLimit
+                  ? () => onChanged(pendingLimit - 1)
+                  : null,
+          icon: const Icon(Icons.remove_circle_outline),
+        ),
+        Text(
+          _matchTypeLabelShort(overrideLimit: pendingLimit),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: changed ? Colors.orange[800] : null,
+          ),
+        ),
+        IconButton(
+          tooltip: '+1',
+          iconSize: 20,
+          visualDensity: VisualDensity.compact,
+          onPressed: () => onChanged(pendingLimit + 1),
+          icon: const Icon(Icons.add_circle_outline),
+        ),
+      ],
+    );
+  }
+
+  /// 試合形式の短縮表記。試合中の画面に常時出すため、極力短くする。
+  /// 日本語は「2先」「10番」と、ユーザが普段呼んでいる言い方に合わせる。
+  ///
+  /// **l10n を通す。** 併記する「2 SET」の方はロケールで切り替わるので、
+  /// ここだけ日本語のままだと英語環境でちぐはぐになる (codex 指摘)。
+  String _matchTypeLabelShort({int? overrideLimit}) {
+    final t = L10n.of(context);
+    final limit = overrideLimit ?? widget.match.limit;
+    switch (widget.match.type) {
+      case MatchType.raceTo:
+        return t.get('fmt_race_to_short', args: {'n': '$limit'});
+      case MatchType.fixedSets:
+        return t.get('fmt_sets_short', args: {'n': '$limit'});
+      case MatchType.hyakin:
+        return t.get('fmt_hyakin_short');
+      case MatchType.self5Turn:
+        return t.get('fmt_self5_short');
+      case MatchType.self6Turn:
+        return t.get('fmt_self6_short');
+      case MatchType.threeGame:
+        return t.get('fmt_three_game_short');
+    }
+  }
+
+  /// セット数を増やせる形式か。百均やセルフ練習は対象外。
+  bool get _canExtendSets =>
+      widget.match.type == MatchType.raceTo ||
+      widget.match.type == MatchType.fixedSets;
 
   String _matchTypeLabel() {
     switch (widget.match.type) {
@@ -4024,8 +4159,14 @@ class _GameScreenState extends State<GameScreen>
     final t = L10n.of(context);
     final int finishedSetNum = widget.match.currentSetIndex;
     _saveSetSnapshot();
-    widget.match.prepareNextSet(manualOrder: false);
-    List<Player> reorderList = List.from(widget.match.players);
+    // prepareNextSet を確定時に回す理由、先に確定させる理由は
+    // _showSetWinnerDialog と同じ。
+    widget.match.finalizeCurrentSetIfNeeded();
+    final int baseLimit = widget.match.limit;
+    int pendingLimit = baseLimit;
+    List<Player> reorderList = widget.match.nextSetOrder(
+      forLimit: pendingLimit,
+    );
 
     showDialog(
       context: context,
@@ -4044,6 +4185,25 @@ class _GameScreenState extends State<GameScreen>
                     Text(t.get('set_draw_detail')),
                     const SizedBox(height: 16),
                     const Divider(),
+                    if (_canExtendSets) ...<Widget>[
+                      _buildExtendSetsRow(
+                        context: context,
+                        baseLimit: baseLimit,
+                        pendingLimit: pendingLimit,
+                        onChanged: (v) {
+                          setDialogState(() {
+                            pendingLimit = v;
+                            // 投げ順は limit で変わる (raceTo は最終セットが
+                            // 近いと合計点順になる) ので、変えるたびに
+                            // 出し直す。手動で並べ替えていた分は破棄される。
+                            reorderList = widget.match.nextSetOrder(
+                              forLimit: v,
+                            );
+                          });
+                        },
+                      ),
+                      const Divider(),
+                    ],
                     Text(
                       t.get('reorder_hint'),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -4090,6 +4250,12 @@ class _GameScreenState extends State<GameScreen>
                     onPressed: () {
                       Navigator.pop(ctx);
                       setState(() {
+                        // 順序は limit に依存するので、延長 → 次セット作成 →
+                        // 手動順の適用、の順で行う。
+                        if (pendingLimit != baseLimit) {
+                          widget.match.extendLimit(pendingLimit);
+                        }
+                        widget.match.prepareNextSet(manualOrder: true);
                         widget.match.applyManualOrder(reorderList);
                         currentPlayerIndex = 0;
                         currentTurnInSet = 1;
@@ -4419,17 +4585,44 @@ class _GameScreenState extends State<GameScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            isSelfTurn
-                ? t.get(
-                  'self5turn_challenge_n',
-                  args: {'n': '${widget.match.currentSetIndex}'},
-                )
-                : t.get(
-                  'set_n',
-                  args: {'n': '${widget.match.currentSetIndex}'},
-                ),
-          ),
+          // 試合中は「2SET」と試合形式「3先」を並べて出す。
+          // 途中でセット数を延ばせるので、いまどの形式で戦っているかが
+          // 分からなくなりやすい (ユーザ要望 2026-09-19)。
+          title:
+              isSelfTurn
+                  ? Text(
+                    t.get(
+                      'self5turn_challenge_n',
+                      args: {'n': '${widget.match.currentSetIndex}'},
+                    ),
+                  )
+                  : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: <Widget>[
+                      Flexible(
+                        child: Text(
+                          t.get(
+                            'set_n_short',
+                            args: {'n': '${widget.match.currentSetIndex}'},
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _matchTypeLabelShort(),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
           actions: [
             IconButton(
               tooltip: 'ライブ表示',
@@ -6326,6 +6519,9 @@ class HelpPage extends StatelessWidget {
         'ターン制限がある場合は、上限ターン終了時点で一番点数が高い人が勝ちです',
         '同点トップならそのセットは引き分けです',
         '試合形式で決めた条件を先に満たした人が試合の勝者です',
+        '試合中の画面の左上に「2SET 3先」のように、いま何セット目か・どの試合形式かが出ます',
+        'セットが終わったときの画面で、セット数を増やせます（2先→3先、10番→12番など）。'
+            '減らすことはできませんが、増やした分はその画面にいるあいだなら戻せます',
       ],
     ),
     const _HelpSection(
@@ -6418,6 +6614,9 @@ class HelpPage extends StatelessWidget {
         'If a turn limit is active, the highest score at the end of the limit wins the set',
         'If the top score is tied, the set is a draw',
         'The match winner is decided by the selected game mode',
+        'The top left of the match screen shows the current set and the game mode, e.g. "2 SET  First to 3"',
+        'You can add sets from the set result screen (first-to-2 becomes first-to-3, 10 sets becomes 12). '
+            'Sets cannot be removed, but you can undo what you just added while that screen is open',
       ],
     ),
     const _HelpSection(

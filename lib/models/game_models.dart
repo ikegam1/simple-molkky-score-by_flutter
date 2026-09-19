@@ -67,7 +67,13 @@ class MolkkyMatch {
   final int targetScore = 50;
   final int burstResetScore = 25;
   final int maxMisses = 3;
-  final int limit;
+
+  /// セット数 / 先取数。
+  ///
+  /// **final ではない。** セット間に「2 先 → 3 先」「10 番 → 12 番」と
+  /// 増やせるようにしたため (ユーザ要望 2026-09-19)。増やすのは
+  /// [extendLimit] からだけで、減らすことはできない。
+  int limit;
   final MatchType type;
   final int? turnLimitPerSet;
   final int? matchTimeLimitSeconds;
@@ -207,6 +213,63 @@ class MolkkyMatch {
     return null;
   }
 
+  /// 次のセットの投げ順を計算して返す。**[players] は変更しない。**
+  ///
+  /// 順序は [limit] に依存する (raceTo の最終セット付近は合計点順、
+  /// 2 番の 2 セット目は逆順)。セット間に limit を変えられるようにしたため、
+  /// 「この limit ならどういう順序になるか」を副作用なしに求められる必要が
+  /// ある。ダイアログでのプレビューにも使う。
+  ///
+  /// [forLimit] を渡すと、その値で計算する (既定は現在の [limit])。
+  List<Player> nextSetOrder({int? forLimit}) {
+    final effectiveLimit = forLimit ?? limit;
+    final nextIndex = currentSetIndex + 1;
+    final ordered = List<Player>.from(players);
+
+    bool shouldSortByScore = false;
+    // 11先はデュース後も投げ順を変えない（合計点による並び替えなし）
+    if (type == MatchType.raceTo && effectiveLimit != 11) {
+      final decidingSetThreshold = (players.length * (effectiveLimit - 1)) + 1;
+      if (nextIndex >= decidingSetThreshold) shouldSortByScore = true;
+    }
+
+    if (shouldSortByScore) {
+      ordered.sort((a, b) {
+        if (b.totalMatchScore != a.totalMatchScore) {
+          return b.totalMatchScore.compareTo(a.totalMatchScore);
+        }
+        if (a.totalMatchThrows != b.totalMatchThrows) {
+          return a.totalMatchThrows.compareTo(b.totalMatchThrows);
+        }
+        return a.initialOrder.compareTo(b.initialOrder);
+      });
+      return ordered;
+    }
+    if ((type == MatchType.fixedSets &&
+            effectiveLimit == 2 &&
+            nextIndex == 2) ||
+        (type == MatchType.hyakin && nextIndex == 2)) {
+      return ordered.reversed.toList();
+    }
+    if (ordered.length > 1) {
+      final first = ordered.removeAt(0);
+      ordered.add(first);
+    }
+    return ordered;
+  }
+
+  /// セット数 / 先取数を増やす。**減らすことはできない。**
+  ///
+  /// セット間に「2 先 → 3 先」「10 番 → 12 番」と延長するためのもの
+  /// (ユーザ要望 2026-09-19)。対象は raceTo / fixedSets のみ。百均や
+  /// セルフ練習はセット数の概念が違うので受け付けない。
+  bool extendLimit(int newLimit) {
+    if (type != MatchType.raceTo && type != MatchType.fixedSets) return false;
+    if (newLimit <= limit) return false;
+    limit = newLimit;
+    return true;
+  }
+
   // 次のセットの準備 (基本ロジック)
   void prepareNextSet({bool manualOrder = false}) {
     // 現在のセットの結果を記録（重複追加防止）
@@ -218,32 +281,7 @@ class MolkkyMatch {
     int nextIndex = currentSetIndex + 1;
 
     if (!manualOrder) {
-      bool shouldSortByScore = false;
-      // 11先はデュース後も投げ順を変えない（合計点による並び替えなし）
-      if (type == MatchType.raceTo && limit != 11) {
-        int decidingSetThreshold = (players.length * (limit - 1)) + 1;
-        if (nextIndex >= decidingSetThreshold) shouldSortByScore = true;
-      }
-
-      if (shouldSortByScore) {
-        players.sort((a, b) {
-          if (b.totalMatchScore != a.totalMatchScore)
-            return b.totalMatchScore.compareTo(a.totalMatchScore);
-          if (a.totalMatchThrows != b.totalMatchThrows)
-            return a.totalMatchThrows.compareTo(b.totalMatchThrows);
-          return a.initialOrder.compareTo(b.initialOrder);
-        });
-      } else {
-        if ((type == MatchType.fixedSets && limit == 2 && nextIndex == 2) ||
-            (type == MatchType.hyakin && nextIndex == 2)) {
-          players = players.reversed.toList();
-        } else {
-          if (players.length > 1) {
-            final first = players.removeAt(0);
-            players.add(first);
-          }
-        }
-      }
+      players = nextSetOrder();
     }
 
     currentSetIndex = nextIndex;
