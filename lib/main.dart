@@ -2528,6 +2528,11 @@ class _GameScreenState extends State<GameScreen>
     // _resetElapsedTimer より先に呼ぶ (経過秒を上書きされないように)。
     _restoreProgressFromResume();
     _resetElapsedTimer();
+    // _resetElapsedTimer は経過秒を 0 にするので、復元値はそのあとで入れる。
+    if (_restoredElapsedSeconds != null) {
+      _elapsedSeconds = _restoredElapsedSeconds!;
+      _restoredElapsedSeconds = null;
+    }
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
     // 試合画面に入った時点で控えておく。以降は投擲・取り消し・セット切替の
     // たびに更新し、試合が終わったら消す。
@@ -2632,10 +2637,16 @@ class _GameScreenState extends State<GameScreen>
     final decision = GameLogic.decideMatchByStandings(widget.match.players);
     if (decision.isDraw || decision.winner == null) {
       _uploadMatchData(null);
+      unawaited(clearMatchSnapshot());
       _showMatchDrawDialog(detailOverride: t.get('time_up_match_over'));
       return;
     }
     _uploadMatchData(decision.winner);
+    // **中断データを消す。** 時間切れで終わらせた試合は、試合形式によっては
+    // isMatchOver を満たさない (例: 規定セット数に届いていない固定セット戦)。
+    // _persistMatchSnapshot 任せだと消えず、終わった試合を 30 分間再開できて
+    // しまい、同じ結果をもう一度保存できてしまう (codex 指摘)。
+    unawaited(clearMatchSnapshot());
     _showMatchWinnerDialog(
       decision.winner!,
       winMsg: t.get('time_up_match_over'),
@@ -3337,6 +3348,8 @@ class _GameScreenState extends State<GameScreen>
       } else {
         _resetElapsedTimer();
       }
+      // セルフモードはここで抜けるので、末尾の保存に届かない (codex 指摘)。
+      _persistMatchSnapshot();
       return;
     }
     // セット終了時はタイマーを停止
@@ -3377,6 +3390,10 @@ class _GameScreenState extends State<GameScreen>
       'turnAnnotations': _turnAnnotations,
       'throwAnnotation': _throwAnnotation,
       'elapsedSeconds': _elapsedSeconds,
+      // 試合時間制限の残りも持つ。これが無いと、再開のたびに制限時間が
+      // 満タンに戻ってしまう (codex 指摘)。
+      'remainingMatchSeconds': _remainingMatchSeconds,
+      'matchTimerStarted': _matchTimerStarted,
     };
   }
 
@@ -3447,8 +3464,16 @@ class _GameScreenState extends State<GameScreen>
     final tha = (p['throwAnnotation'] as num?)?.toInt();
     if (tha != null) _throwAnnotation = tha;
     final es = (p['elapsedSeconds'] as num?)?.toInt();
-    if (es != null && es >= 0) _elapsedSeconds = es;
+    if (es != null && es >= 0) _restoredElapsedSeconds = es;
+    final rms = (p['remainingMatchSeconds'] as num?)?.toInt();
+    if (rms != null && rms >= 0) _remainingMatchSeconds = rms;
+    final mts = p['matchTimerStarted'] as bool?;
+    if (mts != null) _matchTimerStarted = mts;
   }
+
+  /// 復元した経過秒。[_resetElapsedTimer] が 0 に戻してしまうので、
+  /// いったん受けておいて後から入れ直す (codex 指摘)。
+  int? _restoredElapsedSeconds;
 
   void _nextPlayer() {
     int start = currentPlayerIndex;
