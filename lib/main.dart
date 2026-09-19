@@ -2350,6 +2350,13 @@ class _GameScreenState extends State<GameScreen>
       if (_remainingMatchSeconds == 0 && !_matchTimeExpired) {
         _matchTimer?.cancel();
         _matchTimeExpired = true;
+        // **決着の確認中はダイアログを重ねない** (codex 指摘)。重ねると、
+        // 時間切れ側で試合を終わらせて保存したあとに確認が取り消され、
+        // 保存だけが残った食い違う状態になる。確認が片付いてから出す。
+        if (_awaitingDecisiveConfirm) {
+          _matchTimeExpiredPending = true;
+          return;
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _showMatchTimeExpiredDialog();
         });
@@ -2494,6 +2501,12 @@ class _GameScreenState extends State<GameScreen>
     _submitThrow(hillu37: true);
   }
 
+  /// 決着の確認ダイアログを出している最中か。
+  bool _awaitingDecisiveConfirm = false;
+
+  /// 決着の確認中に試合時間が切れた場合、確認が片付いてから知らせるための印。
+  bool _matchTimeExpiredPending = false;
+
   /// 決着の確認を取り消したときに巻き戻せるよう、投擲直前の状態を控える。
   ///
   /// `_undo()` は使えない。決着時は `isSetFinished` が true になっており、
@@ -2616,6 +2629,7 @@ class _GameScreenState extends State<GameScreen>
   }) async {
     final t = L10n.of(context);
     final drawing = isDraw ?? widget.match.isMatchDraw;
+    _awaitingDecisiveConfirm = true;
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -2640,7 +2654,22 @@ class _GameScreenState extends State<GameScreen>
             ],
           ),
     );
+    _awaitingDecisiveConfirm = false;
     if (!mounted) return;
+    if (_matchTimeExpiredPending) {
+      // 確認中に試合時間が切れていた。確認の結果を反映したうえで知らせる。
+      _matchTimeExpiredPending = false;
+      if (ok != true) {
+        _restoreThrowRollback(rollback);
+      } else {
+        _finishDecisiveMatch(winner: winner, winMsg: winMsg, isDraw: drawing);
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showMatchTimeExpiredDialog();
+      });
+      return;
+    }
     if (ok != true) {
       // 投擲前の状態に戻す。_undo() は isSetFinished が立っていると
       // 何もしないので使えない。
