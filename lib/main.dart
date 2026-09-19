@@ -134,6 +134,12 @@ class L10n {
       'race_to': 'First to {n} sets',
       'set_n': 'Set {n}',
       'set_n_short': '{n} SET',
+      'fmt_race_to_short': 'First to {n}',
+      'fmt_sets_short': '{n} Sets',
+      'fmt_hyakin_short': 'Hyakin',
+      'fmt_self5_short': 'Self 5',
+      'fmt_self6_short': 'Self 6',
+      'fmt_three_game_short': '3 Sets',
       'extend_sets': 'Add a set',
       'extend_sets_to': 'Change to {label}',
       'turn_n': 'Turn {n}',
@@ -236,6 +242,12 @@ class L10n {
       'race_to': '{n}先 ({n}本先取)',
       'set_n': '第 {n} セット',
       'set_n_short': '{n}SET',
+      'fmt_race_to_short': '{n}先',
+      'fmt_sets_short': '{n}番',
+      'fmt_hyakin_short': '百均',
+      'fmt_self5_short': 'セルフ5',
+      'fmt_self6_short': 'セルフ6',
+      'fmt_three_game_short': '3番',
       'extend_sets': 'セット数を追加',
       'extend_sets_to': '{label} に変更',
       'turn_n': 'ターン {n}',
@@ -4010,22 +4022,26 @@ class _GameScreenState extends State<GameScreen>
   }
 
   /// 試合形式の短縮表記。試合中の画面に常時出すため、極力短くする。
-  /// 「2先」「10番」のように、ユーザが普段呼んでいる言い方に合わせる。
+  /// 日本語は「2先」「10番」と、ユーザが普段呼んでいる言い方に合わせる。
+  ///
+  /// **l10n を通す。** 併記する「2 SET」の方はロケールで切り替わるので、
+  /// ここだけ日本語のままだと英語環境でちぐはぐになる (codex 指摘)。
   String _matchTypeLabelShort({int? overrideLimit}) {
+    final t = L10n.of(context);
     final limit = overrideLimit ?? widget.match.limit;
     switch (widget.match.type) {
       case MatchType.raceTo:
-        return '$limit先';
+        return t.get('fmt_race_to_short', args: {'n': '$limit'});
       case MatchType.fixedSets:
-        return '$limit番';
+        return t.get('fmt_sets_short', args: {'n': '$limit'});
       case MatchType.hyakin:
-        return '百均';
+        return t.get('fmt_hyakin_short');
       case MatchType.self5Turn:
-        return 'セルフ5';
+        return t.get('fmt_self5_short');
       case MatchType.self6Turn:
-        return 'セルフ6';
+        return t.get('fmt_self6_short');
       case MatchType.threeGame:
-        return '3番';
+        return t.get('fmt_three_game_short');
     }
   }
 
@@ -6590,7 +6606,7 @@ class HelpPage extends StatelessWidget {
         'If a turn limit is active, the highest score at the end of the limit wins the set',
         'If the top score is tied, the set is a draw',
         'The match winner is decided by the selected game mode',
-        'The top left of the match screen shows the current set and the game mode, e.g. "2 SET  3先"',
+        'The top left of the match screen shows the current set and the game mode, e.g. "2 SET  First to 3"',
         'You can add sets from the set result screen (first-to-2 becomes first-to-3, 10 sets becomes 12). '
             'Sets cannot be removed, but you can undo what you just added while that screen is open',
       ],
