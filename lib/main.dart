@@ -2533,6 +2533,16 @@ class _GameScreenState extends State<GameScreen>
       _elapsedSeconds = _restoredElapsedSeconds!;
       _restoredElapsedSeconds = null;
     }
+    // 中断前にカウントダウンが始まっていたなら回し直す。
+    // _startMatchCountdown は _matchTimerStarted で弾くので呼んでも始まらず、
+    // 画面から開始ボタンも消えているため、放っておくと残り時間が止まった
+    // まま試合が終わらなくなる (codex 指摘)。
+    if (_hasMatchTimeLimit &&
+        _matchTimerStarted &&
+        (_remainingMatchSeconds ?? 0) > 0) {
+      _matchTimerStarted = false;
+      _startMatchCountdown();
+    }
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
     // 試合画面に入った時点で控えておく。以降は投擲・取り消し・セット切替の
     // たびに更新し、試合が終わったら消す。
@@ -3368,6 +3378,13 @@ class _GameScreenState extends State<GameScreen>
       unawaited(clearMatchSnapshot());
       return;
     }
+    // **セットが終わった状態では保存しない。**
+    //
+    // 復元してもセット結果のダイアログは出ないので、点数入力も取り消しも
+    // できない画面で固まってしまう (isSetFinished が両方を止めるため)
+    // (codex 指摘)。「次のセットへ」を押せば次セットに入った状態で保存され
+    // るので、最悪でも最後の 1 投をやり直すだけで済む。
+    if (isSetFinished) return;
     unawaited(
       saveMatchSnapshot(
         match: widget.match,
