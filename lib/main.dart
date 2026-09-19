@@ -2537,11 +2537,19 @@ class _GameScreenState extends State<GameScreen>
     // _startMatchCountdown は _matchTimerStarted で弾くので呼んでも始まらず、
     // 画面から開始ボタンも消えているため、放っておくと残り時間が止まった
     // まま試合が終わらなくなる (codex 指摘)。
-    if (_hasMatchTimeLimit &&
-        _matchTimerStarted &&
-        (_remainingMatchSeconds ?? 0) > 0) {
-      _matchTimerStarted = false;
-      _startMatchCountdown();
+    if (_hasMatchTimeLimit && _matchTimerStarted) {
+      if ((_remainingMatchSeconds ?? 0) > 0) {
+        _matchTimerStarted = false;
+        _startMatchCountdown();
+      } else {
+        // 時間切れの直後に中断した場合。タイマーは回さず、知らせを出し直す。
+        // 出さないと、開始ボタンも消えたまま時間制限が効かなくなる
+        // (codex 指摘)。
+        _matchTimeExpired = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showMatchTimeExpiredDialog();
+        });
+      }
     }
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
     // 試合画面に入った時点で控えておく。以降は投擲・取り消し・セット切替の
@@ -3579,6 +3587,8 @@ class _GameScreenState extends State<GameScreen>
                         _playersBurstedThisSet.clear();
                       });
                       _resetElapsedTimer();
+                      // 変えた投げ順を控える (codex 指摘)。
+                      _persistMatchSnapshot();
                     },
                     child: Text(t.get('ok')),
                   ),
