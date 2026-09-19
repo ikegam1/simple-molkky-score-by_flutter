@@ -27,9 +27,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.51+153';
+const String _kAppVersion = '1.15.52+154';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.51';
+const String _kDisplayVersion = 'v1.15.52';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -133,7 +133,7 @@ class L10n {
       'sets_count': 'Sets: {n}',
       'race_to': 'First to {n} sets',
       'set_n': 'Set {n}',
-      'set_n_short': '{n} SET',
+      'set_n_short': 'SET {n}',
       'fmt_race_to_short': 'First to {n}',
       'fmt_sets_short': '{n} Sets',
       'fmt_hyakin_short': 'Hyakin',
@@ -241,7 +241,7 @@ class L10n {
       'sets_count': '{n}番 ({n}セット)',
       'race_to': '{n}先 ({n}本先取)',
       'set_n': '第 {n} セット',
-      'set_n_short': '{n}SET',
+      'set_n_short': 'SET {n}',
       'fmt_race_to_short': '{n}先',
       'fmt_sets_short': '{n}番',
       'fmt_hyakin_short': '百均',
@@ -4585,7 +4585,7 @@ class _GameScreenState extends State<GameScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          // 試合中は「2SET」と試合形式「3先」を並べて出す。
+          // 試合中は「SET 2」と試合形式「3先」を並べて出す。
           // 途中でセット数を延ばせるので、いまどの形式で戦っているかが
           // 分からなくなりやすい (ユーザ要望 2026-09-19)。
           title:
@@ -6519,7 +6519,7 @@ class HelpPage extends StatelessWidget {
         'ターン制限がある場合は、上限ターン終了時点で一番点数が高い人が勝ちです',
         '同点トップならそのセットは引き分けです',
         '試合形式で決めた条件を先に満たした人が試合の勝者です',
-        '試合中の画面の左上に「2SET 3先」のように、いま何セット目か・どの試合形式かが出ます',
+        '試合中の画面の左上に「SET 2　3先」のように、いま何セット目か・どの試合形式かが出ます',
         'セットが終わったときの画面で、セット数を増やせます（2先→3先、10番→12番など）。'
             '減らすことはできませんが、増やした分はその画面にいるあいだなら戻せます',
       ],
@@ -6614,7 +6614,7 @@ class HelpPage extends StatelessWidget {
         'If a turn limit is active, the highest score at the end of the limit wins the set',
         'If the top score is tied, the set is a draw',
         'The match winner is decided by the selected game mode',
-        'The top left of the match screen shows the current set and the game mode, e.g. "2 SET  First to 3"',
+        'The top left of the match screen shows the current set and the game mode, e.g. "SET 2  First to 3"',
         'You can add sets from the set result screen (first-to-2 becomes first-to-3, 10 sets becomes 12). '
             'Sets cannot be removed, but you can undo what you just added while that screen is open',
       ],
