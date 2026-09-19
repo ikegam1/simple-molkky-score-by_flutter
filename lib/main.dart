@@ -2804,7 +2804,14 @@ class _GameScreenState extends State<GameScreen>
                             args: {'name': hyakinWinner.name},
                           ),
                   rollback: throwRollback,
-                  isDraw: finalDecision.isDraw || finalDecision.winner == null,
+                  // **match.isMatchDraw も見る。** 3番モードは合計得点だけで
+                  // 引き分け (共同優勝) を決めるのに対し、
+                  // decideMatchByStandings はセット取得数で勝者を返す。
+                  // 落とすと共同優勝が「勝者あり」になる (codex 指摘)。
+                  isDraw:
+                      widget.match.isMatchDraw ||
+                      finalDecision.isDraw ||
+                      finalDecision.winner == null,
                 ),
               );
               return;
@@ -3023,7 +3030,14 @@ class _GameScreenState extends State<GameScreen>
                             args: {'name': provisionalWinner.name},
                           ),
                   rollback: throwRollback,
-                  isDraw: finalDecision.isDraw || finalDecision.winner == null,
+                  // **match.isMatchDraw も見る。** 3番モードは合計得点だけで
+                  // 引き分け (共同優勝) を決めるのに対し、
+                  // decideMatchByStandings はセット取得数で勝者を返す。
+                  // 落とすと共同優勝が「勝者あり」になる (codex 指摘)。
+                  isDraw:
+                      widget.match.isMatchDraw ||
+                      finalDecision.isDraw ||
+                      finalDecision.winner == null,
                 ),
               );
               return;
