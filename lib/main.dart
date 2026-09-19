@@ -4270,6 +4270,11 @@ class _GameScreenState extends State<GameScreen>
             actions: [
               TextButton(
                 onPressed: () {
+                  // セルフモードは isMatchOver が常に false なので、
+                  // _persistMatchSnapshot 任せでは中断データが残る。
+                  // 終わったチャレンジが再開候補に出てしまうため明示的に
+                  // 消す (codex 指摘)。
+                  unawaited(clearMatchSnapshot());
                   Navigator.pop(ctx);
                   Navigator.popUntil(context, (r) => r.isFirst);
                 },
@@ -4842,6 +4847,9 @@ class _GameScreenState extends State<GameScreen>
   /// これにより、勝利ターンの開始位置に戻って正しいスコアを再入力できる。
   void _enterPostMatchEditMode() {
     _undoToPreviousSet();
+    // 試合終了で中断データは消えている。修正に入った時点で控え直さないと、
+    // 直している途中で閉じた場合に再開できず、やり直しになる (codex 指摘)。
+    _persistMatchSnapshot();
   }
 
   void _showSetDrawDialog() {
