@@ -18,6 +18,7 @@ import 'package:crypto/crypto.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
+import 'logic/resume_progress.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
 import 'logic/two_digit_key_input.dart';
@@ -27,9 +28,105 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.53+155';
+/// 中断した試合のスナップショットを置く SharedPreferences のキー。
+const String kMatchSnapshotPrefsKey = 'match_snapshot_v1';
+
+/// 中断からどれだけ経つまで再開を提案するか。
+/// 古すぎるものを出しても混乱するだけなので切る。
+const Duration kResumeMaxAge = Duration(minutes: 30);
+
+/// 進行中の試合スナップショットを SharedPreferences に保存する。
+/// 保存フォーマット:
+///   {
+///     'match': <MolkkyMatch.toJson()>,
+///     'appUserId': <String>,
+///     'savedAt': <ISO8601 String>,
+///   }
+Future<void> saveMatchSnapshot({
+  required MolkkyMatch match,
+  required String appUserId,
+  Map<String, dynamic>? progress,
+}) async {
+  try {
+    // **シリアライズを先に済ませる。** この関数は unawaited で呼ばれるので、
+    // SharedPreferences の初期化を待っているあいだに match が書き換わると、
+    // 呼んだ時点ではなく**書き換わったあと**の状態が保存されてしまう
+    // (codex 指摘)。決着の確認中に落ちたとき、確定前の状態で保存されるのが
+    // 正しい。
+    final payload = <String, dynamic>{
+      'match': match.toJson(),
+      'appUserId': appUserId,
+      'savedAt': DateTime.now().toIso8601String(),
+      if (progress != null) 'progress': progress,
+    };
+    final encoded = jsonEncode(payload);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(kMatchSnapshotPrefsKey, encoded);
+  } catch (e) {
+    debugPrint('saveMatchSnapshot failed: $e');
+  }
+}
+
+/// スナップショットを削除する (試合終了時 / ユーザが「破棄」した時)。
+Future<void> clearMatchSnapshot() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(kMatchSnapshotPrefsKey);
+  } catch (_) {}
+}
+
+/// 30 分以内のスナップショットがあれば MolkkyMatch を返す。
+/// スナップショット自体は残す (次回上書きされるまで持つ)。
+class ResumeSnapshot {
+  final MolkkyMatch match;
+  final String appUserId;
+  final DateTime savedAt;
+  // GameScreen の進行状態 (currentTurnInSet / currentPlayerIndex 等)。
+  // 中断前に UI が持っていた値。null なら初期値で開始 (旧スナップショット互換)。
+  final Map<String, dynamic>? progress;
+  ResumeSnapshot({
+    required this.match,
+    required this.appUserId,
+    required this.savedAt,
+    this.progress,
+  });
+}
+
+Future<ResumeSnapshot?> loadResumableMatch() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(kMatchSnapshotPrefsKey);
+    if (raw == null || raw.isEmpty) return null;
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    final map = Map<String, dynamic>.from(decoded);
+    final savedIso = map['savedAt'] as String?;
+    if (savedIso == null) return null;
+    final savedAt = DateTime.tryParse(savedIso);
+    if (savedAt == null) return null;
+    if (DateTime.now().difference(savedAt) > kResumeMaxAge) return null;
+    final matchJson = map['match'];
+    if (matchJson is! Map) return null;
+    final match = MolkkyMatch.fromJson(Map<String, dynamic>.from(matchJson));
+    final appUserId = (map['appUserId'] as String?) ?? '';
+    final progressRaw = map['progress'];
+    final progress =
+        progressRaw is Map ? Map<String, dynamic>.from(progressRaw) : null;
+    return ResumeSnapshot(
+      match: match,
+      appUserId: appUserId,
+      savedAt: savedAt,
+      progress: progress,
+    );
+  } catch (e) {
+    debugPrint('loadResumableMatch failed: $e');
+    return null;
+  }
+}
+
+const String _kAppVersion = '1.16.0+156';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.53';
+const String _kDisplayVersion = 'v1.16.0';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -163,6 +260,7 @@ class L10n {
       'win_2miss': '{name} wins with 2 misses on the line!',
       'win_burst': '{name} wins after a burst!',
       'next_set': 'Next Set',
+      'resume_paused_match': 'Resume the interrupted match',
       'final_result': 'Final Result',
       'match_over': 'Match Over',
       'winner_crown': 'Winner: {name}',
@@ -276,6 +374,7 @@ class L10n {
       'win_2miss': '{name} さん、2ミスからの1投で勝利！',
       'win_burst': '{name} さん、逆転勝利！',
       'next_set': '次のセットへ',
+      'resume_paused_match': '中断された試合を再開する',
       'final_result': '最終結果へ',
       'match_over': '🎊 マッチ終了 🎊',
       'winner_crown': '優勝: {name} さん',
@@ -533,6 +632,9 @@ class _SetupScreenState extends State<SetupScreen> {
   int _selectedTurnLimit = 0;
   int _selectedTimeLimitMinutes = 0;
   String _firebaseUid = "";
+
+  /// 中断された試合。30 分以内のものがあればトップに再開の導線を出す。
+  ResumeSnapshot? _resumable;
   final _uuid = const Uuid();
   bool _isGoogleLinked = false;
   bool _isAppleLinked = false;
@@ -561,6 +663,7 @@ class _SetupScreenState extends State<SetupScreen> {
     _nameFocusNode.addListener(_onFocusChanged);
     _initApp();
     _loadNameHistory();
+    _loadResumable();
   }
 
   @override
@@ -571,6 +674,118 @@ class _SetupScreenState extends State<SetupScreen> {
     _nameController.dispose();
     _nameFocusNode.dispose();
     super.dispose();
+  }
+
+  /// トップ画面に「中断された試合を再開する」導線を出すために読み込む。
+  Future<void> _loadResumable() async {
+    final snap = await loadResumableMatch();
+    if (!mounted) return;
+    setState(() => _resumable = snap);
+  }
+
+  void _resumeMatch() {
+    final snap = _resumable;
+    if (snap == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (c) => GameScreen(
+              // 保存時の appUserId を使う。
+              appUserId:
+                  snap.appUserId.isNotEmpty ? snap.appUserId : _firebaseUid,
+              match: snap.match,
+              appLocale: Localizations.localeOf(context),
+              // 中断時の UI 進行状態 (currentTurnInSet / 現在のプレイヤー等) を
+              // 復元させる。null なら旧スナップショット形式扱いで初期値で開始。
+              resumeProgress: snap.progress,
+            ),
+      ),
+    ).then((_) {
+      // 試合画面から戻ったら読み直す。試合が終わっていれば消えている。
+      _loadResumable();
+    });
+  }
+
+  /// スナップショットを明示的に破棄する (ユーザが「破棄」を選んだ時)。
+  Future<void> _discardResumable() async {
+    await clearMatchSnapshot();
+    if (!mounted) return;
+    setState(() => _resumable = null);
+  }
+
+  Widget _buildResumeCard() {
+    final snap = _resumable;
+    if (snap == null) return const SizedBox.shrink();
+    final now = DateTime.now();
+    final elapsed = now.difference(snap.savedAt);
+    String elapsedLabel;
+    if (elapsed.inMinutes < 1) {
+      elapsedLabel = 'たった今';
+    } else {
+      elapsedLabel = '${elapsed.inMinutes} 分前';
+    }
+    final playerNames = snap.match.players.map((p) => p.name).join(', ');
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Icon(Icons.history, color: Colors.orange, size: 20),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '中断された試合があります ($elapsedLabel)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.brown,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'プレイヤー: $playerNames / セット ${snap.match.currentSetIndex}',
+            style: const TextStyle(fontSize: 11, color: Colors.brown),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _resumeMatch,
+                  icon: const Icon(Icons.play_arrow, size: 18),
+                  label: Text(L10n.of(context).get('resume_paused_match')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              TextButton(
+                onPressed: _discardResumable,
+                child: const Text(
+                  '破棄',
+                  style: TextStyle(fontSize: 12, color: Colors.brown),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _initApp() async {
@@ -1729,6 +1944,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         }) => null,
                   ),
                   _buildNameSuggestionCard(),
+                  _buildResumeCard(),
                   Expanded(
                     child: ReorderableListView(
                       onReorder: (o, n) {
@@ -1972,6 +2188,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         }) => null,
                   ),
                   _buildNameSuggestionCard(dense: true),
+                  _buildResumeCard(),
                   Expanded(
                     child: ReorderableListView(
                       onReorder: (o, n) {
@@ -2185,11 +2402,17 @@ class GameScreen extends StatefulWidget {
   final MolkkyMatch match;
   final String appUserId;
   final Locale? appLocale;
+
+  /// 中断された試合を「再開」した時、_GameScreenState の初期値
+  /// (currentTurnInSet / currentPlayerIndex 等) を復元するための情報。
+  /// 新規試合では null。
+  final Map<String, dynamic>? resumeProgress;
   const GameScreen({
     super.key,
     required this.match,
     required this.appUserId,
     this.appLocale,
+    this.resumeProgress,
   });
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -2300,8 +2523,15 @@ class _GameScreenState extends State<GameScreen>
       end: 1.0,
     ).animate(_blinkController);
     _remainingMatchSeconds = widget.match.matchTimeLimitSeconds;
+    // 中断から再開した場合、fromJson で試合データは戻っているが、画面側の
+    // 進行状態 (何ターン目か / 誰の番か) は別に持っているので読み戻す。
+    // _resetElapsedTimer より先に呼ぶ (経過秒を上書きされないように)。
+    _restoreProgressFromResume();
     _resetElapsedTimer();
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    // 試合画面に入った時点で控えておく。以降は投擲・取り消し・セット切替の
+    // たびに更新し、試合が終わったら消す。
+    _persistMatchSnapshot();
   }
 
   @override
@@ -2707,6 +2937,9 @@ class _GameScreenState extends State<GameScreen>
       _uploadMatchData(finalWinner);
       _showMatchWinnerDialog(finalWinner, winMsg: winMsg);
     }
+    // 試合が終わったので中断データを片付ける
+    // (_persistMatchSnapshot は isMatchOver なら削除する)。
+    _persistMatchSnapshot();
   }
 
   void _submitThrow({bool hillu37 = false}) {
@@ -3113,6 +3346,108 @@ class _GameScreenState extends State<GameScreen>
       _resetElapsedTimer();
     }
     _syncLiveMatch();
+    _persistMatchSnapshot();
+  }
+
+  void _persistMatchSnapshot() {
+    if (_awaitingDecisiveConfirm) return;
+    if (widget.match.isMatchOver) {
+      unawaited(clearMatchSnapshot());
+      return;
+    }
+    unawaited(
+      saveMatchSnapshot(
+        match: widget.match,
+        appUserId: widget.appUserId,
+        progress: _buildProgressSnapshot(),
+      ),
+    );
+  }
+
+  /// 現在の _GameScreenState の UI 進行状態を JSON 互換 Map にまとめる。
+  /// 中断→再開時に [_restoreProgressFromResume] で読み戻す。
+  Map<String, dynamic> _buildProgressSnapshot() {
+    return <String, dynamic>{
+      'currentPlayerIndex': currentPlayerIndex,
+      'currentTurnInSet': currentTurnInSet,
+      'isSetFinished': isSetFinished,
+      'turnInProgressScores': turnInProgressScores,
+      'systemCalculatedIds': systemCalculatedIds.toList(),
+      'burstedThisSet': _playersBurstedThisSet.toList(),
+      'turnAnnotations': _turnAnnotations,
+      'throwAnnotation': _throwAnnotation,
+      'elapsedSeconds': _elapsedSeconds,
+    };
+  }
+
+  /// 中断された試合の UI 進行状態を [widget.resumeProgress] から復元する。
+  /// null の場合 (新規試合 / 旧形式スナップショット) は何もしない。
+  void _restoreProgressFromResume() {
+    final p = widget.resumeProgress;
+    if (p == null) return;
+    final ct = (p['currentTurnInSet'] as num?)?.toInt();
+    final cp = (p['currentPlayerIndex'] as num?)?.toInt();
+    final sf = p['isSetFinished'] as bool?;
+    // progress は UI が持っていた値、match は保存時点のデータ。
+    // **両者が食い違うことがある**ので、そのまま信じずに突き合わせる
+    // (理由は lib/logic/resume_progress.dart を参照)。
+    final recordedTurns = widget.match.players.fold<int>(
+      0,
+      (acc, pl) => pl.scoreHistory.length > acc ? pl.scoreHistory.length : acc,
+    );
+    final minRecordedTurns =
+        widget.match.players.isEmpty
+            ? 0
+            : widget.match.players
+                .map((pl) => pl.scoreHistory.length)
+                .reduce((a, b) => a < b ? a : b);
+    final sanitized = sanitizeResumedProgress(
+      savedTurn: ct,
+      savedSetFinished: sf,
+      savedPlayerIndex: cp,
+      recordedTurns: recordedTurns,
+      minRecordedTurns: minRecordedTurns,
+      playerCount: widget.match.players.length,
+    );
+    currentTurnInSet = sanitized.currentTurnInSet;
+    currentPlayerIndex = sanitized.currentPlayerIndex;
+    isSetFinished = sanitized.isSetFinished;
+    if (sanitized.discardPartialTurn) {
+      // セットがまだ始まっていないのに、前のセットの入力途中データが
+      // 残っている。そのまま使うと他の人の古い得点が混ざる。
+      turnInProgressScores.clear();
+      systemCalculatedIds.clear();
+      _turnAnnotations.clear();
+      _throwAnnotation = 0;
+      _playersBurstedThisSet.clear();
+      return;
+    }
+    final tips = p['turnInProgressScores'];
+    if (tips is Map) {
+      turnInProgressScores = Map<String, int>.from(
+        tips.map((k, v) => MapEntry('$k', (v as num).toInt())),
+      );
+    }
+    final sci = p['systemCalculatedIds'];
+    if (sci is List) {
+      systemCalculatedIds = Set<String>.from(sci.map((e) => '$e'));
+    }
+    final bts = p['burstedThisSet'];
+    if (bts is List) {
+      _playersBurstedThisSet
+        ..clear()
+        ..addAll(bts.map((e) => '$e'));
+    }
+    final ta = p['turnAnnotations'];
+    if (ta is Map) {
+      _turnAnnotations = Map<String, int>.from(
+        ta.map((k, v) => MapEntry('$k', (v as num).toInt())),
+      );
+    }
+    final tha = (p['throwAnnotation'] as num?)?.toInt();
+    if (tha != null) _throwAnnotation = tha;
+    final es = (p['elapsedSeconds'] as num?)?.toInt();
+    if (es != null && es >= 0) _elapsedSeconds = es;
   }
 
   void _nextPlayer() {
@@ -3813,6 +4148,7 @@ class _GameScreenState extends State<GameScreen>
     });
     _resetElapsedTimer();
     _syncLiveMatch();
+    _persistMatchSnapshot();
   }
 
   void _showSelf5TurnSuccessDialog() {
@@ -4266,6 +4602,11 @@ class _GameScreenState extends State<GameScreen>
                         _playersBurstedThisSet.clear();
                       });
                       _resetElapsedTimer();
+                      // **次セットに入った状態で保存し直す。**
+                      // ここで保存しないと、スナップショットは
+                      // 「試合データは次セット / 画面の状態は前セットの
+                      // 最終ターン」という食い違った組み合わせのまま残る。
+                      _persistMatchSnapshot();
                     },
                     child: Text(t.get('next_set')),
                   ),
@@ -4565,6 +4906,11 @@ class _GameScreenState extends State<GameScreen>
                         _playersBurstedThisSet.clear();
                       });
                       _resetElapsedTimer();
+                      // **次セットに入った状態で保存し直す。**
+                      // ここで保存しないと、スナップショットは
+                      // 「試合データは次セット / 画面の状態は前セットの
+                      // 最終ターン」という食い違った組み合わせのまま残る。
+                      _persistMatchSnapshot();
                     },
                     child: Text(t.get('next_set')),
                   ),
@@ -6870,6 +7216,16 @@ class HelpPage extends StatelessWidget {
       ],
     ),
     const _HelpSection(
+      title: '中断した試合の再開',
+      items: [
+        'アプリが閉じたり、うっかりトップ画面に戻ってしまっても、試合はそのまま残ります',
+        'トップ画面に「中断された試合があります」と出るので、「中断された試合を再開する」を押すと続きから始められます',
+        '何ターン目か・誰の番か・入力途中の点数まで戻ります',
+        '中断から30分を過ぎると出なくなります。「破棄」を押すとその場で消えます',
+        '試合が終わると自動的に消えます',
+      ],
+    ),
+    const _HelpSection(
       title: '小ネタ',
       items: [
         'Bluetoothテンキーをスマートフォンに接続すると、キーでスコアを入力できます（PCブラウザでも対応）',
@@ -6967,6 +7323,16 @@ class HelpPage extends StatelessWidget {
         'Background is transparent so it overlays cleanly on your stream layout',
         'Anyone with the URL can view it',
         'Auto-deleted 24 hours after the match ends',
+      ],
+    ),
+    const _HelpSection(
+      title: 'Resuming an interrupted match',
+      items: [
+        'If the app closes or you return to the top screen by accident, the match is kept',
+        'The top screen shows "There is an interrupted match"; tap Resume to continue',
+        'The turn, whose throw it is, and any scores entered mid-turn are all restored',
+        'It disappears 30 minutes after the interruption, or immediately if you tap Discard',
+        'It is cleared automatically once the match ends',
       ],
     ),
     const _HelpSection(

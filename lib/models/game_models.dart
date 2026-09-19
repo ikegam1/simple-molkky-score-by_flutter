@@ -31,6 +31,44 @@ class Player {
     scoreSnapshot = [];
     missSnapshot = [];
   }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'name': name,
+    'initialOrder': initialOrder,
+    'currentScore': currentScore,
+    'consecutiveMisses': consecutiveMisses,
+    'isDisqualified': isDisqualified,
+    'setsWon': setsWon,
+    'scoreHistory': scoreHistory,
+    'scoreSnapshot': scoreSnapshot,
+    'missSnapshot': missSnapshot,
+    'matchScoreHistory': matchScoreHistory,
+    'setFinalScores': setFinalScores,
+  };
+
+  factory Player.fromJson(Map<String, dynamic> j) {
+    final p = Player(
+      id: j['id'] as String,
+      name: j['name'] as String,
+      initialOrder: (j['initialOrder'] as num).toInt(),
+    );
+    p.currentScore = (j['currentScore'] as num?)?.toInt() ?? 0;
+    p.consecutiveMisses = (j['consecutiveMisses'] as num?)?.toInt() ?? 0;
+    p.isDisqualified = j['isDisqualified'] as bool? ?? false;
+    p.setsWon = (j['setsWon'] as num?)?.toInt() ?? 0;
+    p.scoreHistory = List<int>.from((j['scoreHistory'] as List?) ?? const []);
+    p.scoreSnapshot = List<int>.from((j['scoreSnapshot'] as List?) ?? const []);
+    // missSnapshot は 0.6.32 以前のスナップショットには含まれないので空 fallback。
+    p.missSnapshot = List<int>.from((j['missSnapshot'] as List?) ?? const []);
+    p.matchScoreHistory = List<int>.from(
+      (j['matchScoreHistory'] as List?) ?? const [],
+    );
+    p.setFinalScores = List<int>.from(
+      (j['setFinalScores'] as List?) ?? const [],
+    );
+    return p;
+  }
 }
 
 class TurnRecord {
@@ -47,6 +85,28 @@ class TurnRecord {
     Map<String, int>? scoreAnnotations,
   }) : systemCalculatedPlayerIds = systemCalculated ?? {},
        scoreAnnotations = scoreAnnotations ?? {};
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'turnNumber': turnNumber,
+    'scores': scores,
+    'systemCalculatedPlayerIds': systemCalculatedPlayerIds.toList(),
+    'scoreAnnotations': scoreAnnotations,
+  };
+
+  factory TurnRecord.fromJson(Map<String, dynamic> j) => TurnRecord(
+    (j['turnNumber'] as num).toInt(),
+    Map<String, int>.from(
+      (j['scores'] as Map).map((k, v) => MapEntry('$k', (v as num).toInt())),
+    ),
+    systemCalculated: Set<String>.from(
+      (j['systemCalculatedPlayerIds'] as List?)?.map((e) => '$e') ?? const [],
+    ),
+    scoreAnnotations: Map<String, int>.from(
+      (j['scoreAnnotations'] as Map?)?.map(
+            (k, v) => MapEntry('$k', (v as num).toInt()),
+          ) ??
+          const {},
+    ),
+  );
 }
 
 class SetRecord {
@@ -58,6 +118,33 @@ class SetRecord {
   SetRecord(this.setNumber, this.starterPlayerId, this.playerOrder);
 
   bool get hasContent => turns.isNotEmpty || finalCumulativeScores.isNotEmpty;
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'setNumber': setNumber,
+    'starterPlayerId': starterPlayerId,
+    'playerOrder': playerOrder,
+    'turns': turns.map((t) => t.toJson()).toList(),
+    'finalCumulativeScores': finalCumulativeScores,
+  };
+
+  factory SetRecord.fromJson(Map<String, dynamic> j) {
+    final rec = SetRecord(
+      (j['setNumber'] as num).toInt(),
+      j['starterPlayerId'] as String,
+      List<String>.from((j['playerOrder'] as List).map((e) => '$e')),
+    );
+    for (final t in (j['turns'] as List? ?? const [])) {
+      rec.turns.add(TurnRecord.fromJson(Map<String, dynamic>.from(t as Map)));
+    }
+    rec.finalCumulativeScores.addAll(
+      Map<String, int>.from(
+        (j['finalCumulativeScores'] as Map?)?.map(
+              (k, v) => MapEntry('$k', (v as num).toInt()),
+            ) ??
+            const {},
+      ),
+    );
+    return rec;
+  }
 }
 
 enum MatchType { raceTo, fixedSets, self5Turn, self6Turn, hyakin, threeGame }
@@ -78,7 +165,10 @@ class MolkkyMatch {
   final int? turnLimitPerSet;
   final int? matchTimeLimitSeconds;
   int currentSetIndex = 1;
-  final DateTime startTime;
+
+  /// **final ではない。** 中断した試合を再開するとき、保存時の値に戻すため
+  /// (試合の識別や経過時間の基準になるので、再開で作り直すとずれる)。
+  DateTime startTime;
 
   List<SetRecord> completedSets = [];
   SetRecord currentSetRecord;
@@ -96,6 +186,53 @@ class MolkkyMatch {
          players.first.id,
          players.map((p) => p.id).toList(),
        );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'players': players.map((p) => p.toJson()).toList(),
+    'limit': limit,
+    'type': type.name,
+    'turnLimitPerSet': turnLimitPerSet,
+    'matchTimeLimitSeconds': matchTimeLimitSeconds,
+    'currentSetIndex': currentSetIndex,
+    'startTime': startTime.toIso8601String(),
+    'completedSets': completedSets.map((s) => s.toJson()).toList(),
+    'currentSetRecord': currentSetRecord.toJson(),
+    'consecutiveSuccesses': consecutiveSuccesses,
+  };
+
+  factory MolkkyMatch.fromJson(Map<String, dynamic> j) {
+    final players =
+        (j['players'] as List)
+            .map((p) => Player.fromJson(Map<String, dynamic>.from(p as Map)))
+            .toList();
+    final match = MolkkyMatch(
+      players: players,
+      limit: (j['limit'] as num).toInt(),
+      type: MatchType.values.firstWhere(
+        (t) => t.name == j['type'],
+        orElse: () => MatchType.raceTo,
+      ),
+      turnLimitPerSet: (j['turnLimitPerSet'] as num?)?.toInt(),
+      matchTimeLimitSeconds: (j['matchTimeLimitSeconds'] as num?)?.toInt(),
+    );
+    match.currentSetIndex = (j['currentSetIndex'] as num?)?.toInt() ?? 1;
+    final startIso = j['startTime'] as String?;
+    if (startIso != null) {
+      match.startTime = DateTime.parse(startIso);
+    }
+    match.completedSets =
+        ((j['completedSets'] as List?) ?? const [])
+            .map((e) => SetRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+    if (j['currentSetRecord'] != null) {
+      match.currentSetRecord = SetRecord.fromJson(
+        Map<String, dynamic>.from(j['currentSetRecord'] as Map),
+      );
+    }
+    match.consecutiveSuccesses =
+        (j['consecutiveSuccesses'] as num?)?.toInt() ?? 0;
+    return match;
+  }
 
   bool get _isCurrentSetAlreadyFinalized =>
       completedSets.any((s) => s.setNumber == currentSetRecord.setNumber);
