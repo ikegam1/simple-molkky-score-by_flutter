@@ -2592,6 +2592,11 @@ class _GameScreenState extends State<GameScreen>
         return;
       }
       setState(() => _remainingMatchSeconds = remaining - 1);
+      // 残り時間も中断データに反映する。これが無いと、タイマーを動かした
+      // まま数分放置して閉じた場合に、最後の入力時点の残り時間で再開でき、
+      // 経過ぶんを取り戻せてしまう (codex 指摘)。毎秒書くのは重いので
+      // 10 秒ごとに留める。
+      if (_remainingMatchSeconds! % 10 == 0) _persistMatchSnapshot();
       if (_remainingMatchSeconds == 0 && !_matchTimeExpired) {
         _matchTimer?.cancel();
         _matchTimeExpired = true;
@@ -4317,6 +4322,8 @@ class _GameScreenState extends State<GameScreen>
       selectedSkitels.clear();
     });
     _resetElapsedTimer();
+    // 新しいチャレンジに入った状態で保存し直す (codex 指摘)。
+    _persistMatchSnapshot();
   }
 
   void _earlyEnd() {
