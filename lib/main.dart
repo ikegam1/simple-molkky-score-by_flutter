@@ -42,37 +42,53 @@ const Duration kResumeMaxAge = Duration(minutes: 30);
 ///     'appUserId': <String>,
 ///     'savedAt': <ISO8601 String>,
 ///   }
+/// スナップショットの書き込みを直列化するためのチェーン。
+///
+/// save も clear も SharedPreferences の初期化を待ってから書くので、
+/// 別々に走らせると**消したあとに古い保存が書き戻る**。終わった試合や
+/// 破棄した試合が再開候補に出てしまう (codex 指摘)。
+Future<void> _snapshotChain = Future<void>.value();
+
+/// [op] を直前のスナップショット操作の後ろに並べて実行する。
+Future<void> _queueSnapshotOp(Future<void> Function() op) {
+  final next = _snapshotChain.then((_) => op()).catchError((_) {});
+  _snapshotChain = next;
+  return next;
+}
+
 Future<void> saveMatchSnapshot({
   required MolkkyMatch match,
   required String appUserId,
   Map<String, dynamic>? progress,
-}) async {
-  try {
-    // **シリアライズを先に済ませる。** この関数は unawaited で呼ばれるので、
-    // SharedPreferences の初期化を待っているあいだに match が書き換わると、
-    // 呼んだ時点ではなく**書き換わったあと**の状態が保存されてしまう
-    // (codex 指摘)。決着の確認中に落ちたとき、確定前の状態で保存されるのが
-    // 正しい。
-    final payload = <String, dynamic>{
-      'match': match.toJson(),
-      'appUserId': appUserId,
-      'savedAt': DateTime.now().toIso8601String(),
-      if (progress != null) 'progress': progress,
-    };
-    final encoded = jsonEncode(payload);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(kMatchSnapshotPrefsKey, encoded);
-  } catch (e) {
-    debugPrint('saveMatchSnapshot failed: $e');
-  }
+}) {
+  // シリアライズはここで済ませる (呼び出し時点の状態を写し取るため)。
+  final payload = <String, dynamic>{
+    'match': match.toJson(),
+    'appUserId': appUserId,
+    'savedAt': DateTime.now().toIso8601String(),
+    if (progress != null) 'progress': progress,
+  };
+  final encoded = jsonEncode(payload);
+  return _queueSnapshotOp(() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(kMatchSnapshotPrefsKey, encoded);
+    } catch (e) {
+      debugPrint('saveMatchSnapshot failed: $e');
+    }
+  });
 }
 
 /// スナップショットを削除する (試合終了時 / ユーザが「破棄」した時)。
-Future<void> clearMatchSnapshot() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(kMatchSnapshotPrefsKey);
-  } catch (_) {}
+Future<void> clearMatchSnapshot() {
+  // 保存と同じ列に並べる。別々に走らせると、消したあとに古い保存が
+  // 書き戻ってしまう。
+  return _queueSnapshotOp(() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(kMatchSnapshotPrefsKey);
+    } catch (_) {}
+  });
 }
 
 /// 30 分以内のスナップショットがあれば MolkkyMatch を返す。
