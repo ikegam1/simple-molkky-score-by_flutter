@@ -2597,6 +2597,10 @@ class _GameScreenState extends State<GameScreen>
         }
       });
     }
+    // **ライブスコアも戻す。** _submitThrow は確認を開いたあとも先へ進んで
+    // _syncLiveMatch を呼ぶので、取り消した得点が視聴者に出たままになる
+    // (codex 指摘)。次の投擲まで直らないのは間が悪い。
+    _syncLiveMatch();
   }
 
   /// 試合が決着する入力のとき、確定してよいか確認する。
