@@ -27,9 +27,9 @@ import 'services/live_match_service.dart';
 import 'pages/live_display_page.dart';
 import 'utils/landscape_detector.dart';
 
-const String _kAppVersion = '1.15.52+154';
+const String _kAppVersion = '1.15.53+155';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.15.52';
+const String _kDisplayVersion = 'v1.15.53';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -134,6 +134,13 @@ class L10n {
       'race_to': 'First to {n} sets',
       'set_n': 'Set {n}',
       'set_n_short': 'SET {n}',
+      'decisive_confirm_title': 'Finish the match?',
+      'decisive_confirm_body':
+          'This throw ends the match with {name} winning. Is that correct?',
+      'decisive_confirm_draw':
+          'This throw ends the match in a draw. Is that correct?',
+      'decisive_confirm_ok': 'Finish',
+      'decisive_confirm_cancel': 'Go back',
       'fmt_race_to_short': 'First to {n}',
       'fmt_sets_short': '{n} Sets',
       'fmt_hyakin_short': 'Hyakin',
@@ -242,6 +249,11 @@ class L10n {
       'race_to': '{n}先 ({n}本先取)',
       'set_n': '第 {n} セット',
       'set_n_short': 'SET {n}',
+      'decisive_confirm_title': '試合を終わりにしますか？',
+      'decisive_confirm_body': 'この入力で {name} さんの勝利で決着が着きますが、よろしいですか？',
+      'decisive_confirm_draw': 'この入力で引き分けで決着が着きますが、よろしいですか？',
+      'decisive_confirm_ok': '決着にする',
+      'decisive_confirm_cancel': '入力をやり直す',
       'fmt_race_to_short': '{n}先',
       'fmt_sets_short': '{n}番',
       'fmt_hyakin_short': '百均',
@@ -2183,6 +2195,48 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
+/// 決着の確認を取り消したときに戻すための、投擲直前の状態。
+///
+/// `_undo()` は決着時に使えない (isSetFinished が立っていると即 return する)
+/// ため、専用に控える。
+class _ThrowRollback {
+  final int currentTurnInSet;
+  final int currentPlayerIndex;
+  final bool isSetFinished;
+  final Map<String, int> turnInProgressScores;
+  final Set<String> systemCalculatedIds;
+  final Map<String, int> turnAnnotations;
+
+  /// 入力途中の投擲に付いていた記号。投げ直すときに消えないよう控える。
+  final int throwAnnotation;
+  final Set<String> burstedThisSet;
+  final int turnRecordCount;
+  final int completedSetCount;
+
+  /// finalize で書き込まれる最終累計。取り消したら消す必要がある。
+  final Map<String, int> finalCumulativeScores;
+
+  /// 投擲時点の経過秒。取り消したらここから計り直す。
+  final int elapsedSeconds;
+  final List<Map<String, dynamic>> players;
+
+  const _ThrowRollback({
+    required this.currentTurnInSet,
+    required this.currentPlayerIndex,
+    required this.isSetFinished,
+    required this.turnInProgressScores,
+    required this.systemCalculatedIds,
+    required this.turnAnnotations,
+    required this.throwAnnotation,
+    required this.burstedThisSet,
+    required this.turnRecordCount,
+    required this.completedSetCount,
+    required this.finalCumulativeScores,
+    required this.elapsedSeconds,
+    required this.players,
+  });
+}
+
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
   int currentPlayerIndex = 0;
@@ -2296,6 +2350,13 @@ class _GameScreenState extends State<GameScreen>
       if (_remainingMatchSeconds == 0 && !_matchTimeExpired) {
         _matchTimer?.cancel();
         _matchTimeExpired = true;
+        // **決着の確認中はダイアログを重ねない** (codex 指摘)。重ねると、
+        // 時間切れ側で試合を終わらせて保存したあとに確認が取り消され、
+        // 保存だけが残った食い違う状態になる。確認が片付いてから出す。
+        if (_awaitingDecisiveConfirm) {
+          _matchTimeExpiredPending = true;
+          return;
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _showMatchTimeExpiredDialog();
         });
@@ -2440,7 +2501,217 @@ class _GameScreenState extends State<GameScreen>
     _submitThrow(hillu37: true);
   }
 
+  /// 決着の確認ダイアログを出している最中か。
+  bool _awaitingDecisiveConfirm = false;
+
+  /// 決着の確認中に試合時間が切れた場合、確認が片付いてから知らせるための印。
+  bool _matchTimeExpiredPending = false;
+
+  /// 決着の確認を取り消したときに巻き戻せるよう、投擲直前の状態を控える。
+  ///
+  /// `_undo()` は使えない。決着時は `isSetFinished` が true になっており、
+  /// `_undo()` は先頭でそれを見て**何もせずに return する** (codex 指摘)。
+  /// セット勝利で増えた `setsWon` も戻す必要がある。
+  _ThrowRollback _captureThrowRollback() {
+    return _ThrowRollback(
+      currentTurnInSet: currentTurnInSet,
+      currentPlayerIndex: currentPlayerIndex,
+      isSetFinished: isSetFinished,
+      turnInProgressScores: Map<String, int>.from(turnInProgressScores),
+      systemCalculatedIds: Set<String>.from(systemCalculatedIds),
+      turnAnnotations: Map<String, int>.from(_turnAnnotations),
+      throwAnnotation: _throwAnnotation,
+      burstedThisSet: Set<String>.from(_playersBurstedThisSet),
+      turnRecordCount: widget.match.currentSetRecord.turns.length,
+      completedSetCount: widget.match.completedSets.length,
+      finalCumulativeScores: Map<String, int>.from(
+        widget.match.currentSetRecord.finalCumulativeScores,
+      ),
+      elapsedSeconds: _elapsedSeconds,
+      players:
+          widget.match.players
+              .map(
+                (p) => <String, dynamic>{
+                  'id': p.id,
+                  'currentScore': p.currentScore,
+                  'consecutiveMisses': p.consecutiveMisses,
+                  'isDisqualified': p.isDisqualified,
+                  'setsWon': p.setsWon,
+                  'scoreHistory': List<int>.from(p.scoreHistory),
+                  'scoreSnapshot': List<int>.from(p.scoreSnapshot),
+                  'missSnapshot': List<int>.from(p.missSnapshot),
+                  'matchScoreHistory': List<int>.from(p.matchScoreHistory),
+                  'setFinalScores': List<int>.from(p.setFinalScores),
+                },
+              )
+              .toList(),
+    );
+  }
+
+  /// [_captureThrowRollback] で控えた状態に戻す。
+  void _restoreThrowRollback(_ThrowRollback r) {
+    setState(() {
+      currentTurnInSet = r.currentTurnInSet;
+      currentPlayerIndex = r.currentPlayerIndex;
+      isSetFinished = r.isSetFinished;
+      turnInProgressScores = Map<String, int>.from(r.turnInProgressScores);
+      systemCalculatedIds = Set<String>.from(r.systemCalculatedIds);
+      _turnAnnotations = Map<String, int>.from(r.turnAnnotations);
+      _throwAnnotation = r.throwAnnotation;
+      _playersBurstedThisSet
+        ..clear()
+        ..addAll(r.burstedThisSet);
+      // finalize が書き込んだ最終累計を戻す。剥がさないと、進行中のセットが
+      // 「最終スコアあり」のまま保存され、履歴に古い値が出る。
+      widget.match.currentSetRecord.finalCumulativeScores
+        ..clear()
+        ..addAll(r.finalCumulativeScores);
+      _elapsedSeconds = r.elapsedSeconds;
+      // finalizeCurrentSetIfNeeded が completedSets に積んでいたら剥がす。
+      while (widget.match.completedSets.length > r.completedSetCount) {
+        widget.match.completedSets.removeLast();
+      }
+      while (widget.match.currentSetRecord.turns.length > r.turnRecordCount) {
+        widget.match.currentSetRecord.turns.removeLast();
+      }
+      for (final saved in r.players) {
+        final p = widget.match.players.firstWhere(
+          (e) => e.id == saved['id'],
+          orElse: () => widget.match.players.first,
+        );
+        p.currentScore = saved['currentScore'] as int;
+        p.consecutiveMisses = saved['consecutiveMisses'] as int;
+        p.isDisqualified = saved['isDisqualified'] as bool;
+        p.setsWon = saved['setsWon'] as int;
+        p.scoreHistory = List<int>.from(saved['scoreHistory'] as List);
+        p.scoreSnapshot = List<int>.from(saved['scoreSnapshot'] as List);
+        p.missSnapshot = List<int>.from(saved['missSnapshot'] as List);
+        p.matchScoreHistory = List<int>.from(
+          saved['matchScoreHistory'] as List,
+        );
+        p.setFinalScores = List<int>.from(saved['setFinalScores'] as List);
+      }
+    });
+    // **タイマーを回し直す。** _submitThrow はセット終了とみなして
+    // _elapsedTimer を止めている。戻したあと再開しないと、経過時間が
+    // 止まったままになる。_resetElapsedTimer は経過秒を 0 にしてしまうので、
+    // 控えた値から続ける形で組み直す。
+    _elapsedStartDelayTimer?.cancel();
+    _elapsedTimer?.cancel();
+    if (!isSetFinished) {
+      _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) {
+          _elapsedTimer?.cancel();
+          return;
+        }
+        setState(() => _elapsedSeconds++);
+        if (_elapsedSeconds == 60) {
+          SystemSound.play(SystemSoundType.alert);
+        }
+      });
+    }
+    // **ライブスコアも戻す。** _submitThrow は確認を開いたあとも先へ進んで
+    // _syncLiveMatch を呼ぶので、取り消した得点が視聴者に出たままになる
+    // (codex 指摘)。次の投擲まで直らないのは間が悪い。
+    _syncLiveMatch();
+  }
+
+  /// 試合が決着する入力のとき、確定してよいか確認する。
+  ///
+  /// OK なら決着処理へ、取り消しなら [_undo] で入力ごと巻き戻す。
+  /// 誤入力で試合が終わると戻すのが大変なので、その場で止められるように
+  /// する (ユーザ要望 2026-09-19)。
+  Future<void> _confirmDecisiveThrow({
+    required Player winner,
+    required String winMsg,
+    required _ThrowRollback rollback,
+    bool? isDraw,
+  }) async {
+    final t = L10n.of(context);
+    final drawing = isDraw ?? widget.match.isMatchDraw;
+    _awaitingDecisiveConfirm = true;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(t.get('decisive_confirm_title')),
+            content: Text(
+              drawing
+                  ? t.get('decisive_confirm_draw')
+                  : t.get('decisive_confirm_body', args: {'name': winner.name}),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(t.get('decisive_confirm_cancel')),
+              ),
+              FilledButton(
+                autofocus: true,
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(t.get('decisive_confirm_ok')),
+              ),
+            ],
+          ),
+    );
+    _awaitingDecisiveConfirm = false;
+    if (!mounted) return;
+    if (_matchTimeExpiredPending) {
+      // 確認中に試合時間が切れていた。確認の結果を反映したうえで知らせる。
+      _matchTimeExpiredPending = false;
+      if (ok != true) {
+        _restoreThrowRollback(rollback);
+      } else {
+        _finishDecisiveMatch(winner: winner, winMsg: winMsg, isDraw: drawing);
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showMatchTimeExpiredDialog();
+      });
+      return;
+    }
+    if (ok != true) {
+      // 投擲前の状態に戻す。_undo() は isSetFinished が立っていると
+      // 何もしないので使えない。
+      _restoreThrowRollback(rollback);
+      return;
+    }
+    _finishDecisiveMatch(winner: winner, winMsg: winMsg, isDraw: drawing);
+  }
+
+  /// 試合決着の確定処理。[_confirmDecisiveThrow] で了承を得てから呼ぶ。
+  void _finishDecisiveMatch({
+    required Player winner,
+    required String winMsg,
+    bool? isDraw,
+  }) {
+    widget.match.finalizeCurrentSetIfNeeded();
+    // ターン上限で決まった場合は decideMatchByStandings の判定を使う。
+    // match.isMatchDraw とは基準が違うので、呼び元の結論を優先する。
+    if (isDraw ?? widget.match.isMatchDraw) {
+      _uploadMatchData(null);
+      // 3番共同優勝は専用メッセージで表示
+      if (widget.match.type == MatchType.threeGame) {
+        final t = L10n.of(context);
+        final names = widget.match.threeGameTopScorers
+            .map((p) => p.name)
+            .join('・');
+        _showMatchDrawDialog(
+          detailOverride: t.get('three_game_co_win', args: {'names': names}),
+        );
+      } else {
+        _showMatchDrawDialog();
+      }
+    } else {
+      final finalWinner = widget.match.matchWinner ?? winner;
+      _uploadMatchData(finalWinner);
+      _showMatchWinnerDialog(finalWinner, winMsg: winMsg);
+    }
+  }
+
   void _submitThrow({bool hillu37 = false}) {
+    // 決着する入力だった場合に取り消せるよう、投げる前の状態を控えておく。
+    final throwRollback = _captureThrowRollback();
     if (isSetFinished) return;
     // 2 桁入力の待ちが残ったままだと、この投擲でターンが進んだ後に 1 が
     // 確定し、**次のプレイヤーの得点になってしまう**。キー以外の入力
@@ -2509,12 +2780,17 @@ class _GameScreenState extends State<GameScreen>
             ),
           );
           widget.match.finalizeCurrentSetIfNeeded();
+          // 100均モードの決着にも確認を通す。
           final finalWinner = widget.match.matchWinner ?? hyakinWinner;
-          _uploadMatchData(finalWinner);
-          _showMatchWinnerDialog(
-            finalWinner,
-            winMsg: _buildWinMessage(finalWinner, preMisses: hyakinPreMisses),
+          unawaited(
+            _confirmDecisiveThrow(
+              winner: finalWinner,
+              winMsg: _buildWinMessage(finalWinner, preMisses: hyakinPreMisses),
+              rollback: throwRollback,
+              isDraw: widget.match.isMatchDraw,
+            ),
           );
+          return;
         } else {
           if (currentPlayerIndex == widget.match.players.length - 1) {
             widget.match.currentSetRecord.turns.add(
@@ -2543,19 +2819,30 @@ class _GameScreenState extends State<GameScreen>
               final finalDecision = GameLogic.decideMatchByStandings(
                 widget.match.players,
               );
-              if (finalDecision.isDraw || finalDecision.winner == null) {
-                _uploadMatchData(null);
-                _showMatchDrawDialog();
-              } else {
-                _uploadMatchData(finalDecision.winner);
-                _showMatchWinnerDialog(
-                  finalDecision.winner!,
-                  winMsg: t.get(
-                    'turn_limit_win',
-                    args: {'name': finalDecision.winner!.name},
-                  ),
-                );
-              }
+              // 100均モードのターン上限による決着にも確認を通す。
+              // ここだけ素通しだと、この経路の誤入力が取り消せない。
+              final hyakinWinner = finalDecision.winner ?? decision.winner;
+              unawaited(
+                _confirmDecisiveThrow(
+                  winner: hyakinWinner ?? widget.match.players.first,
+                  winMsg:
+                      hyakinWinner == null
+                          ? ''
+                          : t.get(
+                            'turn_limit_win',
+                            args: {'name': hyakinWinner.name},
+                          ),
+                  rollback: throwRollback,
+                  // **match.isMatchDraw も見る。** 3番モードは合計得点だけで
+                  // 引き分け (共同優勝) を決めるのに対し、
+                  // decideMatchByStandings はセット取得数で勝者を返す。
+                  // 落とすと共同優勝が「勝者あり」になる (codex 指摘)。
+                  isDraw:
+                      widget.match.isMatchDraw ||
+                      finalDecision.isDraw ||
+                      finalDecision.winner == null,
+                ),
+              );
               return;
             }
           }
@@ -2689,32 +2976,29 @@ class _GameScreenState extends State<GameScreen>
 
         final winMsg = _buildWinMessage(winner, preMisses: preMisses);
         if (matchTrulyOver) {
+          // **決着する入力は確認を取る。**
+          //
+          // 誤入力で試合が終わってしまうと戻すのが大変で、特に 3 ミス失格に
+          // よる決着は「戻る」で直そうとすると表示が崩れることがあった
+          // (ユーザ要望 2026-09-19)。取り消せるうちに止める。
+          //
+          // **引き分けかどうかは finalize したあとでないと分からない。**
+          // 積む前は isMatchDraw が false のままで、「○○さんの勝利」と
+          // 案内したのに確定すると引き分け画面が出る、という食い違いが
+          // 起きる。取り消した場合は _restoreThrowRollback が
+          // completedSets ごと巻き戻すので、先に積んでも害はない。
           widget.match.finalizeCurrentSetIfNeeded();
-          if (widget.match.isMatchDraw) {
-            _uploadMatchData(null);
-            // 3番共同優勝は専用メッセージで表示
-            if (widget.match.type == MatchType.threeGame) {
-              final t = L10n.of(context);
-              final names = widget.match.threeGameTopScorers
-                  .map((p) => p.name)
-                  .join('・');
-              _showMatchDrawDialog(
-                detailOverride: t.get(
-                  'three_game_co_win',
-                  args: {'names': names},
-                ),
-              );
-            } else {
-              _showMatchDrawDialog();
-            }
-          } else {
-            final finalWinner = widget.match.matchWinner ?? winner;
-            _uploadMatchData(finalWinner);
-            _showMatchWinnerDialog(finalWinner, winMsg: winMsg);
-          }
-        } else {
-          _showSetWinnerDialog(winner, winMsg: winMsg);
+          unawaited(
+            _confirmDecisiveThrow(
+              winner: widget.match.matchWinner ?? winner,
+              winMsg: winMsg,
+              rollback: throwRollback,
+              isDraw: widget.match.isMatchDraw,
+            ),
+          );
+          return;
         }
+        _showSetWinnerDialog(winner, winMsg: winMsg);
       } else {
         if (currentPlayerIndex == widget.match.players.length - 1) {
           widget.match.currentSetRecord.turns.add(
@@ -2750,31 +3034,46 @@ class _GameScreenState extends State<GameScreen>
                         decision.winner != null &&
                         widget.match.isMatchOver;
 
+            if (matchTrulyOver) {
+              // ターン上限で決着する場合も確認を挟む。上限に達したこと自体は
+              // 取り消せないが、**最後の一投の点数が間違っていた**なら、
+              // ここで止めれば入れ直せる。
+              //
+              // **勝者の判定は finalize したあとに行う。**
+              // decideMatchByStandings は totalMatchScore (setFinalScores の
+              // 合計) を見るので、いま終わったセットを積む前だと別の人を
+              // 勝者として案内してしまう。
+              widget.match.finalizeCurrentSetIfNeeded();
+              final finalDecision = GameLogic.decideMatchByStandings(
+                widget.match.players,
+              );
+              final provisionalWinner = finalDecision.winner ?? decision.winner;
+              unawaited(
+                _confirmDecisiveThrow(
+                  winner: provisionalWinner ?? widget.match.players.first,
+                  winMsg:
+                      provisionalWinner == null
+                          ? ''
+                          : t.get(
+                            'turn_limit_win',
+                            args: {'name': provisionalWinner.name},
+                          ),
+                  rollback: throwRollback,
+                  // **match.isMatchDraw も見る。** 3番モードは合計得点だけで
+                  // 引き分け (共同優勝) を決めるのに対し、
+                  // decideMatchByStandings はセット取得数で勝者を返す。
+                  // 落とすと共同優勝が「勝者あり」になる (codex 指摘)。
+                  isDraw:
+                      widget.match.isMatchDraw ||
+                      finalDecision.isDraw ||
+                      finalDecision.winner == null,
+                ),
+              );
+              return;
+            }
             widget.match.finalizeCurrentSetIfNeeded();
 
-            if (matchTrulyOver) {
-              if (widget.match.isMatchDraw) {
-                _uploadMatchData(null);
-                _showMatchDrawDialog();
-              } else {
-                final finalDecision = GameLogic.decideMatchByStandings(
-                  widget.match.players,
-                );
-                if (finalDecision.isDraw || finalDecision.winner == null) {
-                  _uploadMatchData(null);
-                  _showMatchDrawDialog();
-                } else {
-                  _uploadMatchData(finalDecision.winner);
-                  _showMatchWinnerDialog(
-                    finalDecision.winner!,
-                    winMsg: t.get(
-                      'turn_limit_win',
-                      args: {'name': finalDecision.winner!.name},
-                    ),
-                  );
-                }
-              }
-            } else if (decision.winner != null) {
+            if (decision.winner != null) {
               _showSetWinnerDialog(
                 decision.winner!,
                 winMsg: t.get(
