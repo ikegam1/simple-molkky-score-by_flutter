@@ -12,8 +12,8 @@ import 'package:simple_molkky_score/logic/result_image_scale.dart';
 ///
 /// **普通の試合では今までどおりの画質を保ち、大きくなりすぎるときだけ下げる。**
 void main() {
-  // 画素数の上限 (既定 600 万) と 1 辺の上限 (既定 8192)。
-  const maxPixels = 6000000;
+  // 画素数の上限 (既定 400 万) と 1 辺の上限 (既定 8192)。
+  const maxPixels = 4000000;
   const maxSide = 8192;
 
   int pixelsOf(double w, double h) {
@@ -21,20 +21,22 @@ void main() {
     return (w * r).round() * (h * r).round();
   }
 
-  group('普通の試合では画質を落とさない', () {
+  group('普通の試合では既定の倍率を使う', () {
+    // 結果カードは文字と枠しか無いので 2 倍で足りる (依頼者の判断)。
+    // 文字の大きさは 10〜13 なので、2 倍なら 20〜26 画素になる。
     test('1 セットのカード', () {
-      expect(resultImagePixelRatio(400, 900), 3.0);
+      expect(resultImagePixelRatio(400, 900), 2.0);
     });
 
     test('3 セットくらいのカード', () {
-      expect(resultImagePixelRatio(400, 1200), 3.0);
+      expect(resultImagePixelRatio(400, 1200), 2.0);
     });
   });
 
   group('大きくなりすぎるときは下げる', () {
     test('10 セット相当の縦長カードでは倍率が下がる', () {
       final r = resultImagePixelRatio(400, 6000);
-      expect(r, lessThan(3.0));
+      expect(r, lessThan(2.0));
       expect(r, greaterThan(0.5));
     });
 
@@ -57,6 +59,21 @@ void main() {
           reason: '高さ $h',
         );
       }
+    });
+  });
+
+  group('内部処理が軽くなっていること', () {
+    test('以前 (倍率 3) より画素数が半分以下になる', () {
+      // 文字と枠しか無いので細かさは要らない、という判断で 3 → 2 にした。
+      // 画素数は 4/9 = 約 44%。画像を作るときのメモリと時間もその分減る。
+      final now = pixelsOf(400, 1200);
+      final before = (400 * 3).round() * (1200 * 3).round();
+      expect(now / before, lessThan(0.5));
+    });
+
+    test('10 セット相当でも 400 万画素に収まる', () {
+      // 以前は 2160 万画素 (生データ 86MB) になって落ちていた。
+      expect(pixelsOf(400, 6000), lessThanOrEqualTo(maxPixels + 10000));
     });
   });
 
