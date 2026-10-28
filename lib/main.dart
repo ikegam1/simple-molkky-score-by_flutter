@@ -18,6 +18,7 @@ import 'package:crypto/crypto.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
+import 'logic/match_record_status.dart';
 import 'logic/resume_progress.dart';
 import 'models/game_models.dart';
 import 'logic/game_logic.dart';
@@ -325,6 +326,11 @@ class L10n {
       'match_history_filter': 'Filter',
       'filter_all': 'All',
       'filter_normal': 'Match',
+      'filter_incomplete': 'Unfinished',
+      'incomplete_badge': 'Unfinished',
+      'incomplete_note':
+          'This match was interrupted before it was decided. '
+          'Results are kept up to the last finished set.',
       'filter_self5turn': 'Self 5-Turn',
       'filter_self6turn': 'Self 6-Turn',
       'match_history_sort': 'Sort',
@@ -435,6 +441,9 @@ class L10n {
       'match_history_filter': 'フィルター',
       'filter_all': 'すべて',
       'filter_normal': '通常試合',
+      'filter_incomplete': '未完了の試合',
+      'incomplete_badge': '未完了',
+      'incomplete_note': '決着する前に中断された試合です。最後に終わったセットまでの結果が残っています。',
       'filter_self5turn': 'セルフ5ターン',
       'filter_self6turn': 'セルフ6ターン',
       'match_history_sort': '並び替え',
@@ -3581,6 +3590,10 @@ class _GameScreenState extends State<GameScreen>
                       onPressed: () {
                         Navigator.pop(ctx);
                         _undoToPreviousSet();
+                        // **戦績も巻き戻す。** 更新しないと、取り消した
+                        // セットや勝数が残ったまま中断されうる
+                        // (codex 指摘 2026-10-28)。
+                        _saveInterimResult();
                       },
                       child: const Text('前のセットに戻る'),
                     ),
@@ -4427,14 +4440,55 @@ class _GameScreenState extends State<GameScreen>
     }
   }
 
-  Future<void> _uploadMatchData(Player? finalWinner) async {
-    _syncLiveMatch(isEnded: true);
+  /// 途中経過を戦績に残す。**セットが終わるたびに呼ぶ。**
+  ///
+  /// 決着前に中断すると、これまでどこにも結果が残らなかった
+  /// (利用者からの要望 2026-10-28)。同じ試合は 1 件に上書きされるので、
+  /// セットごとに呼んでも件数は増えない。
+  ///
+  /// **セルフ系は対象外。** 別の保存処理を使っていて、状態の持ち方も違う。
+  void _saveInterimResult() {
+    final type = widget.match.type;
+    if (type == MatchType.self5Turn || type == MatchType.self6Turn) return;
+    // 1 セットも終わっていなければ残すものが無い。
+    //
+    // **ただし既に残してあるなら更新する。** 1 セットで決着した試合を点数
+    // 修正に戻したときは、巻き戻しで完了セットが空になる。ここで抜けると
+    // 「古い勝者のまま完了済み」が戦績に残り続ける (codex 指摘 2026-10-28)。
+    if (widget.match.completedSets.isEmpty && !_hasUploadedMatch) return;
+    unawaited(_uploadMatchData(null, completed: false));
+  }
+
+  /// この試合の戦績ドキュメントの ID。
+  ///
+  /// **試合ごとに決まった値にする。** 自動採番だと、
+  /// - 最初の保存が終わる前に次の保存が走ると別のドキュメントになる
+  /// - 中断から再開すると ID を覚えていないので、決着時にもう 1 件できる
+  /// という形で**同じ試合が 2 件残る** (codex 指摘 2026-10-28)。
+  /// 開始時刻は中断データにも入っているので、再開しても同じ値になる。
+  String get _matchDocId =>
+      '${widget.appUserId}_${widget.match.startTime.millisecondsSinceEpoch}';
+
+  /// 一度でも戦績に書いたか。
+  bool _hasUploadedMatch = false;
+
+  /// [completed] が false のときは「まだ決着していない試合」として残す。
+  Future<void> _uploadMatchData(
+    Player? finalWinner, {
+    bool completed = true,
+  }) async {
+    _syncLiveMatch(isEnded: completed);
     try {
       final match = widget.match;
       List<SetRecord> setsToUpload = List.from(match.completedSets);
-      if (!setsToUpload.any(
-        (s) => s.setNumber == match.currentSetRecord.setNumber,
-      )) {
+      // **未完了のときは進行中のセットを混ぜない。**
+      //
+      // 画面には「最後に終わったセットまでの結果」と出しているので、
+      // 入力途中のセットまで入ると食い違う (codex 指摘 2026-10-28)。
+      if (completed &&
+          !setsToUpload.any(
+            (s) => s.setNumber == match.currentSetRecord.setNumber,
+          )) {
         for (var p in match.players)
           match.currentSetRecord.finalCumulativeScores[p.id] = p.currentScore;
         setsToUpload.add(match.currentSetRecord);
@@ -4443,10 +4497,19 @@ class _GameScreenState extends State<GameScreen>
       final data = {
         'appUserId': widget.appUserId,
         'startTime': match.startTime,
-        'endTime': FieldValue.serverTimestamp(),
+        // **終了時刻は決着したときだけ。** 途中経過に入れると、
+        // 中断した試合が終わったように見える。
+        if (completed) 'endTime': FieldValue.serverTimestamp(),
+        // 最後に書いた時刻。途中経過がいつの時点のものかが分かる。
+        'updatedAt': FieldValue.serverTimestamp(),
         'matchType': match.type.toString(),
         'limit': match.limit,
-        'winner': finalWinner?.name ?? 'DRAW',
+        // **決着したかどうか。** 戦績では既定で完了した試合だけを出し、
+        // フィルタで「未完了」を選んだときに出す。
+        // 既存のデータにはこの項目が無いので、**無ければ完了扱い**にする
+        // (読む側で `!= false` と見る)。
+        'completed': completed,
+        if (completed) 'winner': finalWinner?.name ?? 'DRAW',
         'appVersion': _kAppVersion,
         'platform': _getPlatform(),
         if (match.turnLimitPerSet != null)
@@ -4489,14 +4552,12 @@ class _GameScreenState extends State<GameScreen>
                 )
                 .toList(),
       };
-      // 修正後の再保存は既存ドキュメントを上書き、新規保存ならaddで自動ID生成
+      // **同じ試合は必ず同じドキュメントに書く。** 自動採番だと、保存が
+      // 重なったときや中断から再開したときに 2 件になる (codex 指摘)。
       final col = FirebaseFirestore.instance.collection('scores');
-      if (_uploadedDocId != null) {
-        await col.doc(_uploadedDocId).set(data);
-      } else {
-        final ref = await col.add(data);
-        _uploadedDocId = ref.id;
-      }
+      _uploadedDocId = _matchDocId;
+      await col.doc(_matchDocId).set(data);
+      _hasUploadedMatch = true;
     } catch (e) {
       debugPrint("Upload Error: $e");
     }
@@ -4578,6 +4639,8 @@ class _GameScreenState extends State<GameScreen>
     // finalizeCurrentSetIfNeeded は重複追加を防ぐので、確定時に
     // prepareNextSet から呼ばれても二重には入らない。
     widget.match.finalizeCurrentSetIfNeeded();
+    // ここまでの結果を戦績に残す。この後に中断されても消えない。
+    _saveInterimResult();
     final int baseLimit = widget.match.limit;
     int pendingLimit = baseLimit;
     List<Player> reorderList = widget.match.nextSetOrder(
@@ -4687,6 +4750,10 @@ class _GameScreenState extends State<GameScreen>
                       // 「試合データは次セット / 画面の状態は前セットの
                       // 最終ターン」という食い違った組み合わせのまま残る。
                       _persistMatchSnapshot();
+                      // セット数を延ばしたなら戦績の方も直す。古い limit の
+                      // まま中断されると、何先取の試合か分からなくなる
+                      // (codex 指摘 2026-10-28)。
+                      _saveInterimResult();
                     },
                     child: Text(t.get('next_set')),
                   ),
@@ -4826,11 +4893,14 @@ class _GameScreenState extends State<GameScreen>
             ),
             content: SingleChildScrollView(
               child: DownloadableMatchResult(
-                match: widget.match,
+                players: widget.match.players,
                 sets: allSets,
                 isMatchDraw: false,
                 winnerName: winner.name,
                 matchTypeName: _matchTypeLabel(),
+                // **戦績から出したものと日付を揃える。** 渡さないと
+                // 「いま」が入り、後から見たときに食い違う (codex 指摘)。
+                playedAt: widget.match.startTime,
               ),
             ),
             actions: [
@@ -4876,6 +4946,12 @@ class _GameScreenState extends State<GameScreen>
     // 試合終了で中断データは消えている。修正に入った時点で控え直さないと、
     // 直している途中で閉じた場合に再開できず、やり直しになる (codex 指摘)。
     _persistMatchSnapshot();
+    // **戦績の側も「未完了」に戻す。**
+    //
+    // 戻さないと、直している途中で閉じた試合が**古い勝者のまま完了済み**と
+    // して戦績に残る (codex 指摘 2026-10-28)。直し終えて決着させれば、
+    // そのときまた完了として上書きされる。
+    _saveInterimResult();
   }
 
   void _showSetDrawDialog() {
@@ -4885,6 +4961,8 @@ class _GameScreenState extends State<GameScreen>
     // prepareNextSet を確定時に回す理由、先に確定させる理由は
     // _showSetWinnerDialog と同じ。
     widget.match.finalizeCurrentSetIfNeeded();
+    // ここまでの結果を戦績に残す。この後に中断されても消えない。
+    _saveInterimResult();
     final int baseLimit = widget.match.limit;
     int pendingLimit = baseLimit;
     List<Player> reorderList = widget.match.nextSetOrder(
@@ -4994,6 +5072,10 @@ class _GameScreenState extends State<GameScreen>
                       // 「試合データは次セット / 画面の状態は前セットの
                       // 最終ターン」という食い違った組み合わせのまま残る。
                       _persistMatchSnapshot();
+                      // セット数を延ばしたなら戦績の方も直す。古い limit の
+                      // まま中断されると、何先取の試合か分からなくなる
+                      // (codex 指摘 2026-10-28)。
+                      _saveInterimResult();
                     },
                     child: Text(t.get('next_set')),
                   ),
@@ -5022,11 +5104,14 @@ class _GameScreenState extends State<GameScreen>
             ),
             content: SingleChildScrollView(
               child: DownloadableMatchResult(
-                match: widget.match,
+                players: widget.match.players,
                 sets: allSets,
                 isMatchDraw: true,
                 winnerName: 'Draw',
                 matchTypeName: _matchTypeLabel(),
+                // **戦績から出したものと日付を揃える。** 渡さないと
+                // 「いま」が入り、後から見たときに食い違う (codex 指摘)。
+                playedAt: widget.match.startTime,
               ),
             ),
             actions: [
@@ -6412,6 +6497,19 @@ class HistoryPage extends StatelessWidget {
   final bool isSelf6Turn;
   final int consecutiveSuccesses;
   final bool isHyakin;
+
+  /// 結果を画像で出せるか。
+  ///
+  /// **決着した通常の試合だけ。** 未完了は勝者が決まっておらず、結果カードは
+  /// 勝者か引き分けしか表せない (依頼者の判断 2026-10-28)。セルフ系も対象外。
+  final bool canExportImage;
+
+  /// 結果カードに出す試合形式の呼び名 ("3先取" など)。
+  final String? matchTypeName;
+
+  /// 決着前に中断された試合か。画面にその旨を出す。
+  final bool isIncomplete;
+
   const HistoryPage({
     super.key,
     this.match,
@@ -6423,6 +6521,9 @@ class HistoryPage extends StatelessWidget {
     this.isSelf6Turn = false,
     this.consecutiveSuccesses = 0,
     this.isHyakin = false,
+    this.canExportImage = false,
+    this.matchTypeName,
+    this.isIncomplete = false,
   });
 
   Map<String, int> _finalSetWins(List<Player> allPlayers) {
@@ -6643,6 +6744,51 @@ class HistoryPage extends StatelessWidget {
               'Started: ${dateFormat.format(match?.startTime ?? startTime ?? DateTime.now())}',
               style: const TextStyle(color: Colors.grey),
             ),
+            // 決着前に中断された試合であることを伝える。
+            if (isIncomplete) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.pause_circle_outline,
+                      size: 18,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        t.get('incomplete_note'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // 決着した通常の試合は、ここから結果を画像にできる。
+            // 試合終了直後に出るものと同じカード・同じボタンにしてある。
+            if (canExportImage && allPlayers.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DownloadableMatchResult(
+                players: allPlayers,
+                sets: visibleSets,
+                isMatchDraw: winnerName == 'DRAW',
+                winnerName: winnerName == 'DRAW' ? '' : (winnerName ?? ''),
+                matchTypeName: matchTypeName ?? '',
+                // **試合の日付を渡す。** 渡さないと「今日」が入る。
+                playedAt: match?.startTime ?? startTime,
+              ),
+            ],
             const Divider(height: 30),
             if (isSelf5Turn || isSelf6Turn)
               Container(
@@ -6846,8 +6992,10 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
   static const int _pageSize = 50;
 
   static bool _isSelfTurnRecord(Map<String, dynamic> data) =>
-      data['matchType'] == 'MatchType.self5Turn' ||
-      data['matchType'] == 'MatchType.self6Turn';
+      isSelfTurnRecord(data);
+
+  static bool _isCompleted(Map<String, dynamic> data) =>
+      isCompletedRecord(data);
 
   void _setFilter(String v) => setState(() {
     _filter = v;
@@ -6902,27 +7050,50 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
             (d) => !_isSelfTurnRecord(d.data() as Map<String, dynamic>),
           );
 
-          final selfTurnDocCount =
-              (hasSelf5Turn ? 1 : 0) + (hasSelf6Turn ? 1 : 0);
-          final showFilter = (selfTurnDocCount + (hasNormal ? 1 : 0)) > 1;
+          // 未完了の試合があるか。**これだけでもフィルタを出す。**
+          // 通常試合しかない利用者でも「未完了」を選べる必要がある
+          // (codex 指摘 2026-10-28)。
+          final hasIncomplete = allDocs.any(
+            (d) => !_isCompleted(d.data() as Map<String, dynamic>),
+          );
+
+          final filterOptions = historyFilterOptions(
+            hasNormal: hasNormal,
+            hasSelf5Turn: hasSelf5Turn,
+            hasSelf6Turn: hasSelf6Turn,
+            hasIncomplete: hasIncomplete,
+          );
+          final hasTypeChoice =
+              filterOptions.contains('normal') ||
+              filterOptions.contains('self5Turn') ||
+              filterOptions.contains('self6Turn');
+          final showFilter = filterOptions.length > 1;
+          // **選べなくなった値を持ち続けない。** 未完了が 1 件も無くなった
+          // あとに 'incomplete' のままだと、選択肢に無い値になって落ちる。
+          final effectiveFilter = effectiveHistoryFilter(
+            filter: _filter,
+            available: filterOptions,
+          );
           final showingSelfTurn =
-              _filter == 'self5Turn' ||
-              _filter == 'self6Turn' ||
-              (!showFilter && (hasSelf5Turn || hasSelf6Turn));
+              effectiveFilter == 'self5Turn' ||
+              effectiveFilter == 'self6Turn' ||
+              (!hasTypeChoice &&
+                  effectiveFilter != 'incomplete' &&
+                  (hasSelf5Turn || hasSelf6Turn));
 
           // Filter
+          //
+          // **未完了は既定で出さない。** 戦績が中断した試合で埋まると、
+          // 普段見たい記録が探しにくくなる。見たいときだけフィルタで出す。
           var filtered =
-              showFilter && _filter != 'all'
-                  ? allDocs.where((d) {
-                    final data = d.data() as Map<String, dynamic>;
-                    final mType = data['matchType'];
-                    if (_filter == 'self5Turn')
-                      return mType == 'MatchType.self5Turn';
-                    if (_filter == 'self6Turn')
-                      return mType == 'MatchType.self6Turn';
-                    return !_isSelfTurnRecord(data);
-                  }).toList()
-                  : List.from(allDocs);
+              allDocs
+                  .where(
+                    (d) => matchesHistoryFilter(
+                      d.data() as Map<String, dynamic>,
+                      effectiveFilter,
+                    ),
+                  )
+                  .toList();
 
           // Sort for selfTurn view
           if (showingSelfTurn) {
@@ -6963,7 +7134,7 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                       if (showFilter)
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _filter,
+                            value: effectiveFilter,
                             decoration: InputDecoration(
                               labelText: t.get('match_history_filter'),
                               isDense: true,
@@ -6977,20 +7148,28 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                                 value: 'all',
                                 child: Text(t.get('filter_all')),
                               ),
-                              if (hasNormal)
+                              // **選択肢は 1 か所で決める。**
+                              // 表示と判定がずれると、選べない値を持って
+                              // 画面が落ちる。
+                              if (filterOptions.contains('normal'))
                                 DropdownMenuItem(
                                   value: 'normal',
                                   child: Text(t.get('filter_normal')),
                                 ),
-                              if (hasSelf5Turn)
+                              if (filterOptions.contains('self5Turn'))
                                 DropdownMenuItem(
                                   value: 'self5Turn',
                                   child: Text(t.get('filter_self5turn')),
                                 ),
-                              if (hasSelf6Turn)
+                              if (filterOptions.contains('self6Turn'))
                                 DropdownMenuItem(
                                   value: 'self6Turn',
                                   child: Text(t.get('filter_self6turn')),
+                                ),
+                              if (filterOptions.contains('incomplete'))
+                                DropdownMenuItem(
+                                  value: 'incomplete',
+                                  child: Text(t.get('filter_incomplete')),
                                 ),
                             ],
                             onChanged: (v) => _setFilter(v!),
@@ -7056,15 +7235,56 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                         onTap: () => _viewDetail(context, data, start),
                       );
                     }
+                    final completed = _isCompleted(data);
                     final winner = data['winner'] ?? "???";
-                    final isDraw = winner == 'DRAW';
+                    final isDraw = completed && winner == 'DRAW';
                     return ListTile(
                       leading: Icon(
-                        isDraw ? Icons.handshake : Icons.cloud_done,
-                        color: isDraw ? Colors.orange : Colors.blue,
+                        !completed
+                            ? Icons.pause_circle_outline
+                            : isDraw
+                            ? Icons.handshake
+                            : Icons.cloud_done,
+                        color:
+                            !completed
+                                ? Colors.grey
+                                : isDraw
+                                ? Colors.orange
+                                : Colors.blue,
                       ),
-                      title: Text(
-                        "${DateFormat('MM/dd HH:mm').format(start)} ${isDraw ? t.get('match_draw') : 'Win: $winner'}",
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              "${DateFormat('MM/dd HH:mm').format(start)} "
+                              "${!completed
+                                  ? ''
+                                  : isDraw
+                                  ? t.get('match_draw')
+                                  : 'Win: $winner'}",
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // **未完了であることを行に出す。** フィルタで
+                          // 出したときに、完了した試合と見分けがつかないと困る。
+                          if (!completed) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                t.get('incomplete_badge'),
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       subtitle: Text("Players: $playerNames"),
                       onTap: () => _viewDetail(context, data, start),
@@ -7116,9 +7336,17 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
     final t = L10n.of(context);
     try {
       final List<Player> players =
-          (data['players'] as List)
-              .map((p) => Player(id: p['id'], name: p['name'], initialOrder: 0))
-              .toList();
+          (data['players'] as List).map((p) {
+            final player = Player(
+              id: p['id'],
+              name: p['name'],
+              initialOrder: 0,
+            );
+            // **結果カードを組み立てるのに要る。** セット勝数と各セットの
+            // 最終点が無いと、サマリー表が全部 0 になる。
+            player.setsWon = (p['setsWon'] as int?) ?? 0;
+            return player;
+          }).toList();
       final mType = data['matchType'] ?? '';
       final isSelf5Turn = mType == 'MatchType.self5Turn';
       final isSelf6Turn = mType == 'MatchType.self6Turn';
@@ -7153,7 +7381,15 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
             );
             return set;
           }).toList();
+      // 各セットの最終点を選手に積む (合計点はここから出る)。
+      for (final player in players) {
+        player.setFinalScores =
+            sets
+                .map((set) => set.finalCumulativeScores[player.id] ?? 0)
+                .toList();
+      }
       final isHyakin = data['matchType'] == 'MatchType.hyakin';
+      final completed = _isCompleted(data);
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -7167,6 +7403,13 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                 isSelf6Turn: isSelf6Turn,
                 isHyakin: isHyakin,
                 consecutiveSuccesses: consecutiveSuccesses,
+                // **決着した通常の試合だけ画像にできる。**
+                // 未完了は勝者が決まっておらず、結果カードは勝者か
+                // 引き分けしか表せない (依頼者の判断 2026-10-28)。
+                // セルフ系は結果カードの対象外。
+                canExportImage: completed && !isSelfTurnMode,
+                matchTypeName: matchTypeLabelOf(data),
+                isIncomplete: !completed,
               ),
         ),
       );

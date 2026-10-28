@@ -13,7 +13,14 @@ permissions:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    # **ubuntu-latest にしない。**
+    #
+    # GitHub の ubuntu-latest が 26.04 に移った結果、Playwright が
+    # ブラウザを入れられなくなり CI が落ちるようになった
+    # (2026-10-28: "Playwright does not support chromium on ubuntu26.04-x64")。
+    # Playwright 側が 26.04 に対応するまでは runner を固定する。
+    # 対応が入ったら ubuntu-latest に戻してよい。
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
