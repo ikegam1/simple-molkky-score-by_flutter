@@ -15,22 +15,32 @@ const _kAppUrl = 'easy-molkky-score.ikegam1.com';
 class MatchResultCard extends StatelessWidget {
   const MatchResultCard({
     super.key,
-    required this.match,
+    required this.players,
     required this.sets,
     required this.isMatchDraw,
     required this.winnerName,
     required this.matchTypeName,
+    this.playedAt,
   });
 
-  final MolkkyMatch match;
+  /// **試合そのものではなく選手の一覧を受け取る。**
+  /// 戦績から組み立て直すときに、試合の器まで作らずに済む。
+  final List<Player> players;
   final List<SetRecord> sets;
   final bool isMatchDraw;
   final String winnerName;
   final String matchTypeName;
 
+  /// カードに出す試合の日時。
+  ///
+  /// **戦績から出すときは必ず渡す。** 省略すると「いま」になる。試合終了
+  /// 直後に出す前提の作りだったため、戦績から出すと当日の日付が入って
+  /// しまっていた。
+  final DateTime? playedAt;
+
   @override
   Widget build(BuildContext context) {
-    final sorted = List<Player>.from(match.players)..sort((a, b) {
+    final sorted = List<Player>.from(players)..sort((a, b) {
       final sc = b.setsWon.compareTo(a.setsWon);
       if (sc != 0) return sc;
       return b.totalMatchScore.compareTo(a.totalMatchScore);
@@ -55,7 +65,7 @@ class MatchResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '${DateFormat('yyyy/MM/dd HH:mm').format(DateTime.now())}　$matchTypeName',
+            '${DateFormat('yyyy/MM/dd HH:mm').format(playedAt ?? DateTime.now())}　$matchTypeName',
             style: const TextStyle(fontSize: 10, color: Colors.grey),
             textAlign: TextAlign.center,
           ),
@@ -75,7 +85,7 @@ class MatchResultCard extends StatelessWidget {
 
           // ── セット詳細 ──
           for (final set in sets) ...[
-            _SetDetailSection(set: set, players: match.players),
+            _SetDetailSection(set: set, players: players),
             const SizedBox(height: 12),
           ],
 
@@ -325,18 +335,24 @@ class _SetDetailSection extends StatelessWidget {
 class DownloadableMatchResult extends StatefulWidget {
   const DownloadableMatchResult({
     super.key,
-    required this.match,
+    required this.players,
     required this.sets,
     required this.isMatchDraw,
     required this.winnerName,
     required this.matchTypeName,
+    this.playedAt,
   });
 
-  final MolkkyMatch match;
+  /// **試合そのものではなく選手の一覧を受け取る。**
+  /// 戦績から組み立て直すときに、試合の器まで作らずに済む。
+  final List<Player> players;
   final List<SetRecord> sets;
   final bool isMatchDraw;
   final String winnerName;
   final String matchTypeName;
+
+  /// カードに出す試合の日時。戦績から出すときに渡す。
+  final DateTime? playedAt;
 
   @override
   State<DownloadableMatchResult> createState() =>
@@ -432,11 +448,12 @@ class _DownloadableMatchResultState extends State<DownloadableMatchResult> {
         RepaintBoundary(
           key: _key,
           child: MatchResultCard(
-            match: widget.match,
+            players: widget.players,
             sets: widget.sets,
             isMatchDraw: widget.isMatchDraw,
             winnerName: widget.winnerName,
             matchTypeName: widget.matchTypeName,
+            playedAt: widget.playedAt,
           ),
         ),
         const SizedBox(height: 12),
