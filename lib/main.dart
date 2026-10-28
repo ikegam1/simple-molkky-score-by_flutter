@@ -141,9 +141,9 @@ Future<ResumeSnapshot?> loadResumableMatch() async {
   }
 }
 
-const String _kAppVersion = '1.16.1+157';
+const String _kAppVersion = '1.16.2+158';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.16.1';
+const String _kDisplayVersion = 'v1.16.2';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 
+import '../logic/result_image_scale.dart';
 import '../models/game_models.dart';
 import '../utils/image_downloader.dart';
 import '../utils/photo_permission.dart';
@@ -379,7 +380,17 @@ class _DownloadableMatchResultState extends State<DownloadableMatchResult> {
         _showMessage('画像を生成できませんでした');
         return;
       }
-      final image = await boundary.toImage(pixelRatio: 3.0);
+      // **カードの大きさに合わせて倍率を下げる。**
+      //
+      // セット数が多いとカードは非常に縦長になる。倍率 3 のままだと
+      // 数千万画素になり、端末によっては作る途中でメモリを使い切って
+      // アプリごと落ちる (利用者報告 2026-10-28: 10 セットの試合で
+      // 2 回とも保存中に落ちた)。普通の試合では今までどおり倍率 3。
+      final ratio = resultImagePixelRatio(
+        boundary.size.width,
+        boundary.size.height,
+      );
+      final image = await boundary.toImage(pixelRatio: ratio);
       final ByteData? data;
       try {
         data = await image.toByteData(format: ui.ImageByteFormat.png);
