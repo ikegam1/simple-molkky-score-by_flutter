@@ -32385,7 +32385,7 @@ case"MatchType.self6Turn":return"\u30bb\u30eb\u30d56\u30bf\u30fc\u30f3"
 case"MatchType.threeGame":return"3\u756a"}return""},
 bjj(a,b){if(!isFinite(a)||!isFinite(b))return 1
 if(a<=0||b<=0)return 1
-return Math.min(Math.min(Math.min(3,8192/a),8192/b),Math.sqrt(6e6/(a*b)))},
+return Math.min(Math.min(Math.min(2,8192/a),8192/b),Math.sqrt(4e6/(a*b)))},
 bh0(a){switch(a){case 0:return 10
 case 1:return 11
 case 2:return 12
@@ -105299,7 +105299,7 @@ f=$.aPp().yy()
 J.ci(k,"endTime",new A.mj(f,f))
 J.ci(k,"matchType",o.a.c.f.L())
 J.ci(k,"consecutiveSuccesses",n.as)
-J.ci(k,"appVersion","1.16.2+158")
+J.ci(k,"appVersion","1.16.3+159")
 J.ci(k,"platform",A.b00())
 if(n.r!=null)J.ci(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.ci(k,"matchTimeLimitSeconds",n.w)
@@ -105370,7 +105370,7 @@ J.ci(k,"limit",n.e)
 J.ci(k,"completed",a0)
 if(a0){g=a==null?null:a.b
 if(g==null)g="DRAW"
-J.ci(k,"winner",g)}J.ci(k,"appVersion","1.16.2+158")
+J.ci(k,"winner",g)}J.ci(k,"appVersion","1.16.3+159")
 J.ci(k,"platform",A.b00())
 if(n.r!=null)J.ci(k,"turnLimitPerSet",n.r)
 if(n.w!=null)J.ci(k,"matchTimeLimitSeconds",n.w)
@@ -107208,7 +107208,7 @@ case 5:c=o
 case 4:if(!c&&a.e!=null){q=A.aRx(a)
 if(q!=null)q.iz(B.aaI)}return A.v(null,r)}})
 return A.w($async$vL,r)},
-M(a){var s,r,q=this,p=null,o=q.c,n=o?10:11,m=o?9:10,l=q.d,k=l.length===0?"v1.16.2":"Firebase ID: "+B.c.ah(l,0,8)+"  \xb7  v1.16.2"
+M(a){var s,r,q=this,p=null,o=q.c,n=o?10:11,m=o?9:10,l=q.d,k=l.length===0?"v1.16.3":"Firebase ID: "+B.c.ah(l,0,8)+"  \xb7  v1.16.3"
 l=t.p
 s=A.b([q.HT(B.hy,n,"\u30d7\u30e9\u30a4\u30d0\u30b7\u30fc\u30dd\u30ea\u30b7\u30fc / Privacy Policy",new A.aJF(q,a))],l)
 if(q.e)B.b.K(s,A.b([A.U(" / ",p,p,p,A.c4(p,p,B.hy,p,p,p,p,p,p,p,p,n,p,p,p,p,p,!0,p,p,p,p,p,p,p,p),p,p),q.HT(B.hy,n,"\u30b5\u30a4\u30f3\u30a2\u30a6\u30c8",q.f),A.U(" / ",p,p,p,A.c4(p,p,B.hy,p,p,p,p,p,p,p,p,n,p,p,p,p,p,!0,p,p,p,p,p,p,p,p),p,p),q.HT(B.qQ,n,"\u30a2\u30ab\u30a6\u30f3\u30c8\u524a\u9664",q.r)],l))
