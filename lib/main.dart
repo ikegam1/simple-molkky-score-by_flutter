@@ -141,9 +141,9 @@ Future<ResumeSnapshot?> loadResumableMatch() async {
   }
 }
 
-const String _kAppVersion = '1.16.3+159';
+const String _kAppVersion = '1.16.4+160';
 // フッター表示用（pubspec.yaml の version と手動で同期する）
-const String _kDisplayVersion = 'v1.16.3';
+const String _kDisplayVersion = 'v1.16.4';
 
 /// Web 版で公開しているプライバシーポリシー URL。App Store / Play Store 審査で
 /// 参照される公式ページ。フッターからも外部ブラウザで開けるようにする。
@@ -4898,6 +4898,8 @@ class _GameScreenState extends State<GameScreen>
                 isMatchDraw: false,
                 winnerName: winner.name,
                 matchTypeName: _matchTypeLabel(),
+                // 百均は 2 セット目の上がり点が人ごとに違う。
+                isHyakin: widget.match.type == MatchType.hyakin,
                 // **戦績から出したものと日付を揃える。** 渡さないと
                 // 「いま」が入り、後から見たときに食い違う (codex 指摘)。
                 playedAt: widget.match.startTime,
@@ -5109,6 +5111,8 @@ class _GameScreenState extends State<GameScreen>
                 isMatchDraw: true,
                 winnerName: 'Draw',
                 matchTypeName: _matchTypeLabel(),
+                // 百均は 2 セット目の上がり点が人ごとに違う。
+                isHyakin: widget.match.type == MatchType.hyakin,
                 // **戦績から出したものと日付を揃える。** 渡さないと
                 // 「いま」が入り、後から見たときに食い違う (codex 指摘)。
                 playedAt: widget.match.startTime,
@@ -6787,6 +6791,8 @@ class HistoryPage extends StatelessWidget {
                 matchTypeName: matchTypeName ?? '',
                 // **試合の日付を渡す。** 渡さないと「今日」が入る。
                 playedAt: match?.startTime ?? startTime,
+                // 百均は 2 セット目の上がり点が人ごとに違う。
+                isHyakin: isHyakin,
               ),
             ],
             const Divider(height: 30),
