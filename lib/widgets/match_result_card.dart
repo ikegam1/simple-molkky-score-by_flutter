@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 
+import '../logic/match_stats.dart';
 import '../logic/result_image_scale.dart';
 import '../models/game_models.dart';
 import '../utils/image_downloader.dart';
@@ -22,6 +23,7 @@ class MatchResultCard extends StatelessWidget {
     required this.winnerName,
     required this.matchTypeName,
     this.playedAt,
+    this.isHyakin = false,
   });
 
   /// **試合そのものではなく選手の一覧を受け取る。**
@@ -38,6 +40,12 @@ class MatchResultCard extends StatelessWidget {
   /// 直後に出す前提の作りだったため、戦績から出すと当日の日付が入って
   /// しまっていた。
   final DateTime? playedAt;
+
+  /// 百均モードかどうか。
+  ///
+  /// **2 セット目の上がり点が人によって違う** (`100 - 1 セット目の点`) ので、
+  /// 成績の「上がり」を数えるのに要る。
+  final bool isHyakin;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +90,10 @@ class MatchResultCard extends StatelessWidget {
 
           // ── サマリーテーブル ──
           _SummaryTable(players: sorted),
+          const SizedBox(height: 10),
+
+          // ── 成績サマリー ──
+          _StatsTable(players: sorted, sets: sets, isHyakin: isHyakin),
           const SizedBox(height: 16),
 
           // ── セット詳細 ──
@@ -152,6 +164,115 @@ class _SummaryTable extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Text(t, textAlign: align, style: const TextStyle(fontSize: 11)),
       );
+}
+
+// ── 成績サマリー（ミス率・FB・勝率・上がりターン・1 投あたり）────────
+//
+// ユーザ要望 2026-11-04。数え方は [playerMatchStats] 側に寄せてある。
+//
+// **表にはしない。** 名前 + 数字 5 列を 1 行に並べると、幅 320px の端末の
+// ダイアログ (余白を引くと表に使えるのは 160px ほど) では数字だけで埋まり、
+// 名前が読めなくなる (codex 指摘 2026-11-04)。人ごとに「名前の下に
+// ラベル付きの数字を折り返して並べる」形にして、幅に依らず読めるようにする。
+class _StatsTable extends StatelessWidget {
+  const _StatsTable({
+    required this.players,
+    required this.sets,
+    required this.isHyakin,
+  });
+
+  final List<Player> players;
+  final List<SetRecord> sets;
+  final bool isHyakin;
+
+  @override
+  Widget build(BuildContext context) {
+    final stats = playerMatchStats(
+      players: players,
+      sets: sets,
+      isHyakin: isHyakin,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          color: const Color(0xFFE3F2FD),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: const Text(
+            '成績',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
+        for (final p in players)
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                left: BorderSide(color: Color(0xFFE0E0E0), width: 0.5),
+                right: BorderSide(color: Color(0xFFE0E0E0), width: 0.5),
+                bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.5),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.name,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 2,
+                  children: [
+                    // **略しすぎると何の数字か分からない** と指摘された
+                    // (2026-11-04)。ラベルは縮めず、母数も添える。
+                    _stat('ミス率', stats[p.id]?.missRateText ?? '-'),
+                    _stat('ブレイク本数', stats[p.id]?.firstBreakText ?? '-'),
+                    _stat('勝率', stats[p.id]?.winRateText ?? '-'),
+                    _stat('上がりT', stats[p.id]?.finishTurnText ?? '-'),
+                    _stat('一投平均', stats[p.id]?.pointsPerThrowText ?? '-'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 3),
+        // **ラベルだけでは何の数字か分からない。** 画像だけ見る人にも
+        // 伝わるよう、短く注記を付ける。
+        const Text(
+          'ブレイク本数=先攻時の1投目の平均本数 / '
+          '上がりT=上がったセットのターン数の平均 (相手の失格で繰り上がった分は5ターン扱い) / '
+          '一投平均=1投あたりの平均得点。括弧内は 合計/回数。',
+          style: TextStyle(fontSize: 8, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
+  /// 「ミス率 20%」のように、ラベルと数字をくっつけて 1 かたまりにする。
+  /// **離すと折り返しで対応がずれる**ので、必ず同じ Text に入れる。
+  static Widget _stat(String label, String value) => Text.rich(
+    TextSpan(
+      children: [
+        TextSpan(
+          text: '$label ',
+          style: const TextStyle(fontSize: 9, color: Colors.grey),
+        ),
+        TextSpan(
+          text: value,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // ── セット詳細（ターン別スコア）────────────────────────────────────
@@ -342,6 +463,7 @@ class DownloadableMatchResult extends StatefulWidget {
     required this.winnerName,
     required this.matchTypeName,
     this.playedAt,
+    this.isHyakin = false,
   });
 
   /// **試合そのものではなく選手の一覧を受け取る。**
@@ -354,6 +476,9 @@ class DownloadableMatchResult extends StatefulWidget {
 
   /// カードに出す試合の日時。戦績から出すときに渡す。
   final DateTime? playedAt;
+
+  /// 百均モードかどうか (成績の「上がり」の数え方が変わる)。
+  final bool isHyakin;
 
   @override
   State<DownloadableMatchResult> createState() =>
@@ -465,6 +590,7 @@ class _DownloadableMatchResultState extends State<DownloadableMatchResult> {
             winnerName: widget.winnerName,
             matchTypeName: widget.matchTypeName,
             playedAt: widget.playedAt,
+            isHyakin: widget.isHyakin,
           ),
         ),
         const SizedBox(height: 12),
