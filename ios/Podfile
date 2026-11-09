@@ -1,6 +1,27 @@
 # Uncomment this line to define a global platform for your project
 platform :ios, '15.0'
 
+# Firebase iOS SDK の版を固定する。**セキュリティ対応** (2026-11-10)。
+#
+# Firestore は iOS 側に **自前のルート証明書の束** (gRPC の root
+# certificate bundle) を抱えている。12.19.3 より前にはそこに
+# **侵害された eMudhra の中間 CA** が入っていた。
+#   firebase-ios-sdk#16930 / firebase_core 4.15.1 のリリースノート
+#
+# **Dart 側のパッケージは上げていない。** `firebase_core` を 4.15.1 に
+# 上げる道もあるが、pubspec.yaml に書いてあるとおり 4.14.0 以降は
+# `firebase_core_web` 3.11.0 を引き込み、いまの Flutter 3.41.2 より
+# 新しい Dart JS interop を要求するので **Web のビルドが壊れる**。
+# FlutterFire 自身が「CocoaPods なら `$FirebaseSDKVersion` で直せる」と
+# 案内しているので、そちらを採る。
+#
+# このアプリは firebase_analytics / firebase_app_check を使っていない。
+# (使っている場合は、それらも 12.19.3 に揃える必要があるという注意書きが
+#  リリースノートにある)
+#
+# **Flutter 本体を上げるときに、この固定を外せるか見直すこと。**
+$FirebaseSDKVersion = '12.19.3'
+
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
