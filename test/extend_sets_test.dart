@@ -122,18 +122,18 @@ void main() {
       m.players[1].setFinalScores.add(40); // b
       m.players[2].setFinalScores.add(20); // c
 
-      expect(
-        m.nextSetOrder(forLimit: 2).map((p) => p.id).toList(),
-        ['b', 'c', 'a'],
-        reason: '2 先の最終セットは合計点の高い順になるはず',
-      );
+      expect(m.nextSetOrder(forLimit: 2).map((p) => p.id).toList(), [
+        'b',
+        'c',
+        'a',
+      ], reason: '2 先の最終セットは合計点の高い順になるはず');
       // 3 先にすると threshold = 3*(3-1)+1 = 7 なので、4 セット目はまだ通常の巡回。
       // **ここが再計算されないと、延長しても合計点順のままになる。**
-      expect(
-        m.nextSetOrder(forLimit: 3).map((p) => p.id).toList(),
-        ['b', 'c', 'a'],
-        reason: '通常の巡回 (先頭が最後尾へ)',
-      );
+      expect(m.nextSetOrder(forLimit: 3).map((p) => p.id).toList(), [
+        'b',
+        'c',
+        'a',
+      ], reason: '通常の巡回 (先頭が最後尾へ)');
     });
 
     test('合計点順は、いま終わったセットの得点を含んで並ぶ', () {
@@ -159,11 +159,11 @@ void main() {
       }
 
       final stale = build();
-      expect(
-        stale.nextSetOrder().map((p) => p.id).toList(),
-        ['c', 'b', 'a'],
-        reason: '確定前は、いま終わったセットの得点が入らない',
-      );
+      expect(stale.nextSetOrder().map((p) => p.id).toList(), [
+        'c',
+        'b',
+        'a',
+      ], reason: '確定前は、いま終わったセットの得点が入らない');
 
       final fresh = build()..finalizeCurrentSetIfNeeded();
       expect(fresh.nextSetOrder().map((p) => p.id).toList(), [

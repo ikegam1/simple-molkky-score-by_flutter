@@ -12,7 +12,7 @@
 # シェル: /bin/sh (bash 前提のコマンドは避ける)。
 #
 # 前提:
-# - `pubspec.yaml` の環境で必要な Flutter 版が判別できる (現状は 3.41.2 固定)。
+# - `pubspec.yaml` の環境で必要な Flutter 版が判別できる (現状は 3.47.9 固定)。
 # - Xcode 15.3+ (Flutter iOS プラグインの要件)。
 # - macOS 14+ (Xcode Cloud の VM は最新側)。
 
@@ -22,10 +22,12 @@ echo "▶ ci_post_clone.sh (Flutter setup for Xcode Cloud) start"
 
 # ------------------------------------------------------------
 # Flutter を tag 指定で clone (Xcode Cloud VM には未 install)。
-# バージョンは README / lib のビルド確認に合わせて 3.41.2 stable。
+# バージョンは README / lib のビルド確認に合わせて 3.47.9 stable。
+# **3.47.8 以上であること。** それ未満の Dart SDK には侵害された
+# eMudhra の中間 CA が同梱されている (GHSA-frr6-h895-5pxp)。
 # 上げる場合はここを差し替え + pubspec.yaml `environment: sdk:` も再確認。
 # ------------------------------------------------------------
-FLUTTER_VERSION="3.41.2"
+FLUTTER_VERSION="3.47.9"
 FLUTTER_ROOT="$HOME/flutter"
 
 if [ ! -d "$FLUTTER_ROOT" ]; then
