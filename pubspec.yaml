@@ -1,7 +1,7 @@
 name: simple_molkky_score
 description: "A simple Molkky scoreboard app."
 publish_to: 'none'
-version: 1.16.5+161
+version: 1.16.6+162
 
 environment:
   sdk: ^3.7.0
@@ -15,13 +15,22 @@ dependencies:
   intl: ^0.20.2
   shared_preferences: ^2.5.3
   uuid: ^4.5.3
-  # firebase_core 4.14.0 selects firebase_core_web 3.11.0, which requires a
-  # newer Dart JS interop API than the project's Flutter 3.41.2 SDK provides.
-  # Keep the latest compatible 4.13.x release so Web builds remain supported.
-  firebase_core: '>=4.4.0 <4.14.0'
-  cloud_firestore: ^6.1.2
-  # Keep in sync with the Firebase Core Web compatibility cap above.
-  firebase_auth: '>=6.5.7 <6.6.0'
+  # **セキュリティ対応で下限を上げている** (2026-11-10)。
+  #
+  # firebase_core 4.15.1 以降が Firebase iOS SDK 12.19.3 を指す。それ未満の
+  # SDK には **侵害された eMudhra の中間 CA** が Firestore の証明書束に
+  # 入っている (firebase-ios-sdk#16930)。
+  #
+  # **下げるときは SDK の版を必ず確認すること。** iOS は Swift Package
+  # Manager 経由になったので、`ios/.../swiftpm/Package.resolved` の
+  # `firebase-ios-sdk` が 12.19.3 以上かを見る。
+  #
+  # (以前はここに `<4.14.0` の上限を付けていた。4.14.0 以降が引き込む
+  #  firebase_core_web 3.11.0 が Flutter 3.41.2 より新しい Dart JS interop を
+  #  要求し Web が壊れたため。Flutter 3.47.9 に上げたので外した)
+  firebase_core: ^4.15.2
+  cloud_firestore: ^6.10.2
+  firebase_auth: ^6.7.1
   patrol: ^4.2.0
   google_sign_in: ^6.2.0
   # Apple Sign-In (App Store 審査要件: Google 等の第三者サインインを提供する
@@ -46,12 +55,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.4
-
-# firebase_core 4.13.x allows both firebase_core_web 3.10.x and 3.11.x.
-# Pin 3.10.x because 3.11.x uses Object.isA, which is unavailable in the
-# Flutter 3.41.2 / Dart 3.11 SDK used for this project.
-dependency_overrides:
-  firebase_core_web: '>=3.10.0 <3.11.0'
 
 flutter_launcher_icons:
   android: "launcher_icon"
